@@ -1,0 +1,3060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Church Service & Membership Recorder</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{color-scheme: light;}
+    .tab-btn[aria-selected="true"]{background:#0f172a;color:white;}
+    .mono{font-variant-numeric: tabular-nums;}
+    /* Prevent inputs/selects from overflowing narrow grid columns (PC sidebar + iPad).
+       Exclude checkboxes/radios — width:100% breaks horizontal attendance rows. */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select,
+    textarea{min-width:0;max-width:100%;width:100%;box-sizing:border-box;}
+    input[type="checkbox"],
+    input[type="radio"]{width:auto;min-width:1rem;max-width:none;flex-shrink:0;}
+    .attendance-row{display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0.75rem;border-radius:0.75rem;border:1px solid #e2e8f0;cursor:pointer;min-width:0;}
+    .attendance-row:hover{background:#f8fafc;}
+    .attendance-row.is-present{background:#ecfdf5;border-color:#6ee7b7;}
+    .attendance-row .att-name{font-weight:500;line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .attendance-row .att-meta{font-size:0.75rem;color:#64748b;line-height:1.25;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .attendance-list{display:grid;gap:0.35rem;max-height:min(60vh,32rem);overflow:auto;-webkit-overflow-scrolling:touch;}
+    .form-row{display:grid;grid-template-columns:1fr;gap:0.75rem;min-width:0;}
+    .form-row > *{min-width:0;}
+    .form-row-modal{display:grid;grid-template-columns:1fr;gap:0.75rem;min-width:0;}
+    .form-row-modal > *{min-width:0;}
+    /* Two columns only when the sidebar is wide enough (avoids overlap on iPad / narrow PC) */
+    @media (min-width: 1100px){
+      .form-row{grid-template-columns:1fr 1fr;}
+    }
+    @media (min-width: 480px){
+      .form-row-modal{grid-template-columns:1fr 1fr;}
+    }
+    /* Sticky header: wrap cleanly on iPad / narrow windows */
+    .app-header-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:0.5rem;}
+    .tab-bar{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;}
+    .tab-bar-scroll{display:flex;flex-wrap:nowrap;gap:0.5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;max-width:100%;}
+    .tab-bar-scroll::-webkit-scrollbar{height:4px;}
+    aside .rounded-2xl, #memberForm, #serviceForm{min-width:0;}
+    table{border-collapse:separate;border-spacing:0;}
+    @media (max-width: 767px){
+      .app-header{flex-direction:column;align-items:stretch !important;}
+      .app-header-brand{width:100%;}
+      .app-header-actions{justify-content:flex-start;}
+      .app-header-actions .header-btn{flex:1 1 auto;text-align:center;}
+    }
+    @media print{
+      .no-print{display:none !important;}
+      .print-block{display:block !important;}
+      body{background:white;}
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <header class="no-print sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
+    <div class="app-header mx-auto max-w-7xl px-4 py-4 flex items-center justify-between gap-4">
+      <div class="app-header-brand flex items-center gap-3 min-w-0">
+        <div class="size-10 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center font-semibold">CS</div>
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-semibold leading-tight truncate">Church Service & Membership Recorder</h1>
+          <p class="text-xs sm:text-sm text-slate-500 hidden sm:block">Offline-first • Save to Drive to sync devices</p>
+        </div>
+      </div>
+      <div class="app-header-actions">
+        <div id="onlineStatus" class="rounded-xl border px-3 py-2 text-xs flex items-center gap-2 border-emerald-200 bg-emerald-50 text-emerald-800">
+          <span class="size-2 rounded-full bg-emerald-500"></span>
+          Online
+        </div>
+        <div id="driveStatus" class="rounded-xl border px-3 py-2 text-xs flex items-center gap-2 border-slate-300 bg-slate-100 text-slate-600" title="Whether your latest changes have been saved to a JSON file (e.g. in Google Drive).">
+          <span class="size-2 rounded-full bg-slate-400"></span>
+          <span id="driveStatusText">Cache-only</span>
+        </div>
+        <div id="storageWarning" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900" title="If storage is blocked (private mode / policy), saves may not persist.">
+          Storage blocked: changes may not save
+        </div>
+        <button id="btnSaveToDrive" class="header-btn rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save to Drive</button>
+        <label class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+          Open from Drive
+          <input id="fileOpenFromDrive" type="file" accept="application/json" class="hidden" />
+        </label>
+        <button id="btnExport" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export JSON</button>
+        <label class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+          Import JSON
+          <input id="fileImport" type="file" accept="application/json" class="hidden" />
+        </label>
+        <button id="btnPrint" class="header-btn rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Print</button>
+        <button id="btnReset" class="header-btn rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6">
+    <section class="grid gap-4 md:grid-cols-12">
+      <div class="md:col-span-8 min-w-0">
+        <div class="rounded-2xl border bg-white p-4 min-w-0 overflow-hidden">
+          <div class="tab-bar justify-between gap-3">
+            <div class="tab-bar-scroll">
+              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="services" aria-selected="true">Services</button>
+              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="members">Members</button>
+              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="attendance">Attendance</button>
+              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="reports">Reports</button>
+              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="settings">Settings</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+              <div class="relative flex-1 min-w-[10rem] sm:flex-none">
+                <input id="globalSearch" type="search" placeholder="Search…" class="w-full sm:w-64 max-w-full rounded-xl border px-3 py-2 text-sm pl-9 focus:outline-none focus:ring-2 focus:ring-slate-900/20" />
+                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">⌕</div>
+              </div>
+              <button id="btnQuickAdd" class="shrink-0 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">+ Quick Add</button>
+            </div>
+          </div>
+
+          <!-- SERVICES TAB -->
+          <div id="tab-services" class="mt-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-base font-semibold">Service Records</h2>
+              <div class="flex flex-wrap items-center gap-2 min-w-0">
+                <select id="serviceFilterType" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm">
+                  <option value="">All types</option>
+                </select>
+                <input id="serviceFrom" type="date" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm" />
+                <input id="serviceTo" type="date" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm" />
+                <button id="btnClearServiceFilters" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Clear</button>
+              </div>
+            </div>
+
+            <div class="mt-3 overflow-auto rounded-xl border">
+              <table class="min-w-full text-sm">
+                <thead class="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Date</th>
+                    <th class="px-3 py-2 text-left">Type</th>
+                    <th class="px-3 py-2 text-left">Theme/Title</th>
+                    <th class="px-3 py-2 text-left">Minister</th>
+                    <th class="px-3 py-2 text-right">Attendance</th>
+                    <th class="px-3 py-2 text-left">Notes</th>
+                    <th class="px-3 py-2 text-right no-print">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="serviceTbody" class="divide-y"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- MEMBERS TAB -->
+          <div id="tab-members" class="mt-4 hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-base font-semibold">Membership Directory</h2>
+              <div class="flex flex-wrap items-center gap-2 min-w-0">
+                <button id="btnColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
+                <button id="btnExportMembersExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Excel</button>
+                <label class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                  Import Excel
+                  <input id="fileMembersExcel" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
+                </label>
+                <select id="memberFilterStatus" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm">
+                  <option value="">All statuses</option>
+                </select>
+                <select id="memberFilterGroup" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm">
+                  <option value="">All groups</option>
+                </select>
+                <button id="btnClearMemberFilters" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Clear</button>
+              </div>
+            </div>
+
+            <div class="mt-3 overflow-auto rounded-xl border">
+              <table class="min-w-full text-sm">
+                <thead class="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Name</th>
+                    <th class="px-3 py-2 text-left">Phone</th>
+                    <th class="px-3 py-2 text-left">Email</th>
+                    <th class="px-3 py-2 text-left">Status</th>
+                    <th class="px-3 py-2 text-left">Group</th>
+                    <th class="px-3 py-2 text-right">Attendance %</th>
+                    <th class="px-3 py-2 text-left">Joined</th>
+                    <th class="px-3 py-2 text-left">Address</th>
+                    <th class="px-3 py-2 text-right no-print">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="memberTbody" class="divide-y"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ATTENDANCE TAB -->
+          <div id="tab-attendance" class="mt-4 hidden">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+              <div class="min-w-0">
+                <h2 class="text-base font-semibold">Attendance Tracker</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Select a service, check who attended, then Save.</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 min-w-0 w-full lg:w-auto">
+                <select id="attendanceServiceSelect" class="min-w-0 flex-1 lg:flex-none lg:min-w-[18rem] max-w-full rounded-xl border px-3 py-2 text-sm">
+                  <option value="">Select a service...</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="attendanceContent" class="mt-3">
+              <div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">
+                Select a service to mark attendance
+              </div>
+            </div>
+          </div>
+
+          <!-- REPORTS TAB -->
+          <div id="tab-reports" class="mt-4 hidden">
+            <!-- ELIGIBLE VOTER REPORT -->
+            <div class="mb-6 rounded-2xl border bg-white p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 class="font-semibold text-base">Eligible Voter Report</h3>
+                  <p class="text-sm text-slate-500">Criteria: (1) 18+ years old by birth month, AND (2) ≥2 services between previous AGM and latest AGM/EGM</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <select id="voterFilterStatus" class="rounded-xl border px-3 py-2 text-sm">
+                    <option value="all">All Members</option>
+                    <option value="eligible">Eligible Only</option>
+                    <option value="noteligible">Not Eligible Only</option>
+                  </select>
+                  <button id="btnRefreshVoterReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
+                  <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
+                </div>
+              </div>
+              <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
+                <div class="p-6 text-center text-slate-500">No data yet. Add AGM/EGM services and mark attendance first.</div>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-base font-semibold">Reports</h2>
+              <div class="flex items-center gap-2">
+                <select id="reportRange" class="rounded-xl border px-3 py-2 text-sm">
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="365">Last 12 months</option>
+                  <option value="all">All time</option>
+                </select>
+                <button id="btnRefreshReports" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Total Services</div>
+                <div id="kpiServices" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Avg Attendance</div>
+                <div id="kpiAvgAttendance" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-semibold">Services by Type</h3>
+                  <button id="btnCopyTypeSummary" class="no-print rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy</button>
+                </div>
+                <div id="typeSummary" class="mt-3 text-sm"></div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-semibold">Membership Summary</h3>
+                  <button id="btnCopyMemberSummary" class="no-print rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy</button>
+                </div>
+                <div id="memberSummary" class="mt-3 text-sm"></div>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-2xl border bg-white p-4">
+              <div class="flex items-center justify-between gap-3">
+                <h3 class="font-semibold">Monthly Trend (Attendance)</h3>
+                <div class="text-xs text-slate-500">Bar height is relative within the selected range</div>
+              </div>
+              <div id="trend" class="mt-4 grid gap-2"></div>
+            </div>
+          </div>
+
+          <!-- SETTINGS TAB -->
+          <div id="tab-settings" class="mt-4 hidden">
+            <h2 class="text-base font-semibold">Settings</h2>
+            <div class="mt-3 grid gap-4 md:grid-cols-2">
+              <div class="rounded-2xl border bg-white p-4">
+                <h3 class="font-semibold">Default Service Types</h3>
+                <p class="text-sm text-slate-500 mt-1">Used for the service type dropdown and filters.</p>
+                <div class="mt-3 flex items-center gap-2">
+                  <input id="newServiceType" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Sunday Service" />
+                  <button id="btnAddServiceType" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Add</button>
+                </div>
+                <div id="serviceTypeChips" class="mt-3 flex flex-wrap gap-2"></div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4">
+                <h3 class="font-semibold">Groups / Ministries</h3>
+                <p class="text-sm text-slate-500 mt-1">Used for member grouping and filters.</p>
+                <div class="mt-3 flex items-center gap-2">
+                  <input id="newGroup" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Choir" />
+                  <button id="btnAddGroup" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Add</button>
+                </div>
+                <div id="groupChips" class="mt-3 flex flex-wrap gap-2"></div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4">
+                <h3 class="font-semibold">Member Statuses</h3>
+                <p class="text-sm text-slate-500 mt-1">Manage the available statuses for members.</p>
+                <div class="mt-3 flex items-center gap-2">
+                  <input id="newMemberStatus" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Probation" />
+                  <button id="btnAddMemberStatus" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Add</button>
+                </div>
+                <div id="memberStatusChips" class="mt-3 flex flex-wrap gap-2"></div>
+              </div>
+            </div>
+
+
+            <div class="mt-4 rounded-2xl border bg-white p-4 md:col-span-2">
+              <h3 class="font-semibold">Using on iPad / Multiple Devices</h3>
+              <p class="text-sm text-slate-500 mt-1">This app saves data in this browser's local storage only, which does <strong>not</strong> sync across devices.</p>
+              <ol class="mt-2 text-sm text-slate-600 list-decimal pl-5 space-y-1">
+                <li>Open this HTML file (e.g. from Google Drive via the Files app).</li>
+                <li>Use <span class="font-semibold">Open from Drive</span> at the top to load the latest saved data file.</li>
+                <li>Make your changes.</li>
+                <li>Use <span class="font-semibold">Save to Drive</span> and, when prompted, save the downloaded file back into your Drive folder (overwriting the old one).</li>
+              </ol>
+              <p class="mt-2 text-xs text-slate-500">Don't rely on this browser's local storage alone to carry data between devices — always Save to Drive when you're done, and Open from Drive when you start on a different device.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="md:col-span-4 min-w-0">
+        <div class="rounded-2xl border bg-white p-4 min-w-0 overflow-hidden">
+          <div class="flex items-center justify-between">
+            <h2 id="formTitle" class="text-base font-semibold">Add Service</h2>
+            <button id="btnCancelEdit" class="hidden rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
+          </div>
+
+          <!-- SERVICE FORM -->
+          <form id="serviceForm" class="mt-3 grid gap-3 min-w-0">
+            <input type="hidden" id="serviceId" />
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Date</label>
+              <input id="serviceDate" type="date" required class="rounded-xl border px-3 py-2 text-sm" />
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-sm text-slate-600">Service Type</label>
+                <button type="button" id="btnManageTypes" class="no-print text-xs text-slate-500 hover:text-slate-900 underline">Manage</button>
+              </div>
+              <select id="serviceType" required class="rounded-xl border px-3 py-2 text-sm"></select>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Theme/Title</label>
+              <input id="serviceTitle" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Faith & Hope" />
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Minister</label>
+              <input id="serviceMinister" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Pastor John" />
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Attendance</label>
+              <input id="serviceAttendance" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm" placeholder="0" />
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Notes</label>
+              <textarea id="serviceNotes" rows="3" class="rounded-xl border px-3 py-2 text-sm" placeholder="Any notes…"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save Service</button>
+              <button id="btnClearServiceForm" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button">Clear</button>
+              <button id="btnDeleteService" type="button" class="hidden rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Delete</button>
+            </div>
+          </form>
+
+          <!-- MEMBER FORM -->
+          <form id="memberForm" class="mt-3 grid gap-3 hidden min-w-0">
+            <input type="hidden" id="memberId" />
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">First Name</label>
+                <input id="memberFirstName" type="text" required class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Mary" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Last Name</label>
+                <input id="memberLastName" type="text" required class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Smith" />
+              </div>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Chinese Name</label>
+              <input id="memberChineseName" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 张三" />
+            </div>
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Phone</label>
+                <input id="memberPhone" type="tel" class="rounded-xl border px-3 py-2 text-sm" placeholder="+1 (555) 123-4567" inputmode="tel" autocomplete="tel" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Email</label>
+                <input id="memberEmail" type="email" class="rounded-xl border px-3 py-2 text-sm" placeholder="name@example.com" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Birth Month</label>
+                <select id="memberBirthMonth" class="rounded-xl border px-3 py-2 text-sm">
+                  <option value="">—</option>
+                  <option value="01">January</option>
+                  <option value="02">February</option>
+                  <option value="03">March</option>
+                  <option value="04">April</option>
+                  <option value="05">May</option>
+                  <option value="06">June</option>
+                  <option value="07">July</option>
+                  <option value="08">August</option>
+                  <option value="09">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Birth Year</label>
+                <input id="memberBirthYear" type="number" min="1900" max="2030" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 1990" />
+              </div>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-sm text-slate-600">Status</label>
+                <button type="button" id="btnManageStatuses" class="no-print text-xs text-slate-500 hover:text-slate-900 underline">Manage</button>
+              </div>
+              <select id="memberStatus" class="rounded-xl border px-3 py-2 text-sm"></select>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Group</label>
+              <select id="memberGroup" class="rounded-xl border px-3 py-2 text-sm"></select>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Category</label>
+              <select id="memberCategory" class="rounded-xl border px-3 py-2 text-sm">
+                <option value="Member">Member</option>
+                <option value="Visitor">Visitor</option>
+                <option value="Transferred">Transferred</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Baptism Date</label>
+                <input id="memberBaptismDate" type="date" class="rounded-xl border px-3 py-2 text-sm" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Holy Spirit Date</label>
+                <input id="memberHolySpiritDate" type="date" class="rounded-xl border px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Join Month</label>
+                <select id="memberJoinMonth" class="rounded-xl border px-3 py-2 text-sm">
+                  <option value="">—</option>
+                  <option value="01">January</option>
+                  <option value="02">February</option>
+                  <option value="03">March</option>
+                  <option value="04">April</option>
+                  <option value="05">May</option>
+                  <option value="06">June</option>
+                  <option value="07">July</option>
+                  <option value="08">August</option>
+                  <option value="09">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Join Year</label>
+                <input id="memberJoinYear" type="number" min="1900" max="2100" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 2020" />
+              </div>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Street Address</label>
+              <input id="memberStreet" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 123 Main Street" />
+            </div>
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">City</label>
+                <input id="memberCity" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Toronto" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Province</label>
+                <input id="memberProvince" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., ON" />
+              </div>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Postcode</label>
+              <div class="flex gap-2 min-w-0">
+                <input id="memberPostcode" type="text" autocomplete="off" class="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., M5V 3A8" maxlength="7" />
+                <button id="btnLookupPostcode" type="button" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Lookup</button>
+              </div>
+              <p class="text-xs text-slate-500">Enter a Canadian postal code and click Lookup to auto-fill City/Province. Street is best-effort (often unavailable for postal-code centroids).</p>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save Member</button>
+              <button id="btnClearMemberForm" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button">Clear</button>
+              <button id="btnDeleteMember" type="button" class="hidden rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Delete</button>
+            </div>
+          </form>
+
+          <div class="mt-4 rounded-xl bg-slate-50 border p-3">
+            <div class="text-xs text-slate-600">Quick tips</div>
+            <ul class="mt-1 text-xs text-slate-600 list-disc pl-5 space-y-1">
+              <li>Use <span class="font-semibold">Save to Drive</span> (or Export JSON) to download a backup file. On iPad, save it into your Drive folder via Files. If nothing happens, check your browser’s download/popup blocker.</li>
+              <li>Use <span class="font-semibold">Open from Drive</span> (or Import JSON) to load a saved file — you'll see a preview before anything is replaced.</li>
+              <li>Search box filters the currently active tab.</li>
+              <li>Data lives in this browser's storage only; it does <span class="font-semibold">not</span> sync across devices on its own — always Save/Open to keep devices in sync.</li>
+              <li><span class="font-semibold">Offline use:</span> This app works without internet once loaded. Data is stored locally. Only address lookup and initial loading require a connection.</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="print-block hidden mt-6">
+      <h2 class="text-lg font-semibold">Printed Summary</h2>
+      <div id="printSummary" class="mt-2 text-sm"></div>
+    </section>
+  </main>
+
+  <!-- MODAL -->
+  <div id="modal" class="no-print fixed inset-0 hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/40"></div>
+    <div class="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-2xl bg-white border p-4 shadow-xl min-w-0">
+      <div class="flex items-center justify-between gap-3">
+        <h3 id="modalTitle" class="font-semibold">Quick Add</h3>
+        <button id="modalClose" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Close</button>
+      </div>
+      <div id="modalBody" class="mt-3"></div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="no-print fixed bottom-4 right-4 z-50 hidden max-w-sm rounded-xl border bg-white px-4 py-3 text-sm shadow-lg">
+    <div id="toastMsg" class="text-slate-900"></div>
+  </div>
+
+  <script>
+    // Basic runtime error visibility (helps diagnose when buttons appear to do nothing)
+    window.addEventListener('error', (e) => {
+      console.error('App error:', e?.error || e?.message || e);
+      // Try to show something visible too (toast may not be initialized yet)
+      try{
+        const msg = (e?.error?.message || e?.message || 'App error').toString();
+        const el = document.getElementById('toast');
+        const msgEl = document.getElementById('toastMsg');
+        if(el && msgEl){
+          msgEl.textContent = 'Error: ' + msg.slice(0, 140);
+          el.classList.remove('hidden');
+          setTimeout(() => el.classList.add('hidden'), 3500);
+        }
+      }catch(_){/* ignore */}
+    });
+
+    const STORAGE_KEY = 'church.recorder.v1';
+
+    const uid = () => (crypto?.randomUUID?.() || ('id_' + Math.random().toString(16).slice(2) + Date.now().toString(16)));
+
+    const defaults = () => ({
+      version: 1,
+      serviceTypes: ['Sunday Service', 'Bible Study', 'Prayer Meeting', 'Special Service', 'AGM', 'EGM'],
+      memberStatuses: ['Active', 'Inactive', 'Visitor'],
+      groups: ['Choir', 'Youth', 'Women', 'Men', 'Ushers'],
+
+      meta: { lastSavedAt: '', lastOpenedAt: '' },
+      memberColumns: {
+        name: true,
+        phone: true,
+        email: true,
+        status: true,
+        group: true,
+        attendance: true,
+        joined: true,
+        address: true
+      },
+      services: [],
+      members: []
+    });
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return defaults();
+        const parsed = JSON.parse(raw);
+        // Note: legacy churchLocation (GPS) data, if present in old saves, is intentionally
+        // dropped here — it is no longer used anywhere in the app.
+        return { ...defaults(), ...parsed,
+          meta: { ...defaults().meta, ...(parsed.meta||{}) },
+          memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
+          serviceTypes: Array.isArray(parsed.serviceTypes) ? parsed.serviceTypes : defaults().serviceTypes,
+          memberStatuses: Array.isArray(parsed.memberStatuses) ? parsed.memberStatuses : defaults().memberStatuses,
+          groups: Array.isArray(parsed.groups) ? parsed.groups : defaults().groups,
+          services: Array.isArray(parsed.services) ? parsed.services : [],
+          members: Array.isArray(parsed.members) ? parsed.members : []
+        };
+      }catch(e){
+        return defaults();
+      }
+    }
+
+    let _storageWarnedOnce = false;
+    function setStorageWarning(on){
+      const el = document.getElementById('storageWarning');
+      if(!el) return;
+      el.classList.toggle('hidden', !on);
+    }
+
+    // When true, saveState() will NOT mark the data as "dirty" (unsaved-to-Drive). This is
+    // set briefly by the Save/Open-to/from-Drive flows, which manage the dirty flag themselves.
+    let _suppressDirtyFlag = false;
+
+    function saveState(){
+      try{
+        if(!_suppressDirtyFlag){
+          state.meta = state.meta || {};
+          state.meta.dirty = true;
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        setStorageWarning(false);
+        updateDriveStatusChip();
+        return true;
+      }catch(e){
+        console.error('localStorage save failed:', e);
+        setStorageWarning(true);
+        if(!_storageWarnedOnce){
+          _storageWarnedOnce = true;
+          alert('Saving is blocked in this browser (storage denied / private mode / policy). Your changes may not persist.\n\nTry: use Chrome/Edge, disable strict privacy mode for this page, or export/import JSON as a workaround.');
+        }
+        return false;
+      }
+    }
+
+    let state = loadState();
+
+    // Elements
+    const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+    const tabPanels = {
+      services: document.getElementById('tab-services'),
+      members: document.getElementById('tab-members'),
+      attendance: document.getElementById('tab-attendance'),
+      reports: document.getElementById('tab-reports'),
+      settings: document.getElementById('tab-settings')
+    };
+    const globalSearch = document.getElementById('globalSearch');
+
+    const serviceTbody = document.getElementById('serviceTbody');
+    const memberTbody = document.getElementById('memberTbody');
+
+    const serviceForm = document.getElementById('serviceForm');
+    const memberForm = document.getElementById('memberForm');
+
+    const formTitle = document.getElementById('formTitle');
+    const btnCancelEdit = document.getElementById('btnCancelEdit');
+
+    const serviceFilterType = document.getElementById('serviceFilterType');
+    const serviceFrom = document.getElementById('serviceFrom');
+    const serviceTo = document.getElementById('serviceTo');
+
+    const memberFilterStatus = document.getElementById('memberFilterStatus');
+    const memberFilterGroup = document.getElementById('memberFilterGroup');
+
+    const serviceTypeSelect = document.getElementById('serviceType');
+    const memberGroupSelect = document.getElementById('memberGroup');
+
+    // KPI
+    const kpiServices = document.getElementById('kpiServices');
+    const kpiAvgAttendance = document.getElementById('kpiAvgAttendance');
+    const typeSummary = document.getElementById('typeSummary');
+    const memberSummary = document.getElementById('memberSummary');
+    const trend = document.getElementById('trend');
+
+    // Modal
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+
+    // Toast
+    const toastEl = document.getElementById('toast');
+    const toastMsgEl = document.getElementById('toastMsg');
+    let toastTimer = null;
+    function toast(msg){
+      if(!toastEl || !toastMsgEl) return;
+      toastMsgEl.textContent = msg;
+      toastEl.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2200);
+    }
+
+    function formatTimestamp(iso){
+      if(!iso) return '';
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '';
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+
+    // Reflects whether the current data has been saved out to a JSON file (Export/Save to
+    // Drive) since the last change — this is separate from the browser's localStorage cache,
+    // which auto-saves on every edit but does not sync across devices.
+    function updateDriveStatusChip(){
+      const chip = document.getElementById('driveStatus');
+      const textEl = document.getElementById('driveStatusText');
+      if(!chip || !textEl) return;
+      const dot = chip.querySelector('span.size-2');
+      const meta = state.meta || {};
+
+      chip.classList.remove('border-emerald-200','bg-emerald-50','text-emerald-800','border-amber-300','bg-amber-50','text-amber-900','border-slate-300','bg-slate-100','text-slate-600');
+      if(dot) dot.classList.remove('bg-emerald-500','bg-amber-500','bg-slate-400');
+
+      if(!meta.lastSavedAt){
+        textEl.textContent = 'Cache-only (never saved to Drive)';
+        chip.classList.add('border-slate-300','bg-slate-100','text-slate-600');
+        if(dot) dot.classList.add('bg-slate-400');
+      } else if(meta.dirty){
+        textEl.textContent = 'Unsaved changes';
+        chip.classList.add('border-amber-300','bg-amber-50','text-amber-900');
+        if(dot) dot.classList.add('bg-amber-500');
+      } else {
+        textEl.textContent = `Saved ${formatTimestamp(meta.lastSavedAt)}`;
+        chip.classList.add('border-emerald-200','bg-emerald-50','text-emerald-800');
+        if(dot) dot.classList.add('bg-emerald-500');
+      }
+    }
+
+    function esc(s){
+      return (s ?? '').toString()
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+
+    function setActiveTab(tab){
+      tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+      Object.entries(tabPanels).forEach(([k, el]) => el.classList.toggle('hidden', k !== tab));
+
+      if(tab === 'services'){
+        formTitle.textContent = isEditing.service ? 'Edit Service' : 'Add Service';
+        serviceForm.classList.remove('hidden');
+        memberForm.classList.add('hidden');
+      } else if(tab === 'members'){
+        formTitle.textContent = isEditing.member ? 'Edit Member' : 'Add Member';
+        memberForm.classList.remove('hidden');
+        serviceForm.classList.add('hidden');
+      } else {
+        formTitle.textContent = 'Quick Actions';
+        serviceForm.classList.add('hidden');
+        memberForm.classList.add('hidden');
+      }
+
+      btnCancelEdit.classList.toggle('hidden', !(isEditing.service || isEditing.member));
+      document.getElementById('btnDeleteService')?.classList.toggle('hidden', !isEditing.service);
+      document.getElementById('btnDeleteMember')?.classList.toggle('hidden', !isEditing.member);
+      render();
+    }
+
+    // Editing flags
+    const isEditing = { service: false, member: false };
+
+    // Local (not UTC) today's date as YYYY-MM-DD. Using toISOString() directly on `new Date()`
+    // shifts the date across the UTC boundary for users west of UTC (e.g. can show "tomorrow"
+    // as "today" is ending), so we offset by the timezone before formatting.
+    function todayLocalISO(){
+      const d = new Date();
+      return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    }
+
+    function resetServiceForm(){
+      serviceForm.reset();
+      document.getElementById('serviceId').value = '';
+      isEditing.service = false;
+      formTitle.textContent = activeTab() === 'services' ? 'Add Service' : formTitle.textContent;
+      btnCancelEdit.classList.add('hidden');
+      document.getElementById('btnDeleteService')?.classList.add('hidden');
+      // default date to today for convenience
+      document.getElementById('serviceDate').value = todayLocalISO();
+    }
+
+    function resetMemberForm(){
+      memberForm.reset();
+      document.getElementById('memberId').value = '';
+      document.getElementById('memberCategory').value = 'Member';
+      isEditing.member = false;
+      formTitle.textContent = activeTab() === 'members' ? 'Add Member' : formTitle.textContent;
+      btnCancelEdit.classList.add('hidden');
+      document.getElementById('btnDeleteMember')?.classList.add('hidden');
+    }
+
+    // Phone number formatting
+    // Live-formatting on each keystroke can shift digits/cursor in some browsers.
+    // Instead we:
+    //  - keep what the user types while focused
+    //  - format on blur (leaving the field)
+    //  - format immediately on paste (since paste is usually complete)
+    const memberPhoneEl = document.getElementById('memberPhone');
+    memberPhoneEl.addEventListener('blur', (e) => {
+      e.target.value = formatPhone(e.target.value);
+    });
+    memberPhoneEl.addEventListener('paste', (e) => {
+      // Let the paste happen, then format
+      requestAnimationFrame(() => {
+        memberPhoneEl.value = formatPhone(memberPhoneEl.value);
+      });
+    });
+
+    // Postal code auto-format on input
+    document.getElementById('memberPostcode').addEventListener('input', (e) => {
+      const oldValue = e.target.value;
+      const newValue = formatPostalCode(oldValue);
+      e.target.value = newValue;
+      // Set cursor to end for simplicity (postal codes are short)
+      e.target.setSelectionRange(newValue.length, newValue.length);
+    });
+
+    function activeTab(){
+      return tabs.find(b => b.getAttribute('aria-selected') === 'true')?.dataset.tab || 'services';
+    }
+
+    function normalize(s){
+      return (s ?? '').toString().toLowerCase().trim();
+    }
+
+    // Category (Member / Visitor / Transferred) is a separate dimension from Status
+    // (Active / Inactive / etc.). Older records saved before this field existed have no
+    // category, so infer a sensible default: legacy Visitors stay Visitor, everyone else
+    // is treated as a Member.
+    function getMemberCategory(m){
+      if(m && m.category) return m.category;
+      if(m && m.status === 'Visitor') return 'Visitor';
+      return 'Member';
+    }
+
+    function serviceMatches(svc, q){
+      if(!q) return true;
+      const blob = [svc.date, svc.type, svc.title, svc.minister, svc.notes, svc.attendance]
+        .map(v => (v ?? '').toString()).join(' ').toLowerCase();
+      return blob.includes(q);
+    }
+
+    function memberMatches(mem, q){
+      if(!q) return true;
+      const blob = [
+        mem.name, mem.firstName, mem.lastName, mem.chineseName,
+        mem.phone, mem.email,
+        mem.status, mem.group, mem.category,
+        mem.joined, mem.joinMonth, mem.joinYear,
+        mem.birthYear,
+        mem.address, mem.street, mem.city, mem.province, mem.postcode
+      ]
+        .map(v => (v ?? '').toString()).join(' ').toLowerCase();
+      return blob.includes(q);
+    }
+
+    function inDateRange(dateStr, fromStr, toStr){
+      if(!fromStr && !toStr) return true;
+      const d = new Date(dateStr + 'T00:00:00');
+      if(fromStr){
+        const f = new Date(fromStr + 'T00:00:00');
+        if(d < f) return false;
+      }
+      if(toStr){
+        const t = new Date(toStr + 'T23:59:59');
+        if(d > t) return false;
+      }
+      return true;
+    }
+
+    function renderServiceTypes(){
+      const prevFormValue = serviceTypeSelect.value;
+      const prevFilterValue = serviceFilterType.value;
+
+      const types = state.serviceTypes.slice().sort((a,b)=>a.localeCompare(b));
+      const options = types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+      serviceTypeSelect.innerHTML = options;
+      if(prevFormValue && types.includes(prevFormValue)) serviceTypeSelect.value = prevFormValue;
+
+      const filterOpts = ['<option value="">All types</option>']
+        .concat(types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`));
+      serviceFilterType.innerHTML = filterOpts.join('');
+      if(prevFilterValue && types.includes(prevFilterValue)) serviceFilterType.value = prevFilterValue;
+
+      const chips = document.getElementById('serviceTypeChips');
+      chips.innerHTML = types.map(t => `
+        <span class="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm">
+          <span>${esc(t)}</span>
+          <button class="text-slate-500 hover:text-rose-600" data-del-type="${esc(t)}" title="Delete">✕</button>
+        </span>
+      `).join('');
+
+      chips.querySelectorAll('button[data-del-type]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-del-type');
+          if(state.services.some(s => s.type === val)){
+            alert('This type is used by existing services. Change those records first.');
+            return;
+          }
+          state.serviceTypes = state.serviceTypes.filter(x => x !== val);
+          const ok = saveState();
+          if(ok){
+            toast('Service type deleted');
+            render();
+          } else {
+            toast('Delete failed (storage blocked)');
+          }
+        });
+      });
+    }
+
+    function renderMemberStatuses(){
+      const memberStatusSelect = document.getElementById('memberStatus');
+      const prevFormValue = memberStatusSelect.value;
+      const prevFilterValue = memberFilterStatus.value;
+
+      const statuses = state.memberStatuses.slice().sort((a,b)=>a.localeCompare(b));
+      const options = statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      memberStatusSelect.innerHTML = options;
+      if(prevFormValue && statuses.includes(prevFormValue)) memberStatusSelect.value = prevFormValue;
+
+      const filterOpts = ['<option value="">All statuses</option>']
+        .concat(statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`));
+      memberFilterStatus.innerHTML = filterOpts.join('');
+      if(prevFilterValue && statuses.includes(prevFilterValue)) memberFilterStatus.value = prevFilterValue;
+
+      const chips = document.getElementById('memberStatusChips');
+      chips.innerHTML = statuses.map(s => `
+        <span class="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm">
+          <span>${esc(s)}</span>
+          <button class="text-slate-500 hover:text-rose-600" data-del-status="${esc(s)}" title="Delete">✕</button>
+        </span>
+      `).join('');
+
+      chips.querySelectorAll('button[data-del-status]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-del-status');
+          if(state.members.some(m => m.status === val)){
+            alert('This status is used by existing members. Change those records first.');
+            return;
+          }
+          state.memberStatuses = state.memberStatuses.filter(x => x !== val);
+          const ok = saveState();
+          if(ok){
+            toast('Member status deleted');
+            render();
+          } else {
+            toast('Delete failed (storage blocked)');
+          }
+        });
+      });
+    }
+
+    function renderGroups(){
+      const prevFormValue = memberGroupSelect.value;
+      const prevFilterValue = memberFilterGroup.value;
+
+      const groups = state.groups.slice().sort((a,b)=>a.localeCompare(b));
+      const options = ['<option value="">—</option>']
+        .concat(groups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`));
+      memberGroupSelect.innerHTML = options.join('');
+      if(prevFormValue && groups.includes(prevFormValue)) memberGroupSelect.value = prevFormValue;
+
+      const filterOpts = ['<option value="">All groups</option>']
+        .concat(groups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`));
+      memberFilterGroup.innerHTML = filterOpts.join('');
+      if(prevFilterValue && groups.includes(prevFilterValue)) memberFilterGroup.value = prevFilterValue;
+
+      const chips = document.getElementById('groupChips');
+      chips.innerHTML = groups.map(g => `
+        <span class="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm">
+          <span>${esc(g)}</span>
+          <button class="text-slate-500 hover:text-rose-600" data-del-group="${esc(g)}" title="Delete">✕</button>
+        </span>
+      `).join('');
+
+      chips.querySelectorAll('button[data-del-group]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-del-group');
+          if(state.members.some(m => m.group === val)){
+            alert('This group is used by existing members. Change those records first.');
+            return;
+          }
+          state.groups = state.groups.filter(x => x !== val);
+          const ok = saveState();
+          if(ok){
+            toast('Group deleted');
+            render();
+          } else {
+            toast('Delete failed (storage blocked)');
+          }
+        });
+      });
+    }
+
+    function renderServices(){
+      const q = normalize(globalSearch.value);
+      const type = serviceFilterType.value;
+      const from = serviceFrom.value;
+      const to = serviceTo.value;
+
+      let rows = state.services.slice();
+      rows.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      rows = rows.filter(s => (!type || s.type === type) && inDateRange(s.date, from, to) && serviceMatches(s, q));
+
+      if(rows.length === 0){
+        serviceTbody.innerHTML = `<tr><td class="px-3 py-6 text-center text-slate-500" colspan="7">No service records found.</td></tr>`;
+        return;
+      }
+
+      serviceTbody.innerHTML = rows.map(s => {
+        const att = Number(s.attendance||0);
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="px-3 py-2 whitespace-nowrap mono">${esc(s.date||'')}</td>
+            <td class="px-3 py-2">${esc(s.type||'')}</td>
+            <td class="px-3 py-2">${esc(s.title||'')}</td>
+            <td class="px-3 py-2">${esc(s.minister||'')}</td>
+            <td class="px-3 py-2 text-right mono">${isFinite(att)?att:0}</td>
+            <td class="px-3 py-2 max-w-[22rem] truncate" title="${esc(s.notes||'')}">${esc(s.notes||'')}</td>
+            <td class="px-3 py-2 text-right no-print whitespace-nowrap">
+              <button class="rounded-lg border px-2 py-1 text-xs hover:bg-white" data-edit-service="${esc(s.id)}">Edit</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      serviceTbody.querySelectorAll('button[data-edit-service]').forEach(btn => {
+        btn.addEventListener('click', () => startEditService(btn.getAttribute('data-edit-service')));
+      });
+    }
+
+    function calculateAttendancePercentage(memberId){
+      const totalServices = state.services.length;
+      if(totalServices === 0) return 0;
+      const attended = state.services.filter(s => (s.attendedBy || []).includes(memberId)).length;
+      return Math.round((attended / totalServices) * 100);
+    }
+
+    function getVoterStatus(memberId) {
+      // Voter Eligibility Criteria:
+      // 1. Must be 18 years or older by birth month
+      // 2. Must have attended at least 2 services between previous AGM and latest AGM/EGM
+      
+      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      
+      const isMeeting = (s) => {
+        const t = (s.type||'').toUpperCase();
+        const ti = (s.title||'').toUpperCase();
+        return t === 'AGM' || t === 'EGM' || ti.includes('AGM') || ti.includes('EGM');
+      };
+      const isAGM = (s) => {
+        const t = (s.type||'').toUpperCase();
+        const ti = (s.title||'').toUpperCase();
+        return t === 'AGM' || ti.includes('AGM');
+      };
+
+      const latestIdx = services.findIndex(isMeeting);
+      if(latestIdx === -1) return { eligible: false, text: 'No AGM/EGM', detail: 'No recent meeting found', ageCheck: null, attCheck: null };
+      
+      const latest = services[latestIdx];
+      
+      // Look for previous AGM after the latest meeting index
+      const prevAGMIdx = services.findIndex((s, i) => i > latestIdx && isAGM(s));
+      if(prevAGMIdx === -1) return { eligible: false, text: 'No prev AGM', detail: 'Previous AGM not found', ageCheck: null, attCheck: null };
+      
+      const prevAGM = services[prevAGMIdx];
+
+      const member = state.members.find(m => m.id === memberId);
+
+      // Eligibility precondition: must be an Active member with Category = Member.
+      // (Visitors and Transferred members, and non-Active members, are never eligible voters,
+      // regardless of age/attendance.) Legacy records with no Category are treated as Member.
+      const category = getMemberCategory(member);
+      if(!member || member.status !== 'Active' || category !== 'Member'){
+        const reasons = [];
+        if(!member) reasons.push('Member not found');
+        else {
+          if(member.status !== 'Active') reasons.push(`Status is "${member.status||'—'}" (must be Active)`);
+          if(category !== 'Member') reasons.push(`Category is "${category}" (must be Member)`);
+        }
+        return {
+          eligible: false,
+          text: 'No',
+          detail: reasons.join('; '),
+          color: 'bg-rose-50 text-rose-700',
+          ageCheck: null,
+          attCheck: null
+        };
+      }
+
+      // Check age requirement (must be 18+ by birth month of latest AGM/EGM)
+      let ageCheck = { passed: false, age: null, reason: '' };
+      if(member && member.birthYear){
+        const latestYear = parseInt(latest.date.split('-')[0]) || new Date(latest.date).getFullYear();
+        const birthMonth = member.birthMonth ? parseInt(member.birthMonth) : 12; // Default to Dec if not specified
+        const birthYear = parseInt(member.birthYear);
+        const age = latestYear - birthYear;
+        
+        // Check if they turn 18 in the latest year (by their birth month)
+        if(age > 18){
+          ageCheck = { passed: true, age: age, reason: '' };
+        } else if(age === 18){
+          // If they turn 18 this year, check if birth month has passed by latest AGM date
+          const latestMonth = parseInt(latest.date.split('-')[1]) || 1;
+          if(birthMonth <= latestMonth){
+            ageCheck = { passed: true, age: 18, reason: '' };
+          } else {
+            ageCheck = { passed: false, age: 17, reason: `Turns 18 in ${monthNames[birthMonth-1]}` };
+          }
+        } else {
+          ageCheck = { passed: false, age: age, reason: `Must be 18+ (currently ${age})` };
+        }
+      } else {
+        ageCheck = { passed: false, age: null, reason: 'Birth year required' };
+      }
+      
+      // Check attendance requirement (≥2 services between previous AGM and latest)
+      const rangeServices = services.filter(s => s.date > prevAGM.date && s.date < latest.date);
+      const attendedCount = rangeServices.reduce((acc, s) => acc + ((s.attendedBy||[]).includes(memberId) ? 1 : 0), 0);
+      const attCheck = { passed: attendedCount >= 2, count: attendedCount, reason: attendedCount >= 2 ? '' : `Attended ${attendedCount} (need 2+)` };
+      
+      const eligible = ageCheck.passed && attCheck.passed;
+      let detail = [];
+      if(!ageCheck.passed) detail.push(ageCheck.reason);
+      if(!attCheck.passed) detail.push(attCheck.reason);
+      
+      return { 
+        eligible: eligible, 
+        text: eligible ? 'Yes' : 'No',
+        detail: detail.length > 0 ? detail.join('; ') : `Age ${ageCheck.age}, Attended ${attendedCount}`,
+        color: eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-50 text-rose-700',
+        ageCheck: ageCheck,
+        attCheck: attCheck
+      };
+    }
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function renderMembers(){
+      const q = normalize(globalSearch.value);
+      const status = memberFilterStatus.value;
+      const group = memberFilterGroup.value;
+
+      let rows = state.members.slice();
+      rows.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      rows = rows.filter(m => (!status || m.status === status) && (!group || m.group === group) && memberMatches(m, q));
+
+      const cols = state.memberColumns || defaults().memberColumns;
+
+      // Build header dynamically
+      const headers = [];
+      headers.push('<th class="px-3 py-2 text-left">Name</th>');
+      if(cols.phone) headers.push('<th class="px-3 py-2 text-left">Phone</th>');
+      if(cols.email) headers.push('<th class="px-3 py-2 text-left">Email</th>');
+      if(cols.status) headers.push('<th class="px-3 py-2 text-left">Status</th>');
+      if(cols.group) headers.push('<th class="px-3 py-2 text-left">Group</th>');
+      if(cols.attendance) headers.push('<th class="px-3 py-2 text-right">Attendance %</th>');
+      if(cols.joined) headers.push('<th class="px-3 py-2 text-left">Joined</th>');
+      if(cols.address) headers.push('<th class="px-3 py-2 text-left">Address</th>');
+      headers.push('<th class="px-3 py-2 text-right no-print">Actions</th>');
+
+      const headerRow = document.querySelector('#memberTbody')?.parentElement?.parentElement?.querySelector('thead tr');
+      if(headerRow) {
+        headerRow.innerHTML = headers.join('');
+      }
+
+      if(rows.length === 0){
+        memberTbody.innerHTML = `<tr><td class="px-3 py-6 text-center text-slate-500" colspan="${headers.length}">No members found.</td></tr>`;
+        return;
+      }
+
+      memberTbody.innerHTML = rows.map(m => {
+        const attPct = calculateAttendancePercentage(m.id);
+        const attColor = attPct >= 75 ? 'text-emerald-700' : attPct >= 50 ? 'text-amber-700' : 'text-slate-600';
+
+        const joined = m.joined || (m.joinYear && m.joinMonth ? `${m.joinYear}-${m.joinMonth}` : (m.joinYear ? String(m.joinYear) : ''));
+        const address = m.address || [m.street, m.city, m.province, m.postcode].filter(Boolean).join(', ');
+
+        const displayName = m.chineseName ? `${esc(m.name)} (${esc(m.chineseName)})` : esc(m.name||'');
+
+        let rowHtml = `<tr class="hover:bg-slate-50">
+          <td class="px-3 py-2 font-medium">${displayName}</td>`;
+        
+        if(cols.phone) rowHtml += `<td class="px-3 py-2">${esc(m.phone||'')}</td>`;
+        if(cols.email) rowHtml += `<td class="px-3 py-2">${esc(m.email||'')}</td>`;
+        if(cols.status) rowHtml += `<td class="px-3 py-2">${esc(m.status||'')}</td>`;
+        if(cols.group) rowHtml += `<td class="px-3 py-2">${esc(m.group||'')}</td>`;
+        if(cols.attendance) rowHtml += `<td class="px-3 py-2 text-right mono ${attColor} font-semibold">${attPct}%</td>`;
+        if(cols.joined) rowHtml += `<td class="px-3 py-2 whitespace-nowrap mono">${esc(joined)}</td>`;
+        if(cols.address) rowHtml += `<td class="px-3 py-2 max-w-[22rem] truncate" title="${esc(address)}">${esc(address)}</td>`;
+        
+        rowHtml += `<td class="px-3 py-2 text-right no-print whitespace-nowrap">
+            <button class="rounded-lg border px-2 py-1 text-xs hover:bg-white" data-edit-member="${esc(m.id)}">Edit</button>
+          </td>
+        </tr>`;
+
+        return rowHtml;
+      }).join('');
+
+      memberTbody.querySelectorAll('button[data-edit-member]').forEach(btn => {
+        btn.addEventListener('click', () => startEditMember(btn.getAttribute('data-edit-member')));
+      });
+    }
+
+    function renderAttendance(){
+      const select = document.getElementById('attendanceServiceSelect');
+      const previouslySelected = select.value;
+      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+      if(services.length === 0){
+        select.innerHTML = '<option value="">No services yet - add a service first</option>';
+        document.getElementById('attendanceContent').innerHTML = `
+          <div class="rounded-xl border bg-amber-50 border-amber-200 p-6 text-center">
+            <div class="text-amber-900 font-semibold mb-2">No Service Records Yet</div>
+            <div class="text-sm text-amber-700 mb-4">To track attendance, you first need to add service records in the <strong>Services</strong> tab.</div>
+            <button id="btnGoToServices" class="rounded-xl bg-amber-600 text-white px-4 py-2 text-sm hover:bg-amber-700">Go to Services Tab</button>
+          </div>
+        `;
+        document.getElementById('btnGoToServices')?.addEventListener('click', () => setActiveTab('services'));
+      } else {
+        select.innerHTML = '<option value="">Select a service...</option>' + 
+          services.map(s => `<option value="${esc(s.id)}">${esc(s.date||'')} - ${esc(s.type||'')} ${s.title ? '(' + esc(s.title) + ')' : ''}</option>`).join('');
+        // Restore previously selected service across re-renders (e.g. after save) if it still exists
+        if(previouslySelected && services.some(s => s.id === previouslySelected)){
+          select.value = previouslySelected;
+          showAttendanceForService(previouslySelected);
+        }
+      }
+    }
+
+    function showAttendanceForService(serviceId){
+      const service = state.services.find(s => s.id === serviceId);
+      if(!service) return;
+
+      const attendedBy = service.attendedBy || [];
+      const content = document.getElementById('attendanceContent');
+
+      const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+      const rowHtml = members.length === 0
+        ? '<p class="text-sm text-slate-500 text-center py-6">No members yet. Add members first.</p>'
+        : members.map(m => {
+            const checked = attendedBy.includes(m.id);
+            const nameLine = m.chineseName
+              ? `${esc(m.name||'')} <span class="text-slate-500 font-normal">(${esc(m.chineseName)})</span>`
+              : esc(m.name||'');
+            const metaParts = [m.status, m.group, getMemberCategory(m)].filter(Boolean);
+            return `
+              <label class="attendance-row ${checked ? 'is-present' : ''}" data-status="${esc((m.status||'').toLowerCase())}" data-search="${esc(((m.name||'') + ' ' + (m.chineseName||'') + ' ' + (m.status||'') + ' ' + (m.group||'') + ' ' + getMemberCategory(m)).toLowerCase())}">
+                <input type="checkbox" class="size-4 rounded border-slate-300" data-member-id="${esc(m.id)}" ${checked ? 'checked' : ''} />
+                <div class="min-w-0 flex-1">
+                  <div class="att-name">${nameLine}</div>
+                  <div class="att-meta">${esc(metaParts.join(' · '))}</div>
+                </div>
+              </label>
+            `;
+          }).join('');
+
+      content.innerHTML = `
+        <div class="rounded-xl border bg-white p-3 sm:p-4 min-w-0">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="min-w-0">
+              <h3 class="font-semibold text-sm sm:text-base truncate">${esc(service.date||'')} · ${esc(service.type||'')}</h3>
+              <p class="text-xs sm:text-sm text-slate-500 truncate">${service.title ? esc(service.title) : 'Tap names to mark present'}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <input id="attendanceSearch" type="search" placeholder="Filter members…" class="w-40 sm:w-48 rounded-lg border px-2.5 py-1.5 text-sm" />
+              <div class="text-sm text-slate-600 whitespace-nowrap">
+                <span id="attendanceCount" class="mono font-semibold">${attendedBy.length}</span> / ${members.length} attended
+              </div>
+            </div>
+          </div>
+          <div class="mb-2 flex flex-wrap gap-2 text-xs">
+            <button type="button" id="btnAttMarkAll" class="rounded-lg border px-2 py-1 hover:bg-slate-50">Mark all</button>
+            <button type="button" id="btnAttClearAll" class="rounded-lg border px-2 py-1 hover:bg-slate-50">Clear all</button>
+            <button type="button" id="btnAttActiveOnly" class="rounded-lg border px-2 py-1 hover:bg-slate-50">Show Active only</button>
+          </div>
+          <div id="attendanceList" class="attendance-list">
+            ${rowHtml}
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button id="btnSaveAttendance" class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save Attendance</button>
+            <button id="btnCancelAttendance" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
+          </div>
+        </div>
+      `;
+
+      const listEl = content.querySelector('#attendanceList');
+      const countEl = content.querySelector('#attendanceCount');
+      let activeOnly = false;
+
+      function updateCount(){
+        const n = listEl.querySelectorAll('input[type="checkbox"]:checked').length;
+        if(countEl) countEl.textContent = String(n);
+      }
+
+      function syncRowStyle(cb){
+        const row = cb.closest('.attendance-row');
+        if(row) row.classList.toggle('is-present', cb.checked);
+      }
+
+      listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          syncRowStyle(cb);
+          updateCount();
+        });
+      });
+
+      const searchEl = content.querySelector('#attendanceSearch');
+      function applyFilters(){
+        const q = (searchEl?.value || '').toLowerCase().trim();
+        listEl.querySelectorAll('.attendance-row').forEach(row => {
+          const hay = row.getAttribute('data-search') || '';
+          const status = row.getAttribute('data-status') || '';
+          const matchQ = !q || hay.includes(q);
+          const matchActive = !activeOnly || status === 'active';
+          row.style.display = (matchQ && matchActive) ? '' : 'none';
+        });
+      }
+      searchEl?.addEventListener('input', applyFilters);
+
+      content.querySelector('#btnAttMarkAll')?.addEventListener('click', () => {
+        listEl.querySelectorAll('.attendance-row').forEach(row => {
+          if(row.style.display === 'none') return;
+          const cb = row.querySelector('input[type="checkbox"]');
+          if(cb){ cb.checked = true; syncRowStyle(cb); }
+        });
+        updateCount();
+      });
+      content.querySelector('#btnAttClearAll')?.addEventListener('click', () => {
+        listEl.querySelectorAll('.attendance-row').forEach(row => {
+          if(row.style.display === 'none') return;
+          const cb = row.querySelector('input[type="checkbox"]');
+          if(cb){ cb.checked = false; syncRowStyle(cb); }
+        });
+        updateCount();
+      });
+      content.querySelector('#btnAttActiveOnly')?.addEventListener('click', (e) => {
+        activeOnly = !activeOnly;
+        e.currentTarget.classList.toggle('bg-slate-900', activeOnly);
+        e.currentTarget.classList.toggle('text-white', activeOnly);
+        e.currentTarget.textContent = activeOnly ? 'Show all' : 'Show Active only';
+        applyFilters();
+      });
+
+      document.getElementById('btnSaveAttendance').addEventListener('click', () => {
+        const checkboxes = content.querySelectorAll('input[type="checkbox"]');
+        const newAttendedBy = [];
+        checkboxes.forEach(cb => {
+          if(cb.checked) newAttendedBy.push(cb.getAttribute('data-member-id'));
+        });
+        service.attendedBy = newAttendedBy;
+        service.attendance = newAttendedBy.length;
+        const ok = saveState();
+        if(ok){
+          toast('Attendance saved');
+          document.getElementById('attendanceServiceSelect').value = serviceId;
+          render();
+        } else {
+          toast('Save failed (storage blocked)');
+        }
+      });
+
+      document.getElementById('btnCancelAttendance').addEventListener('click', () => {
+        document.getElementById('attendanceServiceSelect').value = '';
+        content.innerHTML = '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance</div>';
+      });
+    }
+
+    function dateCutoffForRange(range){
+      if(range === 'all') return null;
+      const days = Number(range || 30);
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      return d;
+    }
+
+    function renderReports(){
+      const range = document.getElementById('reportRange').value;
+      const cutoff = dateCutoffForRange(range);
+
+      const services = state.services.filter(s => {
+        if(!cutoff) return true;
+        if(!s.date) return false;
+        return new Date(s.date + 'T00:00:00') >= cutoff;
+      });
+
+      const totalServices = services.length;
+      const totalAttendance = services.reduce((sum,s)=>sum + Number(s.attendance||0), 0);
+      const avgAttendance = totalServices ? (totalAttendance/totalServices) : 0;
+
+      kpiServices.textContent = String(totalServices);
+      kpiAvgAttendance.textContent = avgAttendance.toFixed(1);
+
+      // By type
+      const byType = new Map();
+      for(const s of services){
+        const key = s.type || '—';
+        const cur = byType.get(key) || {count:0, attendance:0};
+        cur.count++;
+        cur.attendance += Number(s.attendance||0);
+        byType.set(key, cur);
+      }
+      const typeRows = Array.from(byType.entries())
+        .sort((a,b)=>b[1].count - a[1].count)
+        .map(([type, v]) => ({ type, ...v, avgAttendance: v.count ? v.attendance / v.count : 0 }));
+
+      typeSummary.innerHTML = typeRows.length ? `
+        <div class="overflow-auto rounded-xl border">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100">
+              <tr>
+                <th class="px-3 py-2 text-left">Type</th>
+                <th class="px-3 py-2 text-right">Services</th>
+                <th class="px-3 py-2 text-right">Avg Att.</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${typeRows.map(r => `
+                <tr>
+                  <td class="px-3 py-2">${esc(r.type)}</td>
+                  <td class="px-3 py-2 text-right mono">${r.count}</td>
+                  <td class="px-3 py-2 text-right mono">${r.avgAttendance.toFixed(1)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : `<div class="text-sm text-slate-500">No service data in this range.</div>`;
+
+      // Member summary
+      const mem = state.members;
+      const byStatus = mem.reduce((acc,m)=>{
+        acc[m.status||'—'] = (acc[m.status||'—']||0) + 1;
+        return acc;
+      }, {});
+      const byGroup = mem.reduce((acc,m)=>{
+        const g = m.group || '—';
+        acc[g] = (acc[g]||0) + 1;
+        return acc;
+      }, {});
+
+      const statusList = Object.entries(byStatus).sort((a,b)=>b[1]-a[1]);
+      const groupList = Object.entries(byGroup).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+      memberSummary.innerHTML = `
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <div class="text-xs uppercase tracking-wide text-slate-500">By status</div>
+            <ul class="mt-2 space-y-1">
+              ${statusList.map(([k,v])=>`<li class="flex items-center justify-between gap-3"><span>${esc(k)}</span><span class="mono">${v}</span></li>`).join('') || '<li class="text-slate-500">No members yet.</li>'}
+            </ul>
+          </div>
+          <div>
+            <div class="text-xs uppercase tracking-wide text-slate-500">Top groups</div>
+            <ul class="mt-2 space-y-1">
+              ${groupList.map(([k,v])=>`<li class="flex items-center justify-between gap-3"><span>${esc(k)}</span><span class="mono">${v}</span></li>`).join('') || '<li class="text-slate-500">—</li>'}
+            </ul>
+          </div>
+        </div>
+      `;
+
+      // Trend (attendance only)
+      const monthKey = (dateStr) => {
+        const d = new Date(dateStr + 'T00:00:00');
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        return `${y}-${m}`;
+      }
+      const byMonth = new Map();
+      for(const s of services){
+        if(!s.date) continue;
+        const k = monthKey(s.date);
+        const cur = byMonth.get(k) || {attendance:0, count:0};
+        cur.attendance += Number(s.attendance||0);
+        cur.count++;
+        byMonth.set(k, cur);
+      }
+      const months = Array.from(byMonth.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+      const maxAtt = Math.max(1, ...months.map(([,v])=>v.attendance));
+
+      trend.innerHTML = months.length ? months.map(([k,v]) => {
+        const attPct = Math.round((v.attendance/maxAtt)*100);
+        return `
+          <div class="grid grid-cols-12 gap-2 items-center">
+            <div class="col-span-3 text-xs text-slate-600 mono">${esc(k)}</div>
+            <div class="col-span-9">
+              <div class="h-3 rounded bg-slate-100 overflow-hidden" title="Attendance: ${v.attendance}">
+                <div class="h-3 bg-sky-600" style="width:${attPct}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('') : `<div class="text-sm text-slate-500">No trend data yet.</div>`;
+
+      // Print summary
+      document.getElementById('printSummary').innerHTML = `
+        <div class="grid gap-2">
+          <div><span class="font-semibold">Range:</span> ${range === 'all' ? 'All time' : `Last ${esc(range)} days`}</div>
+          <div><span class="font-semibold">Total services:</span> ${totalServices}</div>
+          <div><span class="font-semibold">Average attendance:</span> ${avgAttendance.toFixed(1)}</div>
+        </div>
+      `;
+    }
+
+
+
+    function render(){
+      renderServiceTypes();
+      renderMemberStatuses();
+      renderGroups();
+      updateDriveStatusChip();
+
+      const tab = activeTab();
+      if(tab === 'services') renderServices();
+      if(tab === 'members') renderMembers();
+      if(tab === 'attendance') renderAttendance();
+      if(tab === 'reports') {
+        renderReports();
+        renderVoterReport();
+      }
+      if(tab === 'settings'){
+        // chips are already rendered
+      }
+    }
+
+    // IMPORTANT: The Edit function for Members MUST NEVER be removed.
+    // This is a permanent requirement. The Edit button allows users to modify
+    // member records and is essential for data management.
+    // DO NOT remove or disable the Edit functionality under any circumstances.
+
+    // CRUD: Services
+    function startEditService(id){
+      const s = state.services.find(x => x.id === id);
+      if(!s) return;
+      setActiveTab('services');
+      isEditing.service = true;
+      btnCancelEdit.classList.remove('hidden');
+      document.getElementById('btnDeleteService')?.classList.remove('hidden');
+      formTitle.textContent = 'Edit Service';
+
+      document.getElementById('serviceId').value = s.id;
+      document.getElementById('serviceDate').value = s.date || '';
+      document.getElementById('serviceType').value = s.type || '';
+      document.getElementById('serviceTitle').value = s.title || '';
+      document.getElementById('serviceMinister').value = s.minister || '';
+      document.getElementById('serviceAttendance').value = (s.attendance ?? '');
+      document.getElementById('serviceNotes').value = s.notes || '';
+
+      // Scroll to form so user sees it
+      serviceForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function deleteService(id){
+      const s = state.services.find(x => x.id === id);
+      if(!s) return;
+      if(!confirm(`Delete service on ${s.date} (${s.type})?`)) return;
+      state.services = state.services.filter(x => x.id !== id);
+      const ok = saveState();
+      if(ok){
+        toast('Service deleted');
+        if(document.getElementById('serviceId').value === id) resetServiceForm();
+        render();
+      } else {
+        toast('Delete failed (storage blocked)');
+      }
+    }
+
+    serviceForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      try{
+        const record = {
+          id: document.getElementById('serviceId').value || uid(),
+          date: document.getElementById('serviceDate').value,
+          type: document.getElementById('serviceType').value,
+          title: document.getElementById('serviceTitle').value.trim(),
+          minister: document.getElementById('serviceMinister').value.trim(),
+          attendance: Number(document.getElementById('serviceAttendance').value || 0),
+          notes: document.getElementById('serviceNotes').value.trim()
+        };
+
+        if(!record.date || !record.type){
+          alert('Please provide a date and service type.');
+          return;
+        }
+
+        const idx = state.services.findIndex(x => x.id === record.id);
+        if(idx >= 0) {
+          // Preserve attendedBy when editing
+          record.attendedBy = state.services[idx].attendedBy || [];
+          state.services[idx] = record;
+        } else {
+          record.attendedBy = [];
+          state.services.push(record);
+        }
+        const ok = saveState();
+        if(ok){
+          toast('Service saved');
+          resetServiceForm();
+          render();
+        } else {
+          toast('Save failed (storage blocked)');
+        }
+      }catch(err){
+        console.error('Save Service failed:', err);
+        alert('Save Service failed due to an app error. Please check the browser console for details.');
+      }
+    });
+
+    // Phone number auto-formatting (+x (xxx) xxx-xxxx)
+    // Behavior:
+    // - If user enters 11 digits and the first digit is 1, format as +1 (xxx) xxx-xxxx.
+    // - If user enters 10 digits, assume +1 and format as +1 (xxx) xxx-xxxx.
+    // - Otherwise, treat the first digit as country code (best-effort while typing).
+    function formatPhone(value){
+      const digitsAll = (value || '').replace(/\D/g, '');
+      if(digitsAll.length === 0) return '';
+
+      // Primary behavior: NANP formatting
+      // - 11 digits starting with 1 => +1 (AAA) BBB-CCCC
+      // - 10 digits => assume +1
+      // For any other length, do best-effort but DO NOT guess a different country code
+      // from the first digit (that caused inputs like 1226... to become +2 ...).
+      let cc = '1';
+      let digits = digitsAll;
+
+      if(digitsAll.length >= 11 && digitsAll.startsWith('1')){
+        // If user pasted more than 11 digits but starts with 1, still treat first as cc
+        digits = digitsAll.slice(1);
+      } else if(digitsAll.length === 10){
+        digits = digitsAll;
+      } else if(digitsAll.length === 11 && !digitsAll.startsWith('1')){
+        // Non-NANP 11-digit number: use first 1-3 digits as cc best-effort
+        // (keeps the feature for international numbers, but avoids the 1226... bug)
+        cc = digitsAll.slice(0, Math.min(3, Math.max(1, digitsAll.length - 10)));
+        digits = digitsAll.slice(cc.length);
+      } else {
+        // While typing / shorter: format last up-to-10 digits as NANP under +1
+        // (user can still type '+' manually if desired; we store digits only here)
+        digits = digitsAll;
+      }
+
+      // Keep only the last 10 digits for NANP formatting if longer
+      if(digits.length > 10) digits = digits.slice(-10);
+
+      const a = digits.slice(0,3);
+      const p1 = digits.slice(3,6);
+      const p2 = digits.slice(6,10);
+
+      let out = '+' + cc;
+      if(a.length) out += ' (' + a;
+      if(a.length === 3) out += ')';
+      if(p1.length) out += ' ' + p1;
+      if(p2.length) out += '-' + p2;
+
+      return out.trim();
+    }
+
+    // Postal code auto-formatting (A1A 1A1)
+    function formatPostalCode(value){
+      const cleaned = (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
+      if(cleaned.length === 0) return '';
+      if(cleaned.length <= 3) return cleaned;
+      return cleaned.slice(0,3) + ' ' + cleaned.slice(3,6);
+    }
+
+    // Canadian Postal Code Lookup (CORS-friendly)
+    // Primary: Zippopotam.us (reliable for City/Province). Secondary: best-effort OSM Nominatim (sometimes provides a road).
+    async function lookupPostalCode(postcode){
+      const cleaned = (postcode || '').replace(/\s+/g, '').toUpperCase();
+      if(!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(cleaned)){
+        return { error: 'Invalid postal code format. Use A1A 1A1.' };
+      }
+
+      const timeoutFetch = async (url, opts = {}, ms = 7000) => {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), ms);
+        try {
+          const res = await fetch(url, { ...opts, signal: controller.signal });
+          return res;
+        } finally {
+          clearTimeout(t);
+        }
+      };
+
+      const provMap = {
+        'Ontario':'ON','Quebec':'QC','Nova Scotia':'NS','New Brunswick':'NB','Manitoba':'MB','British Columbia':'BC',
+        'Prince Edward Island':'PE','Saskatchewan':'SK','Alberta':'AB','Newfoundland and Labrador':'NL',
+        'Northwest Territories':'NT','Yukon':'YT','Nunavut':'NU'
+      };
+
+      try {
+        let city = '';
+        let province = '';
+        let street = '';
+
+        // 1) Zippopotam (City/Province) - Use FSA (first 3 chars) for reliable City/Prov lookup
+        let zipErr = '';
+        try{
+          // Canada Post data is proprietary; free APIs usually only support the FSA (first 3 chars)
+          const fsa = cleaned.slice(0, 3);
+          const res = await timeoutFetch(`https://api.zippopotam.us/ca/${encodeURIComponent(fsa)}`);
+          if(res.ok){
+            const data = await res.json();
+            const place = Array.isArray(data.places) ? data.places[0] : null;
+            if(place){
+              city = (place['place name'] || '').toString().trim();
+              province = (place['state abbreviation'] || place['state'] || '').toString().trim();
+            }
+          } else if(res.status === 404){
+            zipErr = 'Postal code not found.';
+          } else {
+            zipErr = `Postal lookup failed (HTTP ${res.status}).`;
+          }
+        }catch(e){
+          zipErr = 'Postal lookup failed (network blocked/offline).';
+        }
+
+        // 2) Best-effort Nominatim (may be blocked by some networks; often no house number for postal centroids)
+        try{
+          const res = await timeoutFetch(
+            `https://nominatim.openstreetmap.org/search?format=jsonv2&country=Canada&postalcode=${encodeURIComponent(cleaned)}&addressdetails=1&limit=1`,
+            {
+              headers: {
+                'Accept': 'application/json'
+              }
+            },
+            9000
+          );
+          if(res.ok){
+            const arr = await res.json();
+            const hit = Array.isArray(arr) ? arr[0] : null;
+            const addr = hit?.address || {};
+            const hn = (addr.house_number || '').toString().trim();
+            const rd = (addr.road || addr.pedestrian || addr.neighbourhood || addr.suburb || '').toString().trim();
+            if(hn && rd) street = `${hn} ${rd}`;
+            else if(rd) street = rd;
+
+            if(!city) city = (addr.city || addr.town || addr.village || addr.municipality || '').toString().trim();
+            if(!province) province = (addr.state || '').toString().trim();
+          }
+        }catch(e){
+          // ignore
+        }
+
+        if(province && province.length > 2 && provMap[province]) province = provMap[province];
+
+        if(!street && !city && !province){
+          return { error: zipErr || 'Address not found for this postal code.' };
+        }
+
+        return { street, city, province };
+      } catch(e){
+        if(e.name === 'AbortError') return { error: 'Request timed out. Please try again or enter manually.' };
+        return { error: e?.message || 'Lookup failed' };
+      }
+    }
+
+    // CRUD: Members
+    function startEditMember(id){
+      const m = state.members.find(x => x.id === id);
+      if(!m) return;
+      setActiveTab('members');
+      isEditing.member = true;
+      btnCancelEdit.classList.remove('hidden');
+      document.getElementById('btnDeleteMember')?.classList.remove('hidden');
+      formTitle.textContent = 'Edit Member';
+
+      // Back-compat: allow older saved data that only had name/joined/address
+      let firstName = m.firstName || '';
+      let lastName = m.lastName || '';
+      if((!firstName || !lastName) && m.name){
+        const parts = String(m.name).trim().split(/\s+/);
+        firstName = firstName || (parts.shift() || '');
+        lastName = lastName || (parts.join(' ') || '');
+      }
+
+      // Back-compat joined like YYYY-MM or YYYY
+      let joinMonth = m.joinMonth || '';
+      let joinYear = m.joinYear || '';
+      if((!joinMonth || !joinYear) && m.joined){
+        const str = String(m.joined);
+        const mm = str.match(/^(\d{4})-(\d{2})/);
+        if(mm){
+          joinYear = joinYear || mm[1];
+          joinMonth = joinMonth || mm[2];
+        } else if(/^\d{4}$/.test(str)){
+          joinYear = joinYear || str;
+        }
+      }
+
+      document.getElementById('memberId').value = m.id;
+      document.getElementById('memberFirstName').value = firstName;
+      document.getElementById('memberLastName').value = lastName;
+      document.getElementById('memberChineseName').value = m.chineseName || '';
+      document.getElementById('memberPhone').value = m.phone || '';
+      document.getElementById('memberEmail').value = m.email || '';
+      document.getElementById('memberBirthMonth').value = m.birthMonth || '';
+      document.getElementById('memberBirthYear').value = m.birthYear || '';
+      document.getElementById('memberStatus').value = m.status || 'Active';
+      document.getElementById('memberGroup').value = m.group || '';
+      document.getElementById('memberCategory').value = getMemberCategory(m);
+      document.getElementById('memberBaptismDate').value = m.baptismDate || '';
+      document.getElementById('memberHolySpiritDate').value = m.holySpiritDate || '';
+      document.getElementById('memberJoinMonth').value = joinMonth;
+      document.getElementById('memberJoinYear').value = joinYear;
+      document.getElementById('memberStreet').value = m.street || '';
+      document.getElementById('memberCity').value = m.city || '';
+      document.getElementById('memberProvince').value = m.province || '';
+      document.getElementById('memberPostcode').value = m.postcode || '';
+      
+      // Scroll to form so user sees it
+      memberForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function deleteMember(id){
+      const m = state.members.find(x => x.id === id);
+      if(!m) return;
+      if(!confirm(`Delete member ${m.name}?`)) return;
+      state.members = state.members.filter(x => x.id !== id);
+      // Keep attendance headcounts and rosters consistent: drop this member from every
+      // service's attendedBy list and resync the stored headcount.
+      state.services.forEach(s => {
+        if(Array.isArray(s.attendedBy) && s.attendedBy.includes(id)){
+          s.attendedBy = s.attendedBy.filter(mid => mid !== id);
+          s.attendance = s.attendedBy.length;
+        }
+      });
+      const ok = saveState();
+      if(ok){
+        toast('Member deleted');
+        if(document.getElementById('memberId').value === id) resetMemberForm();
+        render();
+      } else {
+        toast('Delete failed (storage blocked)');
+      }
+    }
+
+    memberForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const firstName = document.getElementById('memberFirstName').value.trim();
+      const lastName = document.getElementById('memberLastName').value.trim();
+      const chineseName = document.getElementById('memberChineseName').value.trim();
+      
+      if(!firstName || !lastName){
+        alert('Please enter both first and last name.');
+        return;
+      }
+
+      const joinMonth = document.getElementById('memberJoinMonth').value;
+      const joinYear = document.getElementById('memberJoinYear').value;
+
+      const street = document.getElementById('memberStreet').value.trim();
+      const city = document.getElementById('memberCity').value.trim();
+      const province = document.getElementById('memberProvince').value.trim();
+      const postcode = document.getElementById('memberPostcode').value.trim();
+
+      const joined = (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear ? String(joinYear) : '');
+      const address = [street, city, province, postcode].filter(Boolean).join(', ');
+
+      const record = {
+        id: document.getElementById('memberId').value || uid(),
+        firstName: firstName,
+        lastName: lastName,
+        chineseName: chineseName,
+        name: firstName + ' ' + lastName,
+        phone: formatPhone(document.getElementById('memberPhone').value),
+        email: document.getElementById('memberEmail').value.trim(),
+        birthMonth: document.getElementById('memberBirthMonth').value,
+        birthYear: document.getElementById('memberBirthYear').value,
+        status: document.getElementById('memberStatus').value,
+        group: document.getElementById('memberGroup').value,
+        category: document.getElementById('memberCategory').value || 'Member',
+        baptismDate: document.getElementById('memberBaptismDate').value,
+        holySpiritDate: document.getElementById('memberHolySpiritDate').value,
+        joinMonth,
+        joinYear,
+        joined,
+        street,
+        city,
+        province,
+        postcode,
+        address
+      };
+
+      const idx = state.members.findIndex(x => x.id === record.id);
+      if(idx >= 0) state.members[idx] = record; else state.members.push(record);
+      const ok = saveState();
+      if(ok){
+        toast('Member saved');
+        resetMemberForm();
+        render();
+      } else {
+        toast('Save failed (storage blocked)');
+      }
+    });
+
+    // Postal code lookup button
+    document.getElementById('btnLookupPostcode').addEventListener('click', async () => {
+      if(!navigator.onLine) {
+        alert('Postal code lookup requires an internet connection. Please enter the address manually while offline.');
+        return;
+      }
+      const postcode = document.getElementById('memberPostcode').value.trim();
+      if(!postcode){
+        alert('Please enter a postal code first.');
+        return;
+      }
+
+      const btn = document.getElementById('btnLookupPostcode');
+      const originalText = btn.textContent;
+      btn.textContent = 'Loading...';
+      btn.disabled = true;
+
+      const result = await lookupPostalCode(postcode);
+
+      btn.textContent = originalText;
+      btn.disabled = false;
+
+      if(result && !result.error){
+        if(result.street) document.getElementById('memberStreet').value = result.street;
+        if(result.city) document.getElementById('memberCity').value = result.city;
+        if(result.province) document.getElementById('memberProvince').value = result.province;
+
+        if(result.city || result.province){
+          // Most Canadian postal lookups do not reliably map to a specific street address.
+          if(result.street){
+            toast('City/Province filled (street best-effort)');
+          } else {
+            toast('City/Province filled (street unavailable)');
+          }
+        } else {
+          toast('No address data found');
+        }
+      } else {
+        const msg = result?.error ? result.error : 'Address not found for this postal code.';
+        alert(msg + "\n\nTip: This lookup needs internet access and can be blocked by some networks. You can always type the address manually.");
+      }
+    });
+
+    // Controls
+    document.getElementById('btnClearServiceForm').addEventListener('click', resetServiceForm);
+    document.getElementById('btnClearMemberForm').addEventListener('click', resetMemberForm);
+    document.getElementById('btnDeleteService')?.addEventListener('click', () => {
+      const id = document.getElementById('serviceId').value;
+      if(id) deleteService(id);
+    });
+    document.getElementById('btnDeleteMember')?.addEventListener('click', () => {
+      const id = document.getElementById('memberId').value;
+      if(id) deleteMember(id);
+    });
+
+    btnCancelEdit.addEventListener('click', () => {
+      if(isEditing.service) resetServiceForm();
+      if(isEditing.member) resetMemberForm();
+      render();
+    });
+
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      setActiveTab(btn.dataset.tab);
+    }));
+
+    globalSearch.addEventListener('input', () => render());
+
+    serviceFilterType.addEventListener('change', render);
+    serviceFrom.addEventListener('change', render);
+    serviceTo.addEventListener('change', render);
+    document.getElementById('btnClearServiceFilters').addEventListener('click', () => {
+      serviceFilterType.value = '';
+      serviceFrom.value = '';
+      serviceTo.value = '';
+      render();
+    });
+
+    memberFilterStatus.addEventListener('change', render);
+    memberFilterGroup.addEventListener('change', render);
+    document.getElementById('btnClearMemberFilters').addEventListener('click', () => {
+      memberFilterStatus.value = '';
+      memberFilterGroup.value = '';
+      render();
+    });
+
+    document.getElementById('btnManageTypes').addEventListener('click', () => {
+      setActiveTab('settings');
+    });
+
+    document.getElementById('btnManageStatuses').addEventListener('click', () => {
+      setActiveTab('settings');
+    });
+
+    document.getElementById('btnColumnOptions').addEventListener('click', () => {
+      const cols = state.memberColumns || defaults().memberColumns;
+      const options = `
+        <div class="grid gap-3">
+          <div class="text-sm text-slate-600 font-semibold">Select columns to display:</div>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colPhone" ${cols.phone ? 'checked' : ''} class="size-4 rounded" />
+            <span>Phone</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colEmail" ${cols.email ? 'checked' : ''} class="size-4 rounded" />
+            <span>Email</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colStatus" ${cols.status ? 'checked' : ''} class="size-4 rounded" />
+            <span>Status</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colGroup" ${cols.group ? 'checked' : ''} class="size-4 rounded" />
+            <span>Group</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colAttendance" ${cols.attendance ? 'checked' : ''} class="size-4 rounded" />
+            <span>Attendance %</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colJoined" ${cols.joined ? 'checked' : ''} class="size-4 rounded" />
+            <span>Joined</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colAddress" ${cols.address ? 'checked' : ''} class="size-4 rounded" />
+            <span>Address</span>
+          </label>
+          <div class="flex gap-2 pt-2">
+            <button id="btnSaveColumns" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save</button>
+            <button id="btnResetColumns" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Reset to Default</button>
+          </div>
+        </div>
+      `;
+      openModal('Column Options', options);
+
+      document.getElementById('btnSaveColumns').addEventListener('click', () => {
+        state.memberColumns = {
+          phone: document.getElementById('colPhone').checked,
+          email: document.getElementById('colEmail').checked,
+          status: document.getElementById('colStatus').checked,
+          group: document.getElementById('colGroup').checked,
+          attendance: document.getElementById('colAttendance').checked,
+          joined: document.getElementById('colJoined').checked,
+          address: document.getElementById('colAddress').checked,
+          name: true
+        };
+        const ok = saveState();
+        if(ok){
+          toast('Column display settings saved');
+          closeModal();
+          render();
+        } else {
+          toast('Save failed (storage blocked)');
+        }
+      });
+
+      document.getElementById('btnResetColumns').addEventListener('click', () => {
+        state.memberColumns = defaults().memberColumns;
+        const ok = saveState();
+        if(ok){
+          toast('Columns reset to default');
+          closeModal();
+          render();
+        } else {
+          toast('Save failed (storage blocked)');
+        }
+      });
+    });
+
+    // Attendance
+    document.getElementById('attendanceServiceSelect').addEventListener('change', (e) => {
+      const serviceId = e.target.value;
+      if(serviceId) showAttendanceForService(serviceId);
+      else document.getElementById('attendanceContent').innerHTML = '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance</div>';
+    });
+
+    // Settings: add type/group
+    document.getElementById('btnAddServiceType').addEventListener('click', () => {
+      const v = document.getElementById('newServiceType').value.trim();
+      if(!v) return;
+      if(state.serviceTypes.includes(v)){
+        alert('That service type already exists.');
+        return;
+      }
+      state.serviceTypes.push(v);
+      document.getElementById('newServiceType').value = '';
+      const ok = saveState();
+      if(ok){
+        toast('Service type added');
+        render();
+      } else {
+        toast('Save failed (storage blocked)');
+      }
+    });
+
+    document.getElementById('btnAddGroup').addEventListener('click', () => {
+      const v = document.getElementById('newGroup').value.trim();
+      if(!v) return;
+      if(state.groups.includes(v)){
+        alert('That group already exists.');
+        return;
+      }
+      state.groups.push(v);
+      document.getElementById('newGroup').value = '';
+      const ok = saveState();
+      if(ok){
+        toast('Group added');
+        render();
+      } else {
+        toast('Save failed (storage blocked)');
+      }
+    });
+
+    document.getElementById('btnAddMemberStatus').addEventListener('click', () => {
+      const v = document.getElementById('newMemberStatus').value.trim();
+      if(!v) return;
+      if(state.memberStatuses.includes(v)){
+        alert('That status already exists.');
+        return;
+      }
+      state.memberStatuses.push(v);
+      document.getElementById('newMemberStatus').value = '';
+      const ok = saveState();
+      if(ok){
+        toast('Member status added');
+        render();
+      } else {
+        toast('Save failed (storage blocked)');
+      }
+    });
+
+
+
+    // Reports
+    document.getElementById('btnRefreshReports').addEventListener('click', renderReports);
+
+    // Eligible Voter Report
+    document.getElementById('voterFilterStatus').addEventListener('change', renderVoterReport);
+    document.getElementById('btnRefreshVoterReport').addEventListener('click', renderVoterReport);
+    document.getElementById('btnExportEligibleExcel').addEventListener('click', exportEligibleVotersExcel);
+
+    function renderVoterReport(){
+      const filter = document.getElementById('voterFilterStatus').value;
+      const container = document.getElementById('voterReportContent');
+
+      const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      if(members.length === 0){
+        container.innerHTML = '<div class="p-6 text-center text-slate-500">No members yet.</div>';
+        return;
+      }
+
+      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+      const isMeeting = (s) => {
+        const t = (s.type||'').toUpperCase();
+        const ti = (s.title||'').toUpperCase();
+        return t === 'AGM' || t === 'EGM' || ti.includes('AGM') || ti.includes('EGM');
+      };
+      const isAGM = (s) => {
+        const t = (s.type||'').toUpperCase();
+        const ti = (s.title||'').toUpperCase();
+        return t === 'AGM' || ti.includes('AGM');
+      };
+
+      const latestIdx = services.findIndex(isMeeting);
+      const prevAGMIdx = services.findIndex((s, i) => i > latestIdx && isAGM(s));
+
+      const latest = latestIdx >= 0 ? services[latestIdx] : null;
+      const prevAGM = prevAGMIdx >= 0 ? services[prevAGMIdx] : null;
+
+      if(!latest || !prevAGM){
+        container.innerHTML = `
+          <div class="p-6 text-center">
+            <div class="text-amber-700 font-semibold mb-2">AGM/EGM Services Required</div>
+            <div class="text-sm text-slate-600">To calculate voter eligibility, you need at least:</div>
+            <ul class="text-sm text-slate-600 list-disc text-left inline-block mt-2">
+              <li>An "AGM" service (previous meeting)</li>
+              <li>An "AGM" or "EGM" service (latest meeting)</li>
+            </ul>
+            <div class="text-sm text-slate-600 mt-2">Add these services in the Services tab first.</div>
+          </div>`;
+        return;
+      }
+
+      const rows = members.map(m => {
+        const voter = getVoterStatus(m.id);
+
+        if(filter === 'eligible' && !voter.eligible) return null;
+        if(filter === 'noteligible' && voter.eligible) return null;
+
+        const attPct = calculateAttendancePercentage(m.id);
+        const displayName = m.chineseName ? `${esc(m.name)} (${esc(m.chineseName)})` : esc(m.name||'');
+        const category = getMemberCategory(m);
+
+        // Age display
+        const ageDisplay = voter.ageCheck && voter.ageCheck.age !== null
+          ? `${voter.ageCheck.age} yrs`
+          : 'N/A';
+        const ageStatus = voter.ageCheck
+          ? (voter.ageCheck.passed ? '✓' : '✗')
+          : '—';
+
+        // Attendance display
+        const attDisplay = voter.attCheck
+          ? `${voter.attCheck.count}/2`
+          : (voter.ageCheck || voter.attCheck ? '0/2' : 'N/A');
+        const attStatus = voter.attCheck
+          ? (voter.attCheck.passed ? '✓' : '✗')
+          : '—';
+
+        const cellTitle = voter.ageCheck || voter.attCheck
+          ? `Age check: ${voter.ageCheck?.reason || 'N/A'}, Attendance: ${voter.attCheck?.reason || 'N/A'}`
+          : voter.detail;
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="px-3 py-2 font-medium">${displayName}</td>
+            <td class="px-3 py-2">${esc(m.status||'')}</td>
+            <td class="px-3 py-2">${esc(category)}</td>
+            <td class="px-3 py-2">${esc(m.group||'')}</td>
+            <td class="px-3 py-2 text-right mono">${attPct}%</td>
+            <td class="px-3 py-2 text-center mono" title="${esc(cellTitle)}">
+              ${ageDisplay} ${ageStatus} | ${attDisplay} ${attStatus}
+            </td>
+            <td class="px-3 py-2">
+              <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${voter.color}" title="${esc(voter.detail||'')}">
+                ${voter.text}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-sm text-slate-600" title="Between ${prevAGM.date} and ${latest.date}">
+              ${prevAGM.date} to ${latest.date}
+            </td>
+          </tr>
+        `;
+      }).filter(Boolean);
+
+      if(rows.length === 0){
+        container.innerHTML = '<div class="p-6 text-center text-slate-500">No members match the filter.</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="mb-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
+          <strong>Voter Eligibility Criteria:</strong><br/>
+          0. Must be an <strong>Active</strong> member with Category = <strong>Member</strong> (Visitors/Transferred/Inactive are not eligible)<br/>
+          1. Must be 18+ years old by birth month (Age: X yrs ✓/✗)<br/>
+          2. Must attend at least 2 services between AGM periods (Attended: X/2 ✓/✗)
+        </div>
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="px-3 py-2 text-left">Name</th>
+              <th class="px-3 py-2 text-left">Status</th>
+              <th class="px-3 py-2 text-left">Category</th>
+              <th class="px-3 py-2 text-left">Group</th>
+              <th class="px-3 py-2 text-right">Attendance %</th>
+              <th class="px-3 py-2 text-center">Age | Attendance</th>
+              <th class="px-3 py-2 text-center">Eligible Voter?</th>
+              <th class="px-3 py-2 text-left">Period</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${rows.join('')}
+          </tbody>
+        </table>
+        <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
+          Period: ${prevAGM.date} (Previous AGM) → ${latest.date} (Latest ${latest.type||'Meeting'})
+        </div>
+      `;
+    }
+
+    function exportEligibleVotersExcel(){
+      try{
+        if(typeof XLSX === 'undefined'){
+          alert('Excel export is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
+          return;
+        }
+        const eligibleMembers = state.members.filter(m => getVoterStatus(m.id).eligible);
+        if(eligibleMembers.length === 0){
+          toast('No eligible voters to export');
+          return;
+        }
+        const rows = eligibleMembers
+          .slice()
+          .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+          .map(m => ({
+            'First Name': m.firstName || '',
+            'Last Name': m.lastName || '',
+            'Chinese Name': m.chineseName || '',
+            'Full Name': m.name || '',
+            'Status': m.status || '',
+            'Category': getMemberCategory(m),
+            'Group': m.group || '',
+            'Attendance %': calculateAttendancePercentage(m.id)
+          }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Eligible Voters');
+        const filename = `eligible-voters-${todayLocalISO()}.xlsx`;
+        XLSX.writeFile(wb, filename);
+        toast(`${rows.length} eligible voters exported`);
+      }catch(e){
+        console.error('Export Eligible Voters Excel failed:', e);
+        alert('Export failed in this browser. Try Chrome/Edge or disable strict download blockers.');
+      }
+    }
+
+    async function copyText(text){
+      try{
+        await navigator.clipboard.writeText(text);
+      }catch(e){
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    }
+
+    document.getElementById('btnCopyTypeSummary').addEventListener('click', async () => {
+      const range = document.getElementById('reportRange').value;
+      const cutoff = dateCutoffForRange(range);
+      const services = state.services.filter(s => !cutoff || (s.date && new Date(s.date+'T00:00:00') >= cutoff));
+      const byType = {};
+      for(const s of services){
+        const k = s.type || '—';
+        byType[k] = byType[k] || {count:0, attendance:0};
+        byType[k].count++;
+        byType[k].attendance += Number(s.attendance||0);
+      }
+      const lines = Object.entries(byType)
+        .sort((a,b)=>b[1].count-a[1].count)
+        .map(([k,v]) => `${k}: services=${v.count}, avgAttendance=${(v.attendance/v.count).toFixed(1)}`);
+      await copyText(lines.join('\n') || 'No data');
+    });
+
+    document.getElementById('btnCopyMemberSummary').addEventListener('click', async () => {
+      const byStatus = {};
+      for(const m of state.members){
+        const k = m.status || '—';
+        byStatus[k] = (byStatus[k]||0)+1;
+      }
+      const lines = Object.entries(byStatus).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `${k}: ${v}`);
+      await copyText(lines.join('\n') || 'No members');
+    });
+
+    // --- Export/Save-to-Drive/Import/Open-from-Drive/Reset/Print ---
+    // Downloads the current state as a JSON file. Used by both "Export JSON" (dated backup
+    // filename) and "Save to Drive" (fixed filename, meant to be overwritten in a Drive folder).
+    function downloadStateAsJSON(filename, { markSaved } = {}){
+      try{
+        if(markSaved){
+          _suppressDirtyFlag = true;
+          state.meta = state.meta || {};
+          state.meta.lastSavedAt = new Date().toISOString();
+          state.meta.dirty = false;
+        }
+        saveState();
+        _suppressDirtyFlag = false;
+
+        const json = JSON.stringify(state, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+
+        // Legacy (old Edge/IE)
+        if(navigator && typeof navigator.msSaveOrOpenBlob === 'function'){
+          navigator.msSaveOrOpenBlob(blob, filename);
+          return true;
+        }
+
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+
+        // Attempt download
+        a.click();
+
+        // iOS Safari often ignores a[download] for blob URLs; open in a new tab as a fallback
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua);
+        if(isIOS){
+          window.open(url, '_blank', 'noopener');
+          alert('If the download did not start, a new tab was opened with the JSON. Use Share → Save to Files (in your Drive folder) to keep it in sync.');
+        }
+
+        // Cleanup (don’t revoke immediately; some browsers need time to start the download)
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          a.remove();
+        }, 60_000);
+        return true;
+      }catch(err){
+        console.error('Export failed', err);
+        alert('Export failed in this browser. Try a different browser (Chrome/Edge), or disable strict pop-up/download blockers for this page.');
+        return false;
+      }
+    }
+
+    document.getElementById('btnExport').addEventListener('click', () => {
+      const filename = `church-recorder-backup-${todayLocalISO()}.json`;
+      downloadStateAsJSON(filename, { markSaved: true });
+    });
+
+    document.getElementById('btnSaveToDrive').addEventListener('click', () => {
+      const ok = downloadStateAsJSON('church-recorder-data.json', { markSaved: true });
+      if(ok){
+        toast('Saved. On iPad, choose "Save to Files" → your Drive folder to finish syncing.');
+        render();
+      }
+    });
+
+    // Shared logic for both "Import JSON" and "Open from Drive": parse the file, show a
+    // preview with member/service counts, and only replace the current data on confirmation.
+    async function handleIncomingJSONFile(file, { isDriveOpen } = {}){
+      if(!file) return;
+      let parsed;
+      try{
+        const text = await file.text();
+        parsed = JSON.parse(text);
+        if(!parsed || typeof parsed !== 'object') throw new Error('Invalid');
+      }catch(err){
+        alert('Could not read this file. Please choose a valid exported JSON file.');
+        return;
+      }
+
+      const memberCount = Array.isArray(parsed.members) ? parsed.members.length : 0;
+      const serviceCount = Array.isArray(parsed.services) ? parsed.services.length : 0;
+      const currentMemberCount = state.members.length;
+      const currentServiceCount = state.services.length;
+
+      openModal(isDriveOpen ? 'Open from Drive (Preview)' : 'Import JSON (Preview)', `
+        <div class="text-sm text-slate-600">
+          File: <span class="font-semibold">${esc(file.name)}</span>
+        </div>
+        <div class="mt-3 grid gap-3 form-row text-sm">
+          <div class="rounded-xl border p-3">
+            <div class="text-xs text-slate-500">In this file</div>
+            <div class="mt-1"><span class="font-semibold">${memberCount}</span> members</div>
+            <div><span class="font-semibold">${serviceCount}</span> services</div>
+          </div>
+          <div class="rounded-xl border p-3">
+            <div class="text-xs text-slate-500">Currently loaded</div>
+            <div class="mt-1"><span class="font-semibold">${currentMemberCount}</span> members</div>
+            <div><span class="font-semibold">${currentServiceCount}</span> services</div>
+          </div>
+        </div>
+        <div class="mt-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
+          This will <strong>replace</strong> everything currently loaded with the contents of this file. This cannot be undone (unless you have another backup).
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button id="btnConfirmImportJSON" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Replace with this file</button>
+          <button id="btnCancelImportJSON" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
+        </div>
+      `);
+
+      document.getElementById('btnCancelImportJSON')?.addEventListener('click', closeModal);
+      document.getElementById('btnConfirmImportJSON')?.addEventListener('click', () => {
+        state = { ...defaults(), ...parsed,
+          meta: { ...defaults().meta, ...(parsed.meta||{}) },
+          memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
+          serviceTypes: Array.isArray(parsed.serviceTypes) ? parsed.serviceTypes : defaults().serviceTypes,
+          memberStatuses: Array.isArray(parsed.memberStatuses) ? parsed.memberStatuses : defaults().memberStatuses,
+          groups: Array.isArray(parsed.groups) ? parsed.groups : defaults().groups,
+          services: Array.isArray(parsed.services) ? parsed.services : [],
+          members: Array.isArray(parsed.members) ? parsed.members : []
+        };
+
+        // Freshly opened data is, by definition, in sync with what's on disk/Drive.
+        _suppressDirtyFlag = true;
+        state.meta.dirty = false;
+        if(isDriveOpen) state.meta.lastOpenedAt = new Date().toISOString();
+
+        const ok = saveState();
+        _suppressDirtyFlag = false;
+
+        if(ok){
+          toast(isDriveOpen ? 'Opened from Drive' : 'Import successful');
+        } else {
+          toast('Loaded, but saving is blocked');
+        }
+        closeModal();
+        resetServiceForm();
+        resetMemberForm();
+        render();
+      });
+    }
+
+    document.getElementById('fileImport').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      try{
+        await handleIncomingJSONFile(file, { isDriveOpen: false });
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('fileOpenFromDrive').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      try{
+        await handleIncomingJSONFile(file, { isDriveOpen: true });
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      const neverSavedToDrive = !state.meta?.lastSavedAt;
+      const warning = neverSavedToDrive
+        ? 'WARNING: This data has never been saved to Drive (or exported). Resetting now will permanently delete it.\n\n'
+        : '';
+      const typed = prompt(
+        `${warning}This will delete ALL services and members in this browser.\n\nType RESET (all caps) to confirm:`
+      );
+      if(typed !== 'RESET') {
+        if(typed !== null) toast('Reset cancelled (must type RESET exactly)');
+        return;
+      }
+      try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+      state = defaults();
+      const ok = saveState();
+      if(ok){
+        toast('Reset complete');
+      } else {
+        toast('Reset done, but saving is blocked');
+      }
+      resetServiceForm();
+      resetMemberForm();
+      render();
+    });
+
+    document.getElementById('btnPrint').addEventListener('click', () => {
+      setActiveTab('reports');
+      renderReports();
+      window.print();
+    });
+
+    // Quick Add modal
+    document.getElementById('btnQuickAdd').addEventListener('click', () => {
+      const tab = activeTab();
+      openQuickAdd(tab);
+    });
+
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if(e.target === modal) closeModal();
+    });
+    window.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') closeModal();
+    });
+
+    function openModal(title, html){
+      modalTitle.textContent = title;
+      modalBody.innerHTML = html;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    function closeModal(){
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      modalBody.innerHTML = '';
+    }
+
+    function openQuickAdd(tab){
+      if(tab === 'members'){
+        openModal('Quick Add Member', `
+          <form id="quickMember" class="grid gap-3 min-w-0">
+            <div class="form-row-modal">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">First Name</label>
+                <input required name="firstName" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Mary" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Last Name</label>
+                <input required name="lastName" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Smith" />
+              </div>
+            </div>
+            <div class="form-row-modal">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Phone</label>
+                <input name="phone" id="quickPhone" class="rounded-xl border px-3 py-2 text-sm" placeholder="+1 (555) 123-4567" inputmode="tel" autocomplete="tel" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Status</label>
+                <select name="status" class="rounded-xl border px-3 py-2 text-sm">
+                  ${state.memberStatuses.slice().sort((a,b)=>a.localeCompare(b)).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Group</label>
+              <select name="group" class="rounded-xl border px-3 py-2 text-sm">
+                <option value="">—</option>
+                ${state.groups.slice().sort((a,b)=>a.localeCompare(b)).map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
+              <button class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button" id="quickCancel">Cancel</button>
+            </div>
+          </form>
+        `);
+
+        document.getElementById('quickCancel').addEventListener('click', closeModal);
+        const quickPhone = document.getElementById('quickPhone');
+        // Avoid digit shifting by formatting on blur/paste (not every keystroke)
+        quickPhone.addEventListener('blur', (e) => {
+          e.target.value = formatPhone(e.target.value);
+        });
+        quickPhone.addEventListener('paste', () => {
+          requestAnimationFrame(() => {
+            quickPhone.value = formatPhone(quickPhone.value);
+          });
+        });
+        
+        document.getElementById('quickMember').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const fd = new FormData(e.target);
+          const firstName = (fd.get('firstName')||'').toString().trim();
+          const lastName = (fd.get('lastName')||'').toString().trim();
+          
+          const status = (fd.get('status')||'Active').toString();
+          const record = {
+            id: uid(),
+            firstName: firstName,
+            lastName: lastName,
+            name: firstName + ' ' + lastName,
+            phone: formatPhone((fd.get('phone')||'').toString()),
+            email: '',
+            birthMonth: '',
+            birthYear: '',
+            status: status,
+            group: (fd.get('group')||'').toString(),
+            category: status === 'Visitor' ? 'Visitor' : 'Member',
+            baptismDate: '',
+            holySpiritDate: '',
+            joinMonth: '',
+            joinYear: '',
+            street: '',
+            city: '',
+            province: '',
+            postcode: ''
+          };
+          state.members.push(record);
+          const ok = saveState();
+          if(ok){
+            toast('Member saved');
+            closeModal();
+            render();
+          } else {
+            toast('Save failed (storage blocked)');
+          }
+        });
+        return;
+      }
+
+      // default services
+      openModal('Quick Add Service', `
+        <form id="quickService" class="grid gap-3">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Date</label>
+            <input required name="date" type="date" class="rounded-xl border px-3 py-2 text-sm" value="${todayLocalISO()}" />
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Type</label>
+            <select required name="type" class="rounded-xl border px-3 py-2 text-sm">
+              ${state.serviceTypes.slice().sort((a,b)=>a.localeCompare(b)).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Attendance</label>
+            <input name="attendance" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm" placeholder="0" />
+          </div>
+          <div class="flex gap-2">
+            <button class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
+            <button class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button" id="quickCancel">Cancel</button>
+          </div>
+        </form>
+      `);
+
+      document.getElementById('quickCancel').addEventListener('click', closeModal);
+      document.getElementById('quickService').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const record = {
+          id: uid(),
+          date: (fd.get('date')||'').toString(),
+          type: (fd.get('type')||'').toString(),
+          title: '',
+          minister: '',
+          attendance: Number(fd.get('attendance')||0),
+          notes: '',
+          attendedBy: []
+        };
+        state.services.push(record);
+        const ok = saveState();
+        if(ok){
+          toast('Service saved');
+          closeModal();
+          render();
+        } else {
+          toast('Save failed (storage blocked)');
+        }
+      });
+    }
+
+    // Members: Excel Export/Import (SheetJS)
+    function membersToExportRows(){
+      // Include computed and raw fields; Google Sheets can consume this directly.
+      return state.members.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(m => {
+        const attPct = calculateAttendancePercentage(m.id);
+        const joined = m.joined || (m.joinYear && m.joinMonth ? `${m.joinYear}-${m.joinMonth}` : (m.joinYear ? String(m.joinYear) : ''));
+        const address = m.address || [m.street, m.city, m.province, m.postcode].filter(Boolean).join(', ');
+        return {
+          'First Name': m.firstName || '',
+          'Last Name': m.lastName || '',
+          'Chinese Name': m.chineseName || '',
+          'Full Name': m.name || ((m.firstName||'') + ' ' + (m.lastName||'')).trim(),
+          'Phone': m.phone || '',
+          'Email': m.email || '',
+          'Status': m.status || '',
+          'Group': m.group || '',
+          'Category': getMemberCategory(m),
+          'Baptism Date': m.baptismDate || '',
+          'Holy Spirit Date': m.holySpiritDate || '',
+          'Birth Month': m.birthMonth || '',
+          'Birth Year': m.birthYear || '',
+          'Join Month': m.joinMonth || '',
+          'Join Year': m.joinYear || '',
+          'Joined': joined,
+          'Street': m.street || '',
+          'City': m.city || '',
+          'Province': m.province || '',
+          'Postcode': m.postcode || '',
+          'Address': address,
+          'Attendance %': attPct
+        };
+      });
+    }
+
+    function exportMembersExcel(){
+      try{
+        if(typeof XLSX === 'undefined'){
+          alert('Excel export is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
+          return;
+        }
+        if(!state.members.length){
+          toast('No members to export');
+          return;
+        }
+        const rows = membersToExportRows();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Members');
+        const filename = `church-members-${new Date().toISOString().slice(0,10)}.xlsx`;
+        XLSX.writeFile(wb, filename);
+        toast('Members exported');
+      }catch(e){
+        console.error('Export Members Excel failed:', e);
+        alert('Export failed in this browser. Try Chrome/Edge or disable strict download blockers.');
+      }
+    }
+
+    function normalizeHeader(h){
+      return (h ?? '').toString().trim().toLowerCase().replace(/[^a-z0-9]+/g,'');
+    }
+
+    function valFromRow(row, keys){
+      for(const k of keys){
+        if(Object.prototype.hasOwnProperty.call(row, k)) return row[k];
+      }
+      return undefined;
+    }
+
+    // Excel/Sheets may hand back dates as serial numbers (days since 1899-12-30) instead of
+    // strings when a column is formatted as a date. Convert those to YYYY-MM-DD; pass through
+    // strings that already look like dates.
+    function excelToISODate(v){
+      if(v === '' || v === null || v === undefined) return '';
+      if(typeof v === 'number' && isFinite(v)){
+        const ms = Math.round((v - 25569) * 86400 * 1000);
+        const d = new Date(ms);
+        if(isNaN(d.getTime())) return '';
+        return d.toISOString().slice(0,10);
+      }
+      const s = v.toString().trim();
+      if(!s) return '';
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+      const parsed = new Date(s);
+      if(!isNaN(parsed.getTime())) return parsed.toISOString().slice(0,10);
+      return '';
+    }
+
+    function parseExcelMembers(rows){
+      // Build a header map based on normalized keys.
+      // rows are objects from sheet_to_json({defval:''})
+      const mapped = [];
+      for(const r of rows){
+        // Create a normalized-key view of the row
+        const norm = {};
+        for(const [k,v] of Object.entries(r||{})){
+          norm[normalizeHeader(k)] = v;
+        }
+
+        const firstName = (valFromRow(norm, ['firstname','first','givenname','given']) ?? '').toString().trim();
+        const lastName = (valFromRow(norm, ['lastname','last','surname','familyname']) ?? '').toString().trim();
+        const fullName = (valFromRow(norm, ['fullname','name']) ?? '').toString().trim();
+
+        // If first/last missing but full name present, split best-effort
+        let fn = firstName;
+        let ln = lastName;
+        if((!fn || !ln) && fullName){
+          const parts = fullName.split(/\s+/).filter(Boolean);
+          fn = fn || (parts.shift() || '');
+          ln = ln || (parts.join(' ') || '');
+        }
+
+        if(!fn && !ln) continue; // skip blank rows
+
+        const chineseName = (valFromRow(norm, ['chinesename','chinesenamech','chinesenamecn','chinese']) ?? '').toString().trim();
+        const phoneRaw = (valFromRow(norm, ['phone','phonenumber','mobile','cell']) ?? '').toString();
+        const email = (valFromRow(norm, ['email','emailaddress']) ?? '').toString().trim();
+        const status = (valFromRow(norm, ['status']) ?? 'Active').toString().trim() || 'Active';
+        const group = (valFromRow(norm, ['group','ministry','department']) ?? '').toString().trim();
+
+        // Category: Member / Visitor / Transferred (separate from Status). Fall back to
+        // inferring from Status for sheets that don't have this column yet.
+        let category = (valFromRow(norm, ['category']) ?? '').toString().trim();
+        if(category){
+          const catMatch = ['Member','Visitor','Transferred'].find(c => c.toLowerCase() === category.toLowerCase());
+          category = catMatch || 'Member';
+        } else {
+          category = status === 'Visitor' ? 'Visitor' : 'Member';
+        }
+
+        const baptismDate = excelToISODate(valFromRow(norm, ['baptismdate','baptism','dateofbaptism']));
+        const holySpiritDate = excelToISODate(valFromRow(norm, ['holyspiritdate','holyspirit','dateofholyspirit','receivedholyspiritdate']));
+
+        // Birth
+        let birthMonth = (valFromRow(norm, ['birthmonth','bmonth','dobmonth']) ?? '').toString().trim();
+        let birthYear = (valFromRow(norm, ['birthyear','byear','dobyear']) ?? '').toString().trim();
+        // Normalize month numbers like 1..12 -> 01..12
+        const bmNum = Number(birthMonth);
+        if(birthMonth && isFinite(bmNum) && bmNum >= 1 && bmNum <= 12) birthMonth = String(bmNum).padStart(2,'0');
+
+        // Join
+        let joinMonth = (valFromRow(norm, ['joinmonth','jmonth','membermonth']) ?? '').toString().trim();
+        let joinYear = (valFromRow(norm, ['joinyear','jyear','memberyear']) ?? '').toString().trim();
+        const jmNum = Number(joinMonth);
+        if(joinMonth && isFinite(jmNum) && jmNum >= 1 && jmNum <= 12) joinMonth = String(jmNum).padStart(2,'0');
+
+        const street = (valFromRow(norm, ['street','streetaddress','address1']) ?? '').toString().trim();
+        const city = (valFromRow(norm, ['city','town']) ?? '').toString().trim();
+        const province = (valFromRow(norm, ['province','prov','state']) ?? '').toString().trim();
+        const postcodeRaw = (valFromRow(norm, ['postcode','postalcode','postal','zip']) ?? '').toString().trim();
+        const postcode = formatPostalCode(postcodeRaw);
+
+        const joined = (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear ? String(joinYear) : '');
+        const address = [street, city, province, postcode].filter(Boolean).join(', ');
+
+        mapped.push({
+          firstName: fn,
+          lastName: ln,
+          chineseName,
+          name: (fn + ' ' + ln).trim(),
+          phone: formatPhone(phoneRaw),
+          email,
+          birthMonth,
+          birthYear,
+          status,
+          group,
+          category,
+          baptismDate,
+          holySpiritDate,
+          joinMonth,
+          joinYear,
+          joined,
+          street,
+          city,
+          province,
+          postcode,
+          address
+        });
+      }
+      return mapped;
+    }
+
+    function dedupeMemberKey(m){
+      const n = normalize(m.name);
+      const p = (m.phone||'').replace(/\s+/g,'');
+      return n + '|' + p;
+    }
+
+    async function importMembersExcelFile(file){
+      if(!file) return;
+      if(typeof XLSX === 'undefined'){
+        alert('Excel import is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
+        return;
+      }
+
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const wsName = wb.SheetNames[0];
+      const ws = wb.Sheets[wsName];
+      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const parsed = parseExcelMembers(rawRows);
+
+      if(parsed.length === 0){
+        alert('No valid member rows found. Make sure your sheet has columns like First Name / Last Name (or Full Name).');
+        return;
+      }
+
+      // Preview
+      const preview = parsed.slice(0, 5).map(m => `
+        <tr>
+          <td class="px-3 py-2">${esc(m.name)}</td>
+          <td class="px-3 py-2">${esc(m.chineseName||'')}</td>
+          <td class="px-3 py-2">${esc(m.phone||'')}</td>
+          <td class="px-3 py-2">${esc(m.status||'')}</td>
+          <td class="px-3 py-2">${esc(m.group||'')}</td>
+        </tr>
+      `).join('');
+
+      openModal('Import Members (Preview)', `
+        <div class="text-sm text-slate-600">
+          File: <span class="font-semibold">${esc(file.name)}</span><br/>
+          Parsed members: <span class="font-semibold">${parsed.length}</span>
+        </div>
+        <div class="mt-3 overflow-auto rounded-xl border">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="px-3 py-2 text-left">Name</th>
+                <th class="px-3 py-2 text-left">Chinese</th>
+                <th class="px-3 py-2 text-left">Phone</th>
+                <th class="px-3 py-2 text-left">Status</th>
+                <th class="px-3 py-2 text-left">Group</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${preview}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-2 text-xs text-slate-500">Showing first 5 rows. <strong>Excel takes priority:</strong> matching members (same name + phone) will be <strong>overwritten</strong> with Excel data.</div>
+        <div class="mt-4 flex gap-2">
+          <button id="btnConfirmImportMembers" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Import</button>
+          <button id="btnCancelImportMembers" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
+        </div>
+      `);
+
+      document.getElementById('btnCancelImportMembers')?.addEventListener('click', closeModal);
+      document.getElementById('btnConfirmImportMembers')?.addEventListener('click', () => {
+        // Excel import takes priority: UPDATE existing members, ADD new ones
+        let added = 0;
+        let updated = 0;
+        
+        for(const m of parsed){
+          const importKey = dedupeMemberKey(m);
+          // Find existing member with same name+phone
+          const existingIdx = state.members.findIndex(em => dedupeMemberKey(em) === importKey);
+          
+          if(existingIdx >= 0){
+            // OVERWRITE existing member with Excel data (keep the original ID)
+            const existingId = state.members[existingIdx].id;
+            state.members[existingIdx] = { id: existingId, ...m };
+            updated++;
+          } else {
+            // ADD new member
+            state.members.push({ id: uid(), ...m });
+            added++;
+          }
+        }
+        
+        const ok = saveState();
+        if(ok){
+          const msg = [];
+          if(added > 0) msg.push(`${added} added`);
+          if(updated > 0) msg.push(`${updated} updated`);
+          toast(`Imported: ${msg.join(', ') || '0 changes'}`);
+          closeModal();
+          render();
+        } else {
+          toast('Import done, but saving is blocked');
+        }
+      });
+    }
+
+    function storageSelfTest(){
+      try{
+        const k = STORAGE_KEY + '.__test__';
+        localStorage.setItem(k, '1');
+        localStorage.removeItem(k);
+        setStorageWarning(false);
+        return true;
+      }catch(e){
+        console.warn('Storage self-test failed:', e);
+        setStorageWarning(true);
+        return false;
+      }
+    }
+
+    // Wire up Members Excel buttons
+    const btnExportMembersExcel = document.getElementById('btnExportMembersExcel');
+    if(btnExportMembersExcel){
+      btnExportMembersExcel.addEventListener('click', exportMembersExcel);
+    }
+    const fileMembersExcel = document.getElementById('fileMembersExcel');
+    if(fileMembersExcel){
+      fileMembersExcel.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        try{
+          if(file) await importMembersExcelFile(file);
+        }catch(err){
+          console.error('Import Members Excel failed:', err);
+          alert('Could not import this file. Please ensure it is a valid .xlsx/.xls/.csv with headers.');
+        } finally {
+          e.target.value = '';
+        }
+      });
+    }
+
+    function updateOnlineStatus() {
+      const el = document.getElementById('onlineStatus');
+      if(!el) return;
+      const isOnline = navigator.onLine;
+      el.innerHTML = isOnline 
+        ? '<span class="size-2 rounded-full bg-emerald-500"></span> Online'
+        : '<span class="size-2 rounded-full bg-slate-400"></span> Offline';
+      el.className = `rounded-xl border px-3 py-2 text-xs flex items-center gap-2 ${isOnline ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-slate-100 text-slate-600'}`;
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    // Init - wrap in DOMContentLoaded to ensure everything is loaded
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', () => {
+        updateOnlineStatus();
+        storageSelfTest();
+        resetServiceForm();
+        render();
+      });
+    } else {
+      updateOnlineStatus();
+      storageSelfTest();
+      resetServiceForm();
+      render();
+    }
+  </script>
+</body>
+</html>
