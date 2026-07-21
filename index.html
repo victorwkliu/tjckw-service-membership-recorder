@@ -42,17 +42,19 @@
     }
     /* Sticky header: wrap cleanly on iPad / narrow windows */
     .app-header-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:0.5rem;min-width:0;}
-    .tab-bar{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;}
-    .tab-bar-scroll{display:flex;flex-wrap:nowrap;gap:0.5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;max-width:100%;}
+    .tab-bar{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;min-width:0;}
+    .tab-bar-scroll{display:flex;flex:1 1 auto;flex-wrap:nowrap;gap:0.5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;min-width:0;max-width:100%;}
     .tab-bar-scroll::-webkit-scrollbar{height:4px;}
-    .responsive-actions,.control-pair{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;min-width:0;max-width:100%;}
-    .responsive-actions > *,.control-pair > *{min-width:0;max-width:100%;}
+    .responsive-actions,.control-pair,.modal-footer,.chip-list{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;min-width:0;max-width:100%;}
+    .responsive-actions > *,.control-pair > *,.modal-footer > *{min-width:0;max-width:100%;}
     .responsive-actions > input,.responsive-actions > select,.control-pair > input,.control-pair > select{flex:1 1 10rem;}
+    .modal-footer > button[type="submit"],.modal-footer > .btn-primary{flex:1 1 8rem;}
     .chip-list > span{min-width:0;max-width:100%;white-space:normal;}
     .chip-list > span > span{min-width:0;overflow-wrap:anywhere;}
     .chip-list button{flex:0 0 auto;}
     #driveStatus{min-width:0;max-width:100%;white-space:normal;}
     #driveStatusText{min-width:0;overflow-wrap:anywhere;}
+    #modalTitle{min-width:0;overflow-wrap:anywhere;}
     aside .rounded-2xl, #memberForm, #serviceForm{min-width:0;}
     table{border-collapse:separate;border-spacing:0;}
     /* iPad portrait/landscape: avoid the narrow 8/4 desktop split and crowded header. */
@@ -65,9 +67,10 @@
       .app-header-actions{justify-content:flex-start;width:100%;}
       .app-header-actions > *{flex:1 1 auto;}
       .app-header-actions .header-btn{text-align:center;}
-      .responsive-actions{width:100%;}
-      .responsive-actions > button,.responsive-actions > label{flex:1 1 9rem;text-align:center;}
-      #modalBody .flex{flex-wrap:wrap;}
+      .responsive-actions,.modal-footer{width:100%;}
+      .responsive-actions > button,.responsive-actions > label,.modal-footer > button,.modal-footer > label{flex:1 1 9rem;text-align:center;}
+      #voterFilterStatus{width:100% !important;flex:1 1 100%;}
+      #toast{left:1rem;right:1rem;max-width:none;}
     }
     @media (max-width: 639px){
       main{padding-left:0.75rem !important;padding-right:0.75rem !important;}
@@ -77,7 +80,6 @@
       .responsive-actions > button,.responsive-actions > label{flex-basis:calc(50% - 0.5rem);}
       .responsive-actions > input,.responsive-actions > select{flex:1 1 100%;}
       .control-pair > input,.control-pair > select{flex:1 1 12rem;}
-      #voterFilterStatus{width:100% !important;flex:1 1 100%;}
       #memberBulkBar > div:last-child{display:flex;flex-wrap:wrap;width:100%;}
       #memberBulkBar button{flex:1 1 9rem;}
       #modal{padding:0.75rem;}
@@ -97,7 +99,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.3</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.4</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -261,7 +263,7 @@
                   <p class="text-sm text-slate-500">Active status · Membership Category Member · ≥2 services from the most recent AGM up to today · 18+ by birth month (or group not RE(E/J/K) if birth date missing)</p>
                 </div>
                 <div class="responsive-actions w-full lg:w-auto">
-                  <select id="voterFilterStatus" class="rounded-xl border px-3 py-2 text-sm" style="width:auto">
+                  <select id="voterFilterStatus" class="min-w-0 rounded-xl border px-3 py-2 text-sm">
                     <option value="all">All</option>
                     <option value="membership">Membership</option>
                     <option value="trueseekers">True Seekers</option>
@@ -270,8 +272,8 @@
                     <option value="visiting">Visiting Members</option>
                     <option value="inactive">Inactive</option>
                   </select>
-                  <button id="btnRefreshVoterReport" class="flex-1 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Refresh</button>
-                  <button id="btnExportEligibleExcel" class="flex-1 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Export Eligible Excel</button>
+                  <button id="btnRefreshVoterReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
+                  <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
                 </div>
               </div>
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
@@ -646,9 +648,9 @@
   <div id="modal" class="no-print fixed inset-0 hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/40"></div>
     <div class="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-2xl bg-white border p-4 shadow-xl min-w-0">
-      <div class="flex items-center justify-between gap-3">
-        <h3 id="modalTitle" class="font-semibold">Quick Add</h3>
-        <button id="modalClose" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Close</button>
+      <div class="flex items-center justify-between gap-3 min-w-0">
+        <h3 id="modalTitle" class="min-w-0 font-semibold">Quick Add</h3>
+        <button id="modalClose" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Close</button>
       </div>
       <div id="modalBody" class="mt-3"></div>
     </div>
@@ -2028,9 +2030,9 @@
               <h3 class="font-semibold text-sm sm:text-base truncate">${esc(service.date||'')} · ${esc(service.type||'')}</h3>
               <p class="text-xs sm:text-sm text-slate-500 truncate">${service.title ? esc(service.title) : 'Tap names to mark present'}</p>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <input id="attendanceSearch" type="search" placeholder="Filter members…" class="w-40 sm:w-48 rounded-lg border px-2.5 py-1.5 text-sm" />
-              <div class="text-sm text-slate-600 whitespace-nowrap">
+            <div class="responsive-actions">
+              <input id="attendanceSearch" type="search" placeholder="Filter members…" class="min-w-0 flex-1 max-w-full rounded-lg border px-2.5 py-1.5 text-sm" />
+              <div class="text-sm text-slate-600">
                 <span id="attendanceCount" class="mono font-semibold">${attendedBy.length}</span> / ${members.length} attended
               </div>
             </div>
@@ -2262,8 +2264,8 @@
         const primary = state.members.find(m => m.id === f.primaryContactMemberId);
         return `<details class="rounded-xl border bg-white p-4">
           <summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-3">
-            <div><div class="font-semibold">${esc(f.displayName)}</div><div class="text-xs text-slate-500">${members.length} member${members.length===1?'':'s'}${primary ? `<div class="mt-1">Primary:${memberNameHtml(primary)}</div>` : ' · Primary: —'}</div></div>
-            <div class="flex flex-wrap gap-2 no-print">
+            <div class="min-w-0"><div class="font-semibold break-words">${esc(f.displayName)}</div><div class="text-xs text-slate-500">${members.length} member${members.length===1?'':'s'}${primary ? `<div class="mt-1">Primary:${memberNameHtml(primary)}</div>` : ' · Primary: —'}</div></div>
+            <div class="responsive-actions no-print">
               <button data-rename-family="${esc(f.id)}" class="rounded-lg border px-2 py-1 text-xs">Edit/Rename</button>
               <button data-manage-family="${esc(f.id)}" class="rounded-lg border px-2 py-1 text-xs">Manage Members</button>
               <button data-merge-family="${esc(f.id)}" class="rounded-lg border px-2 py-1 text-xs">Merge</button>
@@ -2318,7 +2320,7 @@
           <div class="font-medium">${esc(s.familyA.displayName)} ↔ ${esc(s.familyB.displayName)}</div>
           <div class="mt-1 text-xs text-slate-500">${esc(s.reasons.join(' · '))}</div>
           <div class="mt-2 grid gap-2 text-xs sm:grid-cols-2"><div>${s.membersA.map(m => memberNameHtml(m)).join('') || 'Empty'}</div><div>${s.membersB.map(m => memberNameHtml(m)).join('') || 'Empty'}</div></div>
-          <div class="mt-2 flex flex-wrap gap-2"><button data-duplicate-merge="${i}" class="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white">Merge</button><button data-duplicate-move="${i}" class="rounded-lg border px-2 py-1 text-xs">Move Members</button><button data-duplicate-keep="${i}" class="rounded-lg border px-2 py-1 text-xs">Keep Separate / Dismiss</button><button data-duplicate-rename="${i}" class="rounded-lg border px-2 py-1 text-xs">Rename</button></div>
+          <div class="mt-2 responsive-actions"><button data-duplicate-merge="${i}" class="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white">Merge</button><button data-duplicate-move="${i}" class="rounded-lg border px-2 py-1 text-xs">Move Members</button><button data-duplicate-keep="${i}" class="rounded-lg border px-2 py-1 text-xs">Keep Separate / Dismiss</button><button data-duplicate-rename="${i}" class="rounded-lg border px-2 py-1 text-xs">Rename</button></div>
         </div>`).join('')}</div>`, 'max-w-3xl');
       modalBody.querySelectorAll('[data-duplicate-keep]').forEach(b => b.addEventListener('click', () => b.closest('[data-duplicate-card]').remove()));
       modalBody.querySelectorAll('[data-duplicate-merge]').forEach(b => b.addEventListener('click', () => openMergeFamily(suggestions[Number(b.dataset.duplicateMerge)].familyA.id)));
@@ -2352,7 +2354,7 @@
         <div><div class="text-sm text-slate-600">Selected members</div><div id="builderSelected" class="mt-2 max-h-64 overflow-auto rounded-xl border p-2"></div></div></div>
         <div><label class="text-sm text-slate-600">Primary contact (optional)</label><select id="builderPrimary" class="mt-1 rounded-xl border px-3 py-2"><option value="">None</option></select></div>
         <div id="builderConflicts"></div><div id="builderSummary" class="rounded-xl bg-slate-50 p-3 text-sm"></div>
-        <div class="flex gap-2"><button id="builderSave" class="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-white">Confirm & Save</button><button id="builderCancel" class="rounded-xl border px-3 py-2">Cancel</button></div>
+        <div class="modal-footer"><button id="builderSave" class="btn-primary flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-white">Confirm & Save</button><button id="builderCancel" class="rounded-xl border px-3 py-2">Cancel</button></div>
       </div>`, 'max-w-3xl');
 
       const modeInputs = [...modalBody.querySelectorAll('[name="builderMode"]')], familySelect=document.getElementById('builderFamilyId');
@@ -2985,8 +2987,8 @@
             <input type="checkbox" id="colAddress" ${cols.address ? 'checked' : ''} class="size-4 rounded" />
             <span>Address</span>
           </label>
-          <div class="flex gap-2 pt-2">
-            <button id="btnSaveColumns" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save</button>
+          <div class="modal-footer pt-2">
+            <button id="btnSaveColumns" class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save</button>
             <button id="btnResetColumns" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Reset to Default</button>
           </div>
         </div>
@@ -3423,8 +3425,8 @@
         <div class="mt-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
           This will <strong>replace</strong> everything currently loaded with the contents of this file. This cannot be undone (unless you have another backup).
         </div>
-        <div class="mt-4 flex gap-2">
-          <button id="btnConfirmImportJSON" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Replace with this file</button>
+        <div class="mt-4 modal-footer">
+          <button id="btnConfirmImportJSON" class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Replace with this file</button>
           <button id="btnCancelImportJSON" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
         </div>
       `);
@@ -3524,7 +3526,7 @@
       modalBody.innerHTML = html;
       const panel = modal.querySelector('.relative');
       if(panel){
-        panel.classList.remove('max-w-lg','max-w-3xl','max-w-5xl');
+        panel.classList.remove('max-w-lg','max-w-2xl','max-w-3xl','max-w-5xl');
         panel.classList.add(sizeClass);
       }
       modal.classList.remove('hidden');
@@ -3577,8 +3579,8 @@
                 </select>
               </div>
             </div>
-            <div class="flex flex-wrap gap-2">
-              <button class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
+            <div class="modal-footer">
+              <button class="btn-primary flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
               <button class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button" id="quickCancel">Cancel</button>
             </div>
           </form>
@@ -3654,8 +3656,8 @@
               ${state.serviceTypes.slice().sort((a,b)=>a.localeCompare(b)).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}
             </select>
           </div>
-          <div class="flex gap-2">
-            <button class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
+          <div class="modal-footer">
+            <button class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
             <button class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button" id="quickCancel">Cancel</button>
           </div>
         </form>
@@ -4151,8 +4153,8 @@
             <span><strong>Overwrite provided fields</strong> — non-blank imported values replace current data for matching members.</span>
           </label>
         </div>
-        <div class="mt-4 flex gap-2">
-          <button id="btnConfirmImportMembers" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Import</button>
+        <div class="mt-4 modal-footer">
+          <button id="btnConfirmImportMembers" class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Import</button>
           <button id="btnCancelImportMembers" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
         </div>
       `, 'max-w-2xl');
