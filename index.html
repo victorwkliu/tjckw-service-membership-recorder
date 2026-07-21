@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.9</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.10</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -2126,6 +2126,9 @@
         activeOnly = !activeOnly;
         e.currentTarget.classList.toggle('bg-slate-900', activeOnly);
         e.currentTarget.classList.toggle('text-white', activeOnly);
+        // Keep a dark hover while active so white text stays readable (not white-on-light).
+        e.currentTarget.classList.toggle('hover:bg-slate-50', !activeOnly);
+        e.currentTarget.classList.toggle('hover:bg-slate-800', activeOnly);
         e.currentTarget.textContent = activeOnly ? 'Show all' : 'Show Active only';
         applyFilters();
       });
