@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Church Service & Membership Recorder</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
@@ -58,17 +61,13 @@
   <header class="no-print sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
     <div class="app-header mx-auto max-w-7xl px-4 py-4 flex items-center justify-between gap-4">
       <div class="app-header-brand flex items-center gap-3 min-w-0">
-        <div class="size-10 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center font-semibold">CS</div>
+        <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
-          <h1 class="text-base sm:text-lg font-semibold leading-tight truncate">Church Service & Membership Recorder</h1>
-          <p class="text-xs sm:text-sm text-slate-500 hidden sm:block">Offline-first • Save to Drive to sync devices</p>
+          <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21</div>
         </div>
       </div>
       <div class="app-header-actions">
-        <div id="onlineStatus" class="rounded-xl border px-3 py-2 text-xs flex items-center gap-2 border-emerald-200 bg-emerald-50 text-emerald-800">
-          <span class="size-2 rounded-full bg-emerald-500"></span>
-          Online
-        </div>
         <div id="driveStatus" class="rounded-xl border px-3 py-2 text-xs flex items-center gap-2 border-slate-300 bg-slate-100 text-slate-600" title="Whether your latest changes have been saved to a JSON file (e.g. in Google Drive).">
           <span class="size-2 rounded-full bg-slate-400"></span>
           <span id="driveStatusText">Cache-only</span>
@@ -81,12 +80,7 @@
           Open from Drive
           <input id="fileOpenFromDrive" type="file" accept="application/json" class="hidden" />
         </label>
-        <button id="btnExport" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export JSON</button>
-        <label class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-          Import JSON
-          <input id="fileImport" type="file" accept="application/json" class="hidden" />
-        </label>
-        <button id="btnPrint" class="header-btn rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Print</button>
+        <button id="btnPrint" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Print</button>
         <button id="btnReset" class="header-btn rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Reset</button>
       </div>
     </div>
@@ -94,7 +88,7 @@
 
   <main class="mx-auto max-w-7xl px-4 py-6">
     <section class="grid gap-4 md:grid-cols-12">
-      <div class="md:col-span-8 min-w-0">
+      <div id="mainPanel" class="md:col-span-8 min-w-0">
         <div class="rounded-2xl border bg-white p-4 min-w-0 overflow-hidden">
           <div class="tab-bar justify-between gap-3">
             <div class="tab-bar-scroll">
@@ -102,6 +96,7 @@
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="members">Members</button>
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="attendance">Attendance</button>
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="reports">Reports</button>
+              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="families">Families</button>
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="settings">Settings</button>
             </div>
             <div class="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
@@ -123,7 +118,6 @@
                 </select>
                 <input id="serviceFrom" type="date" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm" />
                 <input id="serviceTo" type="date" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm" />
-                <button id="btnClearServiceFilters" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Clear</button>
               </div>
             </div>
 
@@ -133,7 +127,7 @@
                   <tr>
                     <th class="px-3 py-2 text-left">Date</th>
                     <th class="px-3 py-2 text-left">Type</th>
-                    <th class="px-3 py-2 text-left">Theme/Title</th>
+                    <th class="px-3 py-2 text-left">Theme</th>
                     <th class="px-3 py-2 text-left">Minister</th>
                     <th class="px-3 py-2 text-right">Attendance</th>
                     <th class="px-3 py-2 text-left">Notes</th>
@@ -148,21 +142,39 @@
           <!-- MEMBERS TAB -->
           <div id="tab-members" class="mt-4 hidden">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <h2 class="text-base font-semibold">Membership Directory</h2>
+              <div class="min-w-0">
+                <h2 class="text-base font-semibold">Membership Directory</h2>
+                <p id="memberCountSummary" class="text-xs text-slate-500 mt-0.5">0 members</p>
+              </div>
               <div class="flex flex-wrap items-center gap-2 min-w-0">
                 <button id="btnColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
+                <button id="btnCollectMemberInfo" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Collect Info</button>
                 <button id="btnExportMembersExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Excel</button>
                 <label class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-                  Import Excel
-                  <input id="fileMembersExcel" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
+                  Import Updates
+                  <input id="fileMembersExcel" type="file" accept=".xlsx,.xls,.csv,.json,application/json" class="hidden" multiple />
                 </label>
-                <select id="memberFilterStatus" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm">
-                  <option value="">All statuses</option>
-                </select>
-                <select id="memberFilterGroup" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm">
-                  <option value="">All groups</option>
-                </select>
-                <button id="btnClearMemberFilters" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Clear</button>
+              </div>
+            </div>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <select id="memberFilterStatus" class="min-w-0 w-full rounded-xl border px-3 py-2 text-sm">
+                <option value="">All statuses</option>
+              </select>
+              <select id="memberFilterMembershipCategory" class="min-w-0 w-full rounded-xl border px-3 py-2 text-sm">
+                <option value="">All membership categories</option>
+              </select>
+              <select id="memberFilterGroup" class="min-w-0 w-full rounded-xl border px-3 py-2 text-sm">
+                <option value="">All groups</option>
+              </select>
+              <select id="memberFilterFamily" class="min-w-0 w-full rounded-xl border px-3 py-2 text-sm">
+                <option value="">All families</option>
+              </select>
+            </div>
+            <div id="memberBulkBar" class="mt-3 hidden flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <div class="text-sm"><span id="memberSelectionCount" class="font-semibold">0</span> selected</div>
+              <div class="flex gap-2">
+                <button id="btnClearMemberSelection" class="rounded-lg border bg-white px-3 py-1.5 text-sm">Clear</button>
+                <button id="btnBulkFamily" disabled class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40">Create/Link Family</button>
               </div>
             </div>
 
@@ -209,21 +221,25 @@
 
           <!-- REPORTS TAB -->
           <div id="tab-reports" class="mt-4 hidden">
-            <!-- ELIGIBLE VOTER REPORT -->
+            <!-- MEMBERSHIP REPORT -->
             <div class="mb-6 rounded-2xl border bg-white p-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 class="font-semibold text-base">Eligible Voter Report</h3>
-                  <p class="text-sm text-slate-500">Criteria: (1) 18+ years old by birth month, AND (2) ≥2 services between previous AGM and latest AGM/EGM</p>
+                  <h3 class="font-semibold text-base">Membership Report</h3>
+                  <p class="text-sm text-slate-500">Active status · Membership Category Member · ≥2 services from the most recent AGM up to today · 18+ by birth month (or group not RE(E/J/K) if birth date missing)</p>
                 </div>
-                <div class="flex items-center gap-2">
-                  <select id="voterFilterStatus" class="rounded-xl border px-3 py-2 text-sm">
-                    <option value="all">All Members</option>
-                    <option value="eligible">Eligible Only</option>
-                    <option value="noteligible">Not Eligible Only</option>
+                <div class="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+                  <select id="voterFilterStatus" class="rounded-xl border px-3 py-2 text-sm" style="width:auto">
+                    <option value="all">All</option>
+                    <option value="membership">Membership</option>
+                    <option value="trueseekers">True Seekers</option>
+                    <option value="activeatt">Active Members</option>
+                    <option value="eligible">Eligible</option>
+                    <option value="visiting">Visiting Members</option>
+                    <option value="inactive">Inactive</option>
                   </select>
-                  <button id="btnRefreshVoterReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
-                  <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
+                  <button id="btnRefreshVoterReport" class="flex-1 whitespace-nowrap rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Refresh</button>
+                  <button id="btnExportEligibleExcel" class="flex-1 whitespace-nowrap rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Export Eligible Excel</button>
                 </div>
               </div>
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
@@ -243,6 +259,33 @@
               </div>
             </div>
 
+            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Membership</div>
+                <div id="kpiMembership" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">True Seekers</div>
+                <div id="kpiTrueSeekers" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Active Members</div>
+                <div id="kpiActiveAttMembers" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Eligible</div>
+                <div id="kpiEligibleVoters" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Visiting Members</div>
+                <div id="kpiVisitingMembers" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+              <div class="rounded-2xl border bg-white p-4">
+                <div class="text-sm text-slate-500">Inactive</div>
+                <div id="kpiInactiveMembers" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+            </div>
+
             <div class="mt-4 grid gap-4 md:grid-cols-2">
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Total Services</div>
@@ -251,6 +294,20 @@
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Avg Attendance</div>
                 <div id="kpiAvgAttendance" class="mt-1 text-2xl font-semibold mono">0</div>
+              </div>
+            </div>
+
+            <!-- ESSC REPORTS -->
+            <div class="mt-4 rounded-2xl border bg-white p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 class="font-semibold text-base">ESSC Reports</h3>
+                  <p class="text-sm text-slate-500">General Evangelical Service / Spiritual Convocations — only services with ESSC Details filled in (baptized / holy spirit / communion)</p>
+                </div>
+                <button id="btnRefreshEsscReports" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
+              </div>
+              <div id="esscReportContent" class="mt-4 grid gap-3">
+                <div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet. Fill ESSC Details counts on an ESSC service and Save.</div>
               </div>
             </div>
 
@@ -270,14 +327,22 @@
                 <div id="memberSummary" class="mt-3 text-sm"></div>
               </div>
             </div>
+          </div>
 
-            <div class="mt-4 rounded-2xl border bg-white p-4">
-              <div class="flex items-center justify-between gap-3">
-                <h3 class="font-semibold">Monthly Trend (Attendance)</h3>
-                <div class="text-xs text-slate-500">Bar height is relative within the selected range</div>
+          <!-- FAMILIES TAB -->
+          <div id="tab-families" class="mt-4 hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-semibold">Families</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Create households, manage members, and review possible duplicates.</p>
               </div>
-              <div id="trend" class="mt-4 grid gap-2"></div>
+              <div class="flex gap-2">
+                <input id="familySearch" type="search" placeholder="Search family or member…" class="rounded-xl border px-3 py-2 text-sm" />
+                <button id="btnCreateFamily" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Create Family</button>
+                <button id="btnReviewDuplicates" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Review Duplicates</button>
+              </div>
             </div>
+            <div id="familiesList" class="mt-4 grid gap-3"></div>
           </div>
 
           <!-- SETTINGS TAB -->
@@ -289,7 +354,7 @@
                 <p class="text-sm text-slate-500 mt-1">Used for the service type dropdown and filters.</p>
                 <div class="mt-3 flex items-center gap-2">
                   <input id="newServiceType" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Sunday Service" />
-                  <button id="btnAddServiceType" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Add</button>
+                  <button id="btnAddServiceType" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
                 <div id="serviceTypeChips" class="mt-3 flex flex-wrap gap-2"></div>
               </div>
@@ -299,9 +364,17 @@
                 <p class="text-sm text-slate-500 mt-1">Used for member grouping and filters.</p>
                 <div class="mt-3 flex items-center gap-2">
                   <input id="newGroup" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Choir" />
-                  <button id="btnAddGroup" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Add</button>
+                  <button id="btnAddGroup" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
                 <div id="groupChips" class="mt-3 flex flex-wrap gap-2"></div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4">
+                <h3 class="font-semibold">Families</h3>
+                <p class="text-sm text-slate-500 mt-1">Families are managed as households with members, roles, and an optional primary contact.</p>
+                <div class="mt-3 flex items-center gap-2">
+                  <button id="btnOpenFamiliesTab" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open Families</button>
+                </div>
               </div>
 
               <div class="rounded-2xl border bg-white p-4">
@@ -309,29 +382,28 @@
                 <p class="text-sm text-slate-500 mt-1">Manage the available statuses for members.</p>
                 <div class="mt-3 flex items-center gap-2">
                   <input id="newMemberStatus" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Probation" />
-                  <button id="btnAddMemberStatus" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800">Add</button>
+                  <button id="btnAddMemberStatus" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
                 <div id="memberStatusChips" class="mt-3 flex flex-wrap gap-2"></div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4">
+                <h3 class="font-semibold">Membership Categories</h3>
+                <p class="text-sm text-slate-500 mt-1">e.g. Member, True Seeker, Visiting Member.</p>
+                <div class="mt-3 flex items-center gap-2">
+                  <input id="newMembershipCategory" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., True Seeker" />
+                  <button id="btnAddMembershipCategory" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
+                </div>
+                <div id="membershipCategoryChips" class="mt-3 flex flex-wrap gap-2"></div>
               </div>
             </div>
 
 
-            <div class="mt-4 rounded-2xl border bg-white p-4 md:col-span-2">
-              <h3 class="font-semibold">Using on iPad / Multiple Devices</h3>
-              <p class="text-sm text-slate-500 mt-1">This app saves data in this browser's local storage only, which does <strong>not</strong> sync across devices.</p>
-              <ol class="mt-2 text-sm text-slate-600 list-decimal pl-5 space-y-1">
-                <li>Open this HTML file (e.g. from Google Drive via the Files app).</li>
-                <li>Use <span class="font-semibold">Open from Drive</span> at the top to load the latest saved data file.</li>
-                <li>Make your changes.</li>
-                <li>Use <span class="font-semibold">Save to Drive</span> and, when prompted, save the downloaded file back into your Drive folder (overwriting the old one).</li>
-              </ol>
-              <p class="mt-2 text-xs text-slate-500">Don't rely on this browser's local storage alone to carry data between devices — always Save to Drive when you're done, and Open from Drive when you start on a different device.</p>
-            </div>
           </div>
         </div>
       </div>
 
-      <aside class="md:col-span-4 min-w-0">
+      <aside id="sidePanel" class="md:col-span-4 min-w-0">
         <div class="rounded-2xl border bg-white p-4 min-w-0 overflow-hidden">
           <div class="flex items-center justify-between">
             <h2 id="formTitle" class="text-base font-semibold">Add Service</h2>
@@ -353,16 +425,43 @@
               <select id="serviceType" required class="rounded-xl border px-3 py-2 text-sm"></select>
             </div>
             <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Theme/Title</label>
+              <label class="text-sm text-slate-600">Theme</label>
               <input id="serviceTitle" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Faith & Hope" />
             </div>
             <div class="grid gap-2 min-w-0">
               <label class="text-sm text-slate-600">Minister</label>
-              <input id="serviceMinister" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Pastor John" />
+              <input id="serviceMinister" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Pr. Barry, Dn. Scott" />
             </div>
             <div class="grid gap-2 min-w-0">
               <label class="text-sm text-slate-600">Attendance</label>
               <input id="serviceAttendance" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm" placeholder="0" />
+            </div>
+            <div id="esscFields" class="hidden grid gap-3 min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-sm font-semibold text-slate-700">ESSC Details</div>
+              <div class="form-row">
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Date From</label>
+                  <input id="serviceEsscDateFrom" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Date To</label>
+                  <input id="serviceEsscDateTo" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Newly Baptized</label>
+                  <input id="serviceEsscBaptized" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm bg-white" placeholder="0" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Receiving Holy Spirit</label>
+                  <input id="serviceEsscHolySpirit" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm bg-white" placeholder="0" />
+                </div>
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Holy Communion Partakers</label>
+                <input id="serviceEsscCommunion" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm bg-white" placeholder="0" />
+              </div>
             </div>
             <div class="grid gap-2 min-w-0">
               <label class="text-sm text-slate-600">Notes</label>
@@ -434,17 +533,14 @@
               <select id="memberStatus" class="rounded-xl border px-3 py-2 text-sm"></select>
             </div>
             <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Membership Category</label>
+              <select id="memberMembershipCategory" class="rounded-xl border px-3 py-2 text-sm"></select>
+            </div>
+            <div class="grid gap-2 min-w-0">
               <label class="text-sm text-slate-600">Group</label>
               <select id="memberGroup" class="rounded-xl border px-3 py-2 text-sm"></select>
             </div>
-            <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Category</label>
-              <select id="memberCategory" class="rounded-xl border px-3 py-2 text-sm">
-                <option value="Member">Member</option>
-                <option value="Visitor">Visitor</option>
-                <option value="Transferred">Transferred</option>
-              </select>
-            </div>
+            <div id="memberFamilyCard" class="rounded-xl border bg-slate-50 p-3"></div>
             <div class="form-row">
               <div class="grid gap-2 min-w-0">
                 <label class="text-sm text-slate-600">Baptism Date</label>
@@ -508,16 +604,6 @@
             </div>
           </form>
 
-          <div class="mt-4 rounded-xl bg-slate-50 border p-3">
-            <div class="text-xs text-slate-600">Quick tips</div>
-            <ul class="mt-1 text-xs text-slate-600 list-disc pl-5 space-y-1">
-              <li>Use <span class="font-semibold">Save to Drive</span> (or Export JSON) to download a backup file. On iPad, save it into your Drive folder via Files. If nothing happens, check your browser’s download/popup blocker.</li>
-              <li>Use <span class="font-semibold">Open from Drive</span> (or Import JSON) to load a saved file — you'll see a preview before anything is replaced.</li>
-              <li>Search box filters the currently active tab.</li>
-              <li>Data lives in this browser's storage only; it does <span class="font-semibold">not</span> sync across devices on its own — always Save/Open to keep devices in sync.</li>
-              <li><span class="font-semibold">Offline use:</span> This app works without internet once loaded. Data is stored locally. Only address lookup and initial loading require a connection.</li>
-            </ul>
-          </div>
         </div>
       </aside>
     </section>
@@ -545,7 +631,12 @@
     <div id="toastMsg" class="text-slate-900"></div>
   </div>
 
+  <script src="family-domain.js"></script>
   <script>
+    if(typeof FamilyDomain === 'undefined'){
+      alert('family-domain.js failed to load. Keep family-domain.js in the same folder as index.html, then refresh.');
+      throw new Error('FamilyDomain missing');
+    }
     // Basic runtime error visibility (helps diagnose when buttons appear to do nothing)
     window.addEventListener('error', (e) => {
       console.error('App error:', e?.error || e?.message || e);
@@ -568,9 +659,13 @@
 
     const defaults = () => ({
       version: 1,
-      serviceTypes: ['Sunday Service', 'Bible Study', 'Prayer Meeting', 'Special Service', 'AGM', 'EGM'],
-      memberStatuses: ['Active', 'Inactive', 'Visitor'],
+      serviceTypes: ['Sunday Service', 'Bible Study', 'Prayer Meeting', 'Special Service', 'AGM', 'EGM', 'ESSC'],
+      memberStatuses: ['Active', 'Inactive', 'Lost'],
+      membershipCategories: ['Member', 'True Seeker', 'Visiting Member'],
+      categories: [],
       groups: ['Choir', 'Youth', 'Women', 'Men', 'Ushers'],
+      families: [],
+      familyMembers: [],
 
       meta: { lastSavedAt: '', lastOpenedAt: '' },
       memberColumns: {
@@ -579,6 +674,7 @@
         email: true,
         status: true,
         group: true,
+        family: true,
         attendance: true,
         joined: true,
         address: true
@@ -587,24 +683,224 @@
       members: []
     });
 
+    function mergeList(existing, fallback){
+      const base = Array.isArray(existing) ? existing.slice() : [];
+      for(const item of fallback){
+        if(!base.some(x => String(x).toLowerCase() === String(item).toLowerCase())) base.push(item);
+      }
+      return base;
+    }
+
+    function normalizeLabel(s){
+      return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function isVisitorLikeCategory(name){
+      const n = normalizeLabel(name);
+      return n === 'true seeker' || n === 'truth seeker' || n === 'visiting member' || n === 'visitor';
+    }
+
+    function isMembershipCategoryName(name){
+      const n = normalizeLabel(name);
+      return n === 'member' || n === 'visitor' || n === 'true seeker' || n === 'truth seeker' || n === 'visiting member';
+    }
+
+    // Schema cleanup (idempotent):
+    // - Statuses: Active / Inactive / Lost (+ custom)
+    // - Membership Categories: Member, True Seeker, Visiting Member (+ custom)
+    // - Former Visitor / Visitor Categories folded into Visiting Member / Membership Categories
+    function migrateStatusAndCategories(st){
+      if(!st || typeof st !== 'object') return st;
+      st.meta = st.meta || {};
+      st.memberStatuses = Array.isArray(st.memberStatuses) ? st.memberStatuses.slice() : defaults().memberStatuses.slice();
+      st.membershipCategories = Array.isArray(st.membershipCategories) ? st.membershipCategories.slice() : defaults().membershipCategories.slice();
+      st.categories = Array.isArray(st.categories) ? st.categories.slice() : [];
+      st.members = Array.isArray(st.members) ? st.members : [];
+
+      const addMemCat = (canonical) => {
+        if(!st.membershipCategories.some(c => normalizeLabel(c) === normalizeLabel(canonical))){
+          st.membershipCategories.push(canonical);
+        }
+      };
+
+      // Move seeker/visiting-member / Member / Visitor from Statuses → Membership Categories
+      for(const raw of st.memberStatuses.slice()){
+        const n = normalizeLabel(raw);
+        if(n === 'true seeker' || n === 'truth seeker'){
+          st.memberStatuses = st.memberStatuses.filter(x => normalizeLabel(x) !== n);
+          addMemCat('True Seeker');
+        } else if(n === 'visiting member'){
+          st.memberStatuses = st.memberStatuses.filter(x => normalizeLabel(x) !== n);
+          addMemCat('Visiting Member');
+        } else if(n === 'member'){
+          st.memberStatuses = st.memberStatuses.filter(x => normalizeLabel(x) !== n);
+          addMemCat('Member');
+        } else if(n === 'visitor'){
+          st.memberStatuses = st.memberStatuses.filter(x => normalizeLabel(x) !== n);
+          addMemCat('Visiting Member');
+        }
+      }
+
+      // Merge former Visitor Categories list into Membership Categories
+      for(const raw of st.categories.slice()){
+        const n = normalizeLabel(raw);
+        if(n === 'truth seeker' || n === 'true seeker') addMemCat('True Seeker');
+        else if(n === 'visiting member') addMemCat('Visiting Member');
+        else if(n === 'member') addMemCat('Member');
+        else if(n === 'visitor') addMemCat('Visiting Member');
+        else if(raw && String(raw).trim()) addMemCat(String(raw).trim());
+      }
+      st.categories = [];
+
+      st.memberStatuses = mergeList(st.memberStatuses, defaults().memberStatuses);
+      st.membershipCategories = mergeList(st.membershipCategories, defaults().membershipCategories);
+
+      // Dedupe membership categories (Truth seeker → True Seeker; Visitor → Visiting Member)
+      const seenMem = new Set();
+      st.membershipCategories = st.membershipCategories.filter(c => {
+        const n = normalizeLabel(c);
+        if(n === 'visitor') return false; // folded into Visiting Member
+        const key = (n === 'truth seeker') ? 'true seeker' : n;
+        if(seenMem.has(key)) return false;
+        seenMem.add(key);
+        return true;
+      }).map(c => normalizeLabel(c) === 'truth seeker' ? 'True Seeker' : c);
+
+      st.memberStatuses = st.memberStatuses.filter(s => {
+        const n = normalizeLabel(s);
+        return n !== 'true seeker' && n !== 'truth seeker' && n !== 'visiting member'
+          && n !== 'member' && n !== 'visitor';
+      });
+
+      // Adjust every member record
+      for(const m of st.members){
+        const statusN = normalizeLabel(m.status);
+        const catN = normalizeLabel(m.category);
+        let memCatN = normalizeLabel(m.membershipCategory);
+
+        // Prefer former visitor-category field over generic Visitor membership
+        if(catN === 'true seeker' || catN === 'truth seeker'){
+          m.membershipCategory = 'True Seeker';
+          m.category = '';
+        } else if(catN === 'visiting member'){
+          m.membershipCategory = 'Visiting Member';
+          m.category = '';
+        } else if(catN === 'visitor'){
+          if(!memCatN || memCatN === 'visitor') m.membershipCategory = 'Visiting Member';
+          m.category = '';
+        } else if(catN === 'member'){
+          if(!memCatN) m.membershipCategory = 'Member';
+          m.category = '';
+        } else if(catN){
+          // Any other legacy category value → membership category
+          const match = st.membershipCategories.find(c => normalizeLabel(c) === catN);
+          m.membershipCategory = match || m.category;
+          m.category = '';
+        }
+
+        if(statusN === 'true seeker' || statusN === 'truth seeker'){
+          m.membershipCategory = 'True Seeker';
+          m.status = 'Active';
+        } else if(statusN === 'visiting member'){
+          m.membershipCategory = 'Visiting Member';
+          m.status = 'Active';
+        } else if(statusN === 'visitor'){
+          if(!normalizeLabel(m.membershipCategory) || normalizeLabel(m.membershipCategory) === 'visitor'){
+            m.membershipCategory = 'Visiting Member';
+          }
+          m.status = 'Active';
+        } else if(statusN === 'member'){
+          if(!normalizeLabel(m.membershipCategory)) m.membershipCategory = 'Member';
+          m.status = 'Active';
+        }
+
+        if(normalizeLabel(m.membershipCategory) === 'truth seeker') m.membershipCategory = 'True Seeker';
+        if(normalizeLabel(m.membershipCategory) === 'visitor') m.membershipCategory = 'Visiting Member';
+
+        if(!normalizeLabel(m.membershipCategory)){
+          m.membershipCategory = 'Member';
+        }
+        m.category = '';
+
+        const sn = normalizeLabel(m.status);
+        if(sn === 'member' || sn === 'visitor' || sn === 'true seeker' || sn === 'truth seeker' || sn === 'visiting member'){
+          m.status = 'Active';
+        }
+      }
+
+      // Ensure Visitor is not left in the Membership Categories list
+      st.membershipCategories = (st.membershipCategories || []).filter(c => normalizeLabel(c) !== 'visitor');
+      addMemCat('Visiting Member');
+
+      st.meta.visitorCategorySchema = 5;
+
+      return st;
+    }
+
+    function migrateAppState(st){
+      migrateStatusAndCategories(st);
+      FamilyDomain.migrateFamilies(st, { uid, nowFn: () => new Date() });
+
+      // One-time requested cleanup: retain only "Ng — Brandon & 文通".
+      // Family identity remains its stable ID; this only removes the unwanted
+      // family entities and unlinks members assigned to those families.
+      st.meta = st.meta || {};
+      if(st.meta.familyListPurgeSchema !== 1){
+        const familyKey = (name) => normalizeLabel(name)
+          .replace(/[‐‑‒–—−]/g, '-')
+          .replace(/\s*-\s*/g, ' - ');
+        const targetKey = familyKey('Ng - Brandon & 文通');
+        const candidates = (st.families || [])
+          .filter(FamilyDomain.isFamilyEntity)
+          .filter(f => familyKey(f.displayName) === targetKey)
+          .sort((a, b) =>
+            FamilyDomain.getFamilyMembers(st, b.id).length -
+            FamilyDomain.getFamilyMembers(st, a.id).length
+          );
+
+        // Do not purge anything unless the requested family is found.
+        const keep = candidates[0];
+        if(keep){
+          keep.displayName = 'Ng — Brandon & 文通';
+          keep.updatedAt = new Date().toISOString();
+          st.families = [keep];
+          st.familyMembers = (st.familyMembers || [])
+            .filter(fm => fm.familyId === keep.id);
+
+          const linkedIds = new Set(st.familyMembers.map(fm => fm.memberId));
+          if(keep.primaryContactMemberId && !linkedIds.has(keep.primaryContactMemberId)){
+            keep.primaryContactMemberId = '';
+          }
+          FamilyDomain.syncAllMemberFamilyCaches(st);
+          st.meta.familyListPurgeSchema = 1;
+        }
+      }
+      return st;
+    }
+
     function loadState(){
       try{
         const raw = localStorage.getItem(STORAGE_KEY);
-        if(!raw) return defaults();
+        if(!raw) return migrateAppState(defaults());
         const parsed = JSON.parse(raw);
         // Note: legacy churchLocation (GPS) data, if present in old saves, is intentionally
         // dropped here — it is no longer used anywhere in the app.
-        return { ...defaults(), ...parsed,
+        let st = { ...defaults(), ...parsed,
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
-          serviceTypes: Array.isArray(parsed.serviceTypes) ? parsed.serviceTypes : defaults().serviceTypes,
-          memberStatuses: Array.isArray(parsed.memberStatuses) ? parsed.memberStatuses : defaults().memberStatuses,
+          serviceTypes: mergeList(parsed.serviceTypes, defaults().serviceTypes),
+          memberStatuses: mergeList(parsed.memberStatuses, defaults().memberStatuses),
+          membershipCategories: mergeList(parsed.membershipCategories, defaults().membershipCategories),
+          categories: mergeList(parsed.categories, defaults().categories),
           groups: Array.isArray(parsed.groups) ? parsed.groups : defaults().groups,
+          families: Array.isArray(parsed.families) ? parsed.families : defaults().families,
+          familyMembers: Array.isArray(parsed.familyMembers) ? parsed.familyMembers : [],
           services: Array.isArray(parsed.services) ? parsed.services : [],
           members: Array.isArray(parsed.members) ? parsed.members : []
         };
+        return migrateAppState(st);
       }catch(e){
-        return defaults();
+        return migrateAppState(defaults());
       }
     }
 
@@ -641,6 +937,17 @@
     }
 
     let state = loadState();
+    // Persist migrated status/visitor-category cleanup once for existing data (marks dirty → Save to Drive)
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const prev = raw ? JSON.parse(raw) : null;
+      const upgrading = !!(prev && (
+        prev.meta?.visitorCategorySchema !== 5
+        || prev.meta?.familySchema !== FamilyDomain.FAMILY_SCHEMA
+        || prev.meta?.familyListPurgeSchema !== 1
+      ));
+      if(upgrading) saveState();
+    }catch(_){}
 
     // Elements
     const tabs = Array.from(document.querySelectorAll('.tab-btn'));
@@ -649,6 +956,7 @@
       members: document.getElementById('tab-members'),
       attendance: document.getElementById('tab-attendance'),
       reports: document.getElementById('tab-reports'),
+      families: document.getElementById('tab-families'),
       settings: document.getElementById('tab-settings')
     };
     const globalSearch = document.getElementById('globalSearch');
@@ -667,17 +975,19 @@
     const serviceTo = document.getElementById('serviceTo');
 
     const memberFilterStatus = document.getElementById('memberFilterStatus');
+    const memberFilterMembershipCategory = document.getElementById('memberFilterMembershipCategory');
     const memberFilterGroup = document.getElementById('memberFilterGroup');
+    const memberFilterFamily = document.getElementById('memberFilterFamily');
 
     const serviceTypeSelect = document.getElementById('serviceType');
     const memberGroupSelect = document.getElementById('memberGroup');
+    const selectedMemberIds = new Set();
 
     // KPI
     const kpiServices = document.getElementById('kpiServices');
     const kpiAvgAttendance = document.getElementById('kpiAvgAttendance');
     const typeSummary = document.getElementById('typeSummary');
     const memberSummary = document.getElementById('memberSummary');
-    const trend = document.getElementById('trend');
 
     // Modal
     const modal = document.getElementById('modal');
@@ -740,6 +1050,20 @@
         .replaceAll("'",'&#39;');
     }
 
+    function memberNameText(member){
+      if(!member) return '—';
+      const english = (member.name || `${member.firstName || ''} ${member.lastName || ''}`).trim() || '—';
+      return member.chineseName ? `${english} — ${member.chineseName}` : english;
+    }
+
+    function memberNameHtml(member, { chineseClass = 'text-slate-500' } = {}){
+      if(!member) return '<span>—</span>';
+      const english = (member.name || `${member.firstName || ''} ${member.lastName || ''}`).trim() || '—';
+      return `<span class="block">${esc(english)}</span>${member.chineseName
+        ? `<span class="block text-xs font-normal ${chineseClass}">${esc(member.chineseName)}</span>`
+        : ''}`;
+    }
+
     function setActiveTab(tab){
       tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
       Object.entries(tabPanels).forEach(([k, el]) => el.classList.toggle('hidden', k !== tab));
@@ -753,9 +1077,25 @@
         memberForm.classList.remove('hidden');
         serviceForm.classList.add('hidden');
       } else {
-        formTitle.textContent = 'Quick Actions';
+        formTitle.textContent = 'Add Service';
         serviceForm.classList.add('hidden');
         memberForm.classList.add('hidden');
+      }
+
+      // Sidebar form only useful on Services / Members
+      const asidePanel = document.getElementById('sidePanel');
+      const mainPanel = document.getElementById('mainPanel');
+      const showSide = (tab === 'services' || tab === 'members');
+      if(asidePanel) asidePanel.classList.toggle('hidden', !showSide);
+      if(mainPanel){
+        mainPanel.classList.toggle('md:col-span-8', showSide);
+        mainPanel.classList.toggle('md:col-span-12', !showSide);
+      }
+
+      // Quick Add only helps on Services / Members — hide on Attendance, Reports, Settings
+      const btnQuickAdd = document.getElementById('btnQuickAdd');
+      if(btnQuickAdd){
+        btnQuickAdd.classList.toggle('hidden', !showSide);
       }
 
       btnCancelEdit.classList.toggle('hidden', !(isEditing.service || isEditing.member));
@@ -784,16 +1124,19 @@
       document.getElementById('btnDeleteService')?.classList.add('hidden');
       // default date to today for convenience
       document.getElementById('serviceDate').value = todayLocalISO();
+      updateEsscFieldsVisibility();
     }
 
     function resetMemberForm(){
       memberForm.reset();
       document.getElementById('memberId').value = '';
-      document.getElementById('memberCategory').value = 'Member';
+      document.getElementById('memberMembershipCategory').value = 'Member';
+      document.getElementById('memberStatus').value = 'Active';
       isEditing.member = false;
       formTitle.textContent = activeTab() === 'members' ? 'Add Member' : formTitle.textContent;
       btnCancelEdit.classList.add('hidden');
       document.getElementById('btnDeleteMember')?.classList.add('hidden');
+      renderMemberFamilyCard(null);
     }
 
     // Phone number formatting
@@ -830,14 +1173,76 @@
       return (s ?? '').toString().toLowerCase().trim();
     }
 
-    // Category (Member / Visitor / Transferred) is a separate dimension from Status
-    // (Active / Inactive / etc.). Older records saved before this field existed have no
-    // category, so infer a sensible default: legacy Visitors stay Visitor, everyone else
-    // is treated as a Member.
-    function getMemberCategory(m){
-      if(m && m.category) return m.category;
-      if(m && m.status === 'Visitor') return 'Visitor';
+    // Membership Category: Member, True Seeker, Visiting Member, etc.
+    function getMembershipCategory(m){
+      if(!m) return 'Member';
+      const mc = (m.membershipCategory || '').trim();
+      if(mc){
+        if(normalizeLabel(mc) === 'truth seeker') return 'True Seeker';
+        if(normalizeLabel(mc) === 'visitor') return 'Visiting Member';
+        return mc;
+      }
+      // Legacy fallbacks
+      const cat = (m.category || '').trim();
+      if(cat){
+        if(normalizeLabel(cat) === 'truth seeker') return 'True Seeker';
+        if(normalizeLabel(cat) === 'visitor') return 'Visiting Member';
+        if(normalizeLabel(cat) === 'member') return 'Member';
+        return cat;
+      }
+      const statusN = normalizeLabel(m.status);
+      if(statusN === 'visitor') return 'Visiting Member';
+      if(statusN === 'member') return 'Member';
+      if(statusN === 'true seeker' || statusN === 'truth seeker') return 'True Seeker';
+      if(statusN === 'visiting member') return 'Visiting Member';
       return 'Member';
+    }
+
+    function isTrueSeeker(m){
+      const mc = normalizeLabel(getMembershipCategory(m));
+      const group = normalizeLabel(m?.group);
+      return mc === 'true seeker' || mc === 'truth seeker' || group.includes('true seeker');
+    }
+
+    function isMembershipPerson(m){
+      if(!m) return false;
+      if(normalizeLabel(getMembershipCategory(m)) !== 'member') return false;
+      const s = (m.status || '');
+      if(s === 'Inactive' || s === 'Lost' || s === 'Visitor') return false;
+      return true;
+    }
+
+    function isVisitingPerson(m){
+      if(!m) return false;
+      const mc = normalizeLabel(getMembershipCategory(m));
+      return mc === 'visitor' || mc === 'visiting member' || (m.status || '') === 'Visitor';
+    }
+
+    // Members directory: True Seekers & Visiting Members at the bottom; A–Z within groups
+    function compareMembersForList(a, b){
+      const rank = (m) => (isTrueSeeker(m) || isVisitingPerson(m)) ? 1 : 0;
+      const ra = rank(a), rb = rank(b);
+      if(ra !== rb) return ra - rb;
+      return (a.name || '').localeCompare(b.name || '');
+    }
+
+    // Raw attendance rate for sorting (includes visitors/seekers; 0 if no services yet)
+    function getAttendanceScore(memberId){
+      const total = state.services.length;
+      if(total === 0) return 0;
+      const attended = state.services.filter(s => (s.attendedBy || []).includes(memberId)).length;
+      return attended / total;
+    }
+
+    // Attendance checklist: most active on top; True Seekers & Visiting Members still at bottom
+    function compareMembersForAttendance(a, b){
+      const rank = (m) => (isTrueSeeker(m) || isVisitingPerson(m)) ? 1 : 0;
+      const ra = rank(a), rb = rank(b);
+      if(ra !== rb) return ra - rb;
+      const sa = getAttendanceScore(a.id);
+      const sb = getAttendanceScore(b.id);
+      if(sb !== sa) return sb - sa;
+      return (a.name || '').localeCompare(b.name || '');
     }
 
     function serviceMatches(svc, q){
@@ -852,7 +1257,7 @@
       const blob = [
         mem.name, mem.firstName, mem.lastName, mem.chineseName,
         mem.phone, mem.email,
-        mem.status, mem.group, mem.category,
+        mem.status, mem.membershipCategory, mem.group, getMemberFamily(mem),
         mem.joined, mem.joinMonth, mem.joinYear,
         mem.birthYear,
         mem.address, mem.street, mem.city, mem.province, mem.postcode
@@ -883,6 +1288,7 @@
       const options = types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
       serviceTypeSelect.innerHTML = options;
       if(prevFormValue && types.includes(prevFormValue)) serviceTypeSelect.value = prevFormValue;
+      updateEsscFieldsVisibility();
 
       const filterOpts = ['<option value="">All types</option>']
         .concat(types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`));
@@ -926,10 +1332,16 @@
       memberStatusSelect.innerHTML = options;
       if(prevFormValue && statuses.includes(prevFormValue)) memberStatusSelect.value = prevFormValue;
 
-      const filterOpts = ['<option value="">All statuses</option>']
-        .concat(statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`));
+      const voterFilters = ['__eligible_voter', '__ineligible_voter'];
+      const filterOpts = [
+        '<option value="">All statuses</option>',
+        '<option value="__eligible_voter">Eligible Voter</option>',
+        '<option value="__ineligible_voter">Ineligible Voter</option>'
+      ].concat(statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`));
       memberFilterStatus.innerHTML = filterOpts.join('');
-      if(prevFilterValue && statuses.includes(prevFilterValue)) memberFilterStatus.value = prevFilterValue;
+      if(prevFilterValue && (statuses.includes(prevFilterValue) || voterFilters.includes(prevFilterValue))){
+        memberFilterStatus.value = prevFilterValue;
+      }
 
       const chips = document.getElementById('memberStatusChips');
       chips.innerHTML = statuses.map(s => `
@@ -956,6 +1368,56 @@
           }
         });
       });
+    }
+
+    function renderMembershipCategories(){
+      const select = document.getElementById('memberMembershipCategory');
+      if(!select) return;
+      const prevFormValue = select.value;
+      const list = (state.membershipCategories || defaults().membershipCategories)
+        .filter(c => normalizeLabel(c) !== 'visitor')
+        .slice()
+        .sort((a,b)=>a.localeCompare(b));
+      select.innerHTML = list.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      if(prevFormValue && list.includes(prevFormValue)) select.value = prevFormValue;
+      else if(list.includes('Member')) select.value = 'Member';
+      else if(list[0]) select.value = list[0];
+
+      if(memberFilterMembershipCategory){
+        const prevFilterValue = memberFilterMembershipCategory.value;
+        const filterOpts = ['<option value="">All membership categories</option>']
+          .concat(list.map(c => `<option value="${esc(c)}">${esc(c)}</option>`));
+        memberFilterMembershipCategory.innerHTML = filterOpts.join('');
+        if(prevFilterValue && list.includes(prevFilterValue)) memberFilterMembershipCategory.value = prevFilterValue;
+      }
+
+      const chips = document.getElementById('membershipCategoryChips');
+      if(chips){
+        chips.innerHTML = list.map(c => `
+          <span class="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm">
+            <span>${esc(c)}</span>
+            <button class="text-slate-500 hover:text-rose-600" data-del-memcat="${esc(c)}" title="Delete">✕</button>
+          </span>
+        `).join('');
+
+        chips.querySelectorAll('button[data-del-memcat]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const val = btn.getAttribute('data-del-memcat');
+            if(state.members.some(m => getMembershipCategory(m) === val)){
+              alert('This membership category is used by existing members. Change those records first.');
+              return;
+            }
+            state.membershipCategories = (state.membershipCategories || []).filter(x => x !== val);
+            const ok = saveState();
+            if(ok){
+              toast('Membership category deleted');
+              render();
+            } else {
+              toast('Delete failed (storage blocked)');
+            }
+          });
+        });
+      }
     }
 
     function renderGroups(){
@@ -1000,6 +1462,67 @@
       });
     }
 
+    function getMemberFamily(m){
+      return FamilyDomain.getMemberFamilyDisplayName(state, m);
+    }
+
+    function renderFamilies(){
+      const prevFilterValue = memberFilterFamily ? memberFilterFamily.value : '';
+      const families = (state.families || []).filter(FamilyDomain.isFamilyEntity)
+        .slice().sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
+
+      if(memberFilterFamily){
+        memberFilterFamily.innerHTML = ['<option value="">All families</option>']
+          .concat(families.map(f => `<option value="${esc(f.id)}">${esc(f.displayName)}</option>`)).join('');
+        if(prevFilterValue && families.some(f => f.id === prevFilterValue)) memberFilterFamily.value = prevFilterValue;
+      }
+      renderMemberFamilyCard(state.members.find(m => m.id === document.getElementById('memberId')?.value) || null);
+    }
+
+    function renderMemberFamilyCard(member){
+      const card = document.getElementById('memberFamilyCard');
+      if(!card) return;
+      if(!member){
+        card.innerHTML = `<div class="text-sm font-medium">Family</div><p class="mt-1 text-xs text-slate-500">Save this member first, then create or join a family.</p>`;
+        return;
+      }
+      const family = FamilyDomain.getFamilyById(state, FamilyDomain.getMemberFamilyId(member));
+      if(!family){
+        card.innerHTML = `<div class="text-sm font-medium">No family linked</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button type="button" data-card-family="create" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white">Create a Family</button>
+            <button type="button" data-card-family="join" class="rounded-lg border bg-white px-3 py-1.5 text-xs">Join Existing Family</button>
+          </div>`;
+      }else{
+        const members = FamilyDomain.getFamilyMembers(state, family.id);
+        const primary = state.members.find(m => m.id === family.primaryContactMemberId);
+        card.innerHTML = `<div class="flex items-start justify-between gap-2">
+            <div><div class="font-semibold">${esc(family.displayName)}</div>
+            <div class="mt-1 space-y-1 text-xs text-slate-500">${members.map(m => {
+              const role = FamilyDomain.getFamilyMembership(state, m.id)?.relationshipRole;
+              return `<div>${memberNameHtml(m)}${role ? `<span class="text-slate-400"> (${esc(role)})</span>` : ''}</div>`;
+            }).join('') || 'No members'}${primary ? `<div class="mt-2"><span class="font-medium">Primary:</span>${memberNameHtml(primary)}</div>` : ''}</div></div>
+          </div><div class="mt-2 flex flex-wrap gap-2">
+            <button type="button" data-view-family="${esc(family.id)}" class="rounded-lg border bg-white px-3 py-1.5 text-xs">View Family</button>
+            <button type="button" data-manage-family="${esc(family.id)}" class="rounded-lg border bg-white px-3 py-1.5 text-xs">Manage Members</button>
+            <button type="button" data-unlink-member="${esc(member.id)}" class="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs text-rose-700">Remove This Member</button>
+          </div>`;
+      }
+      card.querySelector('[data-card-family="create"]')?.addEventListener('click', () => openFamilyBuilder({ mode:'create', memberIds:[member.id] }));
+      card.querySelector('[data-card-family="join"]')?.addEventListener('click', () => openFamilyBuilder({ mode:'join', memberIds:[member.id] }));
+      card.querySelector('[data-view-family]')?.addEventListener('click', () => {
+        const search = document.getElementById('familySearch');
+        if(search) search.value = family?.displayName || '';
+        setActiveTab('families');
+      });
+      card.querySelector('[data-manage-family]')?.addEventListener('click', e => openFamilyBuilder({ mode:'join', familyId:e.currentTarget.dataset.manageFamily, memberIds:[member.id] }));
+      card.querySelector('[data-unlink-member]')?.addEventListener('click', e => {
+        if(!confirm('Remove this member from the family?')) return;
+        const result = FamilyDomain.applyUnlinkMember(state, e.currentTarget.dataset.unlinkMember, () => new Date());
+        if(result.ok){ state = result.state; saveState(); render(); }
+      });
+    }
+
     function renderServices(){
       const q = normalize(globalSearch.value);
       const type = serviceFilterType.value;
@@ -1038,78 +1561,213 @@
     }
 
     function calculateAttendancePercentage(memberId){
+      // Attendance % only for membership people (not visitor categories / visiting status)
+      const member = state.members.find(m => m.id === memberId);
+      if(!member || !isMembershipPerson(member)) return null;
       const totalServices = state.services.length;
-      if(totalServices === 0) return 0;
+      if(totalServices === 0) return null;
       const attended = state.services.filter(s => (s.attendedBy || []).includes(memberId)).length;
       return Math.round((attended / totalServices) * 100);
     }
 
+    function formatAttendancePct(memberId){
+      const attPct = calculateAttendancePercentage(memberId);
+      if(attPct === null) return { text: '—', color: 'text-slate-400', value: null };
+      const color = attPct >= 75 ? 'text-emerald-700' : attPct >= 50 ? 'text-amber-700' : 'text-slate-600';
+      return { text: `${attPct}%`, color, value: attPct };
+    }
+
+    function getMembershipBucketCounts(){
+      let membership = 0, trueSeekers = 0, activeMembers = 0, eligible = 0, visiting = 0, inactive = 0;
+      for(const m of state.members){
+        if(isMembershipPerson(m)) membership++;
+        if(isTrueSeeker(m)) trueSeekers++;
+        if(isVisitingPerson(m)) visiting++;
+        if((m.status || '') === 'Inactive') inactive++;
+        const v = getVoterStatus(m.id);
+        if(v.attCheck && v.attCheck.passed) activeMembers++;
+        if(v.eligible) eligible++;
+      }
+      return { membership, trueSeekers, activeMembers, eligible, visiting, inactive };
+    }
+
+    function memberMatchesVoterFilter(m, filter, voter){
+      if(filter === 'all') return true;
+      if(filter === 'membership') return isMembershipPerson(m);
+      if(filter === 'trueseekers') return isTrueSeeker(m);
+      if(filter === 'activeatt') return !!(voter.attCheck && voter.attCheck.passed);
+      if(filter === 'eligible') return !!voter.eligible;
+      if(filter === 'visiting') return isVisitingPerson(m);
+      if(filter === 'inactive') return (m.status || '') === 'Inactive';
+      return true;
+    }
+
+    function isEsscService(s){
+      const t = (s.type || '').toUpperCase();
+      const ti = (s.title || '').toUpperCase();
+      return t.includes('ESSC') || ti.includes('ESSC');
+    }
+
+    // ESSC report cards come only from services where ESSC Details counts were entered
+    // (not every daily ESSC attendance service).
+    function hasEsscReportEntry(s){
+      if(!s) return false;
+      if(s.esscReportEntry === true) return true;
+      const filled = (v) => v !== '' && v != null && v !== undefined;
+      return filled(s.esscBaptized) || filled(s.esscHolySpirit) || filled(s.esscCommunion);
+    }
+
+    function isEsscTypeSelected(){
+      const type = (document.getElementById('serviceType')?.value || '').toUpperCase();
+      const title = (document.getElementById('serviceTitle')?.value || '').toUpperCase();
+      return type.includes('ESSC') || title.includes('ESSC');
+    }
+
+    function updateEsscFieldsVisibility(){
+      const panel = document.getElementById('esscFields');
+      if(!panel) return;
+      const show = isEsscTypeSelected();
+      panel.classList.toggle('hidden', !show);
+      if(show){
+        const mainDate = document.getElementById('serviceDate')?.value || '';
+        const fromEl = document.getElementById('serviceEsscDateFrom');
+        const toEl = document.getElementById('serviceEsscDateTo');
+        if(fromEl && !fromEl.value && mainDate) fromEl.value = mainDate;
+        if(toEl && !toEl.value && (fromEl?.value || mainDate)) toEl.value = fromEl?.value || mainDate;
+      }
+    }
+
+    function blankDisp(v){
+      const s = (v ?? '').toString().trim();
+      return s === '' ? '—' : s;
+    }
+
+    function esscDateRangeText(s){
+      const from = (s.esscDateFrom || s.date || '').toString().trim();
+      const to = (s.esscDateTo || s.esscDateFrom || s.date || '').toString().trim();
+      if(!from && !to) return '—';
+      if(!to || from === to) return from || to;
+      return `${from} / ${to}`;
+    }
+
+    function renderEsscReports(){
+      const esscServices = state.services
+        .filter(s => isEsscService(s) && hasEsscReportEntry(s))
+        .slice()
+        .sort((a,b)=>{
+          const da = a.esscDateFrom || a.date || '';
+          const db = b.esscDateFrom || b.date || '';
+          return db.localeCompare(da);
+        });
+
+      const content = document.getElementById('esscReportContent');
+      if(!content) return;
+      if(esscServices.length === 0){
+        content.innerHTML = '<div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet.<br/><span class="text-xs">Add/edit an ESSC service and fill Newly Baptized, Receiving Holy Spirit, and/or Holy Communion Partakers in ESSC Details, then Save.</span></div>';
+        return;
+      }
+      content.innerHTML = esscServices.map(s => `
+        <article class="rounded-xl border bg-white p-4 text-sm">
+          <h4 class="font-semibold text-slate-800">General Evangelical Service / Spiritual Convocations</h4>
+          <dl class="mt-3 grid gap-2">
+            <div><span class="text-slate-500">Date:</span> <span class="mono font-medium">${esc(esscDateRangeText(s))}</span></div>
+            <div><span class="text-slate-500">Minister:</span> <span class="font-medium">${esc(blankDisp(s.minister))}</span></div>
+            <div><span class="text-slate-500">Theme:</span> <span class="font-medium">${esc(blankDisp(s.title))}</span></div>
+            <div><span class="text-slate-500">Number of Newly Baptized:</span> <span class="mono font-medium">${esc(blankDisp(s.esscBaptized))}</span></div>
+            <div><span class="text-slate-500">Number of Receiving Holy Spirit:</span> <span class="mono font-medium">${esc(blankDisp(s.esscHolySpirit))}</span></div>
+            <div><span class="text-slate-500">Number of Holy Communion Partakers:</span> <span class="mono font-medium">${esc(blankDisp(s.esscCommunion))}</span></div>
+          </dl>
+          <div class="mt-3 flex flex-wrap gap-2 no-print">
+            <button type="button" class="rounded-lg border px-2 py-1 text-xs hover:bg-slate-50" data-edit-essc="${esc(s.id)}">Edit</button>
+          </div>
+        </article>
+      `).join('');
+
+      content.querySelectorAll('button[data-edit-essc]').forEach(btn => {
+        btn.addEventListener('click', () => startEditService(btn.getAttribute('data-edit-essc')));
+      });
+    }
+
+    function isREYouthGroup(group){
+      // Religious Education child/youth classes: RE(E), RE(J), RE(K)
+      // (and common variants like "RE (E)", "RE(E,J,K)", etc.)
+      const g = (group || '').toUpperCase().replace(/\s+/g, '');
+      if(!g) return false;
+      if(/RE\([EJK]\)/.test(g)) return true;
+      if(g.startsWith('RE(') && /[EJK]/.test(g)) return true;
+      return false;
+    }
+
     function getVoterStatus(memberId) {
-      // Voter Eligibility Criteria:
-      // 1. Must be 18 years or older by birth month
-      // 2. Must have attended at least 2 services between previous AGM and latest AGM/EGM
+      // Voter Eligibility Criteria (TJCKW):
+      // 1. Status Active + Membership Category Member (no visitor category)
+      // 2. Attended ≥2 services from the most recent AGM up to today
+      //    ("Active Members" filter uses THIS criterion only)
+      // 3. Age 18+ by birth month as of today,
+      //    OR (if birth month/year is missing) Group/Ministry is NOT RE(E), RE(J), or RE(K)
       
       const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
       
-      const isMeeting = (s) => {
-        const t = (s.type||'').toUpperCase();
-        const ti = (s.title||'').toUpperCase();
-        return t === 'AGM' || t === 'EGM' || ti.includes('AGM') || ti.includes('EGM');
-      };
       const isAGM = (s) => {
         const t = (s.type||'').toUpperCase();
         const ti = (s.title||'').toUpperCase();
         return t === 'AGM' || ti.includes('AGM');
       };
 
-      const latestIdx = services.findIndex(isMeeting);
-      if(latestIdx === -1) return { eligible: false, text: 'No AGM/EGM', detail: 'No recent meeting found', ageCheck: null, attCheck: null };
-      
-      const latest = services[latestIdx];
-      
-      // Look for previous AGM after the latest meeting index
-      const prevAGMIdx = services.findIndex((s, i) => i > latestIdx && isAGM(s));
-      if(prevAGMIdx === -1) return { eligible: false, text: 'No prev AGM', detail: 'Previous AGM not found', ageCheck: null, attCheck: null };
-      
-      const prevAGM = services[prevAGMIdx];
+      // Anchor on the most recent AGM (e.g. February this year). The voting period
+      // runs from that AGM up to today.
+      const anchorIdx = services.findIndex(isAGM);
+      if(anchorIdx === -1) return { eligible: false, text: 'No AGM', detail: 'No AGM found', ageCheck: null, attCheck: null };
 
+      const anchorAGM = services[anchorIdx];
+      const todayStr = todayLocalISO();
       const member = state.members.find(m => m.id === memberId);
 
-      // Eligibility precondition: must be an Active member with Category = Member.
-      // (Visitors and Transferred members, and non-Active members, are never eligible voters,
-      // regardless of age/attendance.) Legacy records with no Category are treated as Member.
-      const category = getMemberCategory(member);
-      if(!member || member.status !== 'Active' || category !== 'Member'){
-        const reasons = [];
-        if(!member) reasons.push('Member not found');
-        else {
-          if(member.status !== 'Active') reasons.push(`Status is "${member.status||'—'}" (must be Active)`);
-          if(category !== 'Member') reasons.push(`Category is "${category}" (must be Member)`);
-        }
+      // Attendance (≥2 from the previous AGM up to now) — always computed so the
+      // "Active Members" filter can use it alone.
+      const rangeServices = services.filter(s => s.date > anchorAGM.date && s.date <= todayStr);
+      const attendedCount = rangeServices.reduce((acc, s) => acc + ((s.attendedBy||[]).includes(memberId) ? 1 : 0), 0);
+      const voterPeriod = `${anchorAGM.date} to ${todayStr}`;
+      const attCheck = {
+        passed: attendedCount >= 2,
+        count: attendedCount,
+        totalServices: rangeServices.length,
+        from: anchorAGM.date,
+        to: todayStr,
+        reason: attendedCount >= 2
+          ? ''
+          : `Attended ${attendedCount} services since the ${anchorAGM.date} AGM (need 2+)`
+      };
+
+      if(!member){
         return {
           eligible: false,
           text: 'No',
-          detail: reasons.join('; '),
+          detail: 'Member not found',
           color: 'bg-rose-50 text-rose-700',
           ageCheck: null,
-          attCheck: null
+          attCheck
         };
       }
 
-      // Check age requirement (must be 18+ by birth month of latest AGM/EGM)
+      const memCat = getMembershipCategory(member);
+      const status = member.status || '';
+      const statusOk = status === 'Active'
+        && normalizeLabel(memCat) === 'member';
+
+      // Age 18+ by birth month as of today — or RE(E/J/K) workaround when birth date is missing
       let ageCheck = { passed: false, age: null, reason: '' };
-      if(member && member.birthYear){
-        const latestYear = parseInt(latest.date.split('-')[0]) || new Date(latest.date).getFullYear();
-        const birthMonth = member.birthMonth ? parseInt(member.birthMonth) : 12; // Default to Dec if not specified
+      const hasBirthYear = !!(member.birthYear && String(member.birthYear).trim());
+      if(hasBirthYear){
+        const latestYear = parseInt(todayStr.split('-')[0]);
+        const birthMonth = member.birthMonth ? parseInt(member.birthMonth) : 12;
         const birthYear = parseInt(member.birthYear);
         const age = latestYear - birthYear;
         
-        // Check if they turn 18 in the latest year (by their birth month)
         if(age > 18){
           ageCheck = { passed: true, age: age, reason: '' };
         } else if(age === 18){
-          // If they turn 18 this year, check if birth month has passed by latest AGM date
-          const latestMonth = parseInt(latest.date.split('-')[1]) || 1;
+          const latestMonth = parseInt(todayStr.split('-')[1]) || 1;
           if(birthMonth <= latestMonth){
             ageCheck = { passed: true, age: 18, reason: '' };
           } else {
@@ -1118,24 +1776,33 @@
         } else {
           ageCheck = { passed: false, age: age, reason: `Must be 18+ (currently ${age})` };
         }
+      } else if(isREYouthGroup(member.group)){
+        ageCheck = {
+          passed: false,
+          age: null,
+          reason: `No birth date; group "${member.group||''}" is RE(E/J/K)`
+        };
       } else {
-        ageCheck = { passed: false, age: null, reason: 'Birth year required' };
+        ageCheck = {
+          passed: true,
+          age: null,
+          reason: 'No birth date; group not RE(E/J/K)'
+        };
       }
-      
-      // Check attendance requirement (≥2 services between previous AGM and latest)
-      const rangeServices = services.filter(s => s.date > prevAGM.date && s.date < latest.date);
-      const attendedCount = rangeServices.reduce((acc, s) => acc + ((s.attendedBy||[]).includes(memberId) ? 1 : 0), 0);
-      const attCheck = { passed: attendedCount >= 2, count: attendedCount, reason: attendedCount >= 2 ? '' : `Attended ${attendedCount} (need 2+)` };
-      
-      const eligible = ageCheck.passed && attCheck.passed;
+
+      const eligible = statusOk && ageCheck.passed && attCheck.passed;
       let detail = [];
+      if(!statusOk){
+        if(status !== 'Active') detail.push(`Status is "${status||'—'}" (must be Active)`);
+        if(normalizeLabel(memCat) !== 'member') detail.push(`Membership Category is "${memCat||'—'}" (must be Member)`);
+      }
       if(!ageCheck.passed) detail.push(ageCheck.reason);
       if(!attCheck.passed) detail.push(attCheck.reason);
       
       return { 
         eligible: eligible, 
         text: eligible ? 'Yes' : 'No',
-        detail: detail.length > 0 ? detail.join('; ') : `Age ${ageCheck.age}, Attended ${attendedCount}`,
+        detail: detail.length > 0 ? detail.join('; ') : (ageCheck.age != null ? `Age ${ageCheck.age}, Attended ${attendedCount}` : `Attended ${attendedCount}`),
         color: eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-50 text-rose-700',
         ageCheck: ageCheck,
         attCheck: attCheck
@@ -1146,25 +1813,44 @@
 
     function renderMembers(){
       const q = normalize(globalSearch.value);
-      const status = memberFilterStatus.value;
+      const statusFilter = memberFilterStatus.value;
+      const voterFilter = statusFilter === '__eligible_voter' || statusFilter === '__ineligible_voter';
+      const memCat = memberFilterMembershipCategory ? memberFilterMembershipCategory.value : '';
       const group = memberFilterGroup.value;
+      const family = memberFilterFamily ? memberFilterFamily.value : '';
 
       let rows = state.members.slice();
-      rows.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-      rows = rows.filter(m => (!status || m.status === status) && (!group || m.group === group) && memberMatches(m, q));
+      rows = rows.filter(m => {
+        const voter = voterFilter ? getVoterStatus(m.id) : null;
+        const statusMatches = !statusFilter
+          || (statusFilter === '__eligible_voter' && voter?.eligible)
+          || (statusFilter === '__ineligible_voter' && !voter?.eligible)
+          || (!voterFilter && m.status === statusFilter);
+        return statusMatches
+          && (!voterFilter || normalizeLabel(getMembershipCategory(m)) === 'member')
+          && (!memCat || getMembershipCategory(m) === memCat)
+          && (!group || m.group === group)
+          && (!family || FamilyDomain.getMemberFamilyId(m) === family)
+          && memberMatches(m, q);
+      });
+      rows.sort(compareMembersForList);
 
       const cols = state.memberColumns || defaults().memberColumns;
 
       // Build header dynamically
       const headers = [];
+      headers.push('<th class="px-3 py-2 text-left no-print"><input id="selectAllMembers" type="checkbox" aria-label="Select all filtered members"></th>');
       headers.push('<th class="px-3 py-2 text-left">Name</th>');
       if(cols.phone) headers.push('<th class="px-3 py-2 text-left">Phone</th>');
       if(cols.email) headers.push('<th class="px-3 py-2 text-left">Email</th>');
       if(cols.status) headers.push('<th class="px-3 py-2 text-left">Status</th>');
       if(cols.group) headers.push('<th class="px-3 py-2 text-left">Group</th>');
-      if(cols.attendance) headers.push('<th class="px-3 py-2 text-right">Attendance %</th>');
+      if(cols.family) headers.push('<th class="px-3 py-2 text-left">Family</th>');
+      if(cols.attendance) headers.push(`<th class="px-3 py-2 text-right">${voterFilter ? 'Overall Attendance %' : 'Attendance %'}</th>`);
+      if(voterFilter) headers.push('<th class="px-3 py-2 text-left">Voter-Period Attendance</th>');
       if(cols.joined) headers.push('<th class="px-3 py-2 text-left">Joined</th>');
       if(cols.address) headers.push('<th class="px-3 py-2 text-left">Address</th>');
+      if(voterFilter) headers.push('<th class="px-3 py-2 text-left">Voter Eligibility / Reason</th>');
       headers.push('<th class="px-3 py-2 text-right no-print">Actions</th>');
 
       const headerRow = document.querySelector('#memberTbody')?.parentElement?.parentElement?.querySelector('thead tr');
@@ -1172,30 +1858,54 @@
         headerRow.innerHTML = headers.join('');
       }
 
+      const totalAll = state.members.length;
+      const totalCategoryMembers = state.members.filter(m => isMembershipPerson(m)).length;
+      const summaryEl = document.getElementById('memberCountSummary');
+      if(summaryEl){
+        if(rows.length === totalAll){
+          summaryEl.textContent = `${totalAll} total · ${totalCategoryMembers} membership`;
+        } else {
+          summaryEl.textContent = `Showing ${rows.length} of ${totalAll} · ${totalCategoryMembers} membership`;
+        }
+      }
+
       if(rows.length === 0){
         memberTbody.innerHTML = `<tr><td class="px-3 py-6 text-center text-slate-500" colspan="${headers.length}">No members found.</td></tr>`;
+        updateMemberBulkBar();
         return;
       }
 
       memberTbody.innerHTML = rows.map(m => {
-        const attPct = calculateAttendancePercentage(m.id);
-        const attColor = attPct >= 75 ? 'text-emerald-700' : attPct >= 50 ? 'text-amber-700' : 'text-slate-600';
+        const att = formatAttendancePct(m.id);
+        const voter = voterFilter ? getVoterStatus(m.id) : null;
 
         const joined = m.joined || (m.joinYear && m.joinMonth ? `${m.joinYear}-${m.joinMonth}` : (m.joinYear ? String(m.joinYear) : ''));
         const address = m.address || [m.street, m.city, m.province, m.postcode].filter(Boolean).join(', ');
 
-        const displayName = m.chineseName ? `${esc(m.name)} (${esc(m.chineseName)})` : esc(m.name||'');
-
         let rowHtml = `<tr class="hover:bg-slate-50">
-          <td class="px-3 py-2 font-medium">${displayName}</td>`;
+          <td class="px-3 py-2 no-print"><input type="checkbox" data-select-member="${esc(m.id)}" ${selectedMemberIds.has(m.id) ? 'checked' : ''} aria-label="Select ${esc(m.name||'member')}"></td>
+          <td class="px-3 py-2 font-medium">${memberNameHtml(m)}</td>`;
         
         if(cols.phone) rowHtml += `<td class="px-3 py-2">${esc(m.phone||'')}</td>`;
         if(cols.email) rowHtml += `<td class="px-3 py-2">${esc(m.email||'')}</td>`;
         if(cols.status) rowHtml += `<td class="px-3 py-2">${esc(m.status||'')}</td>`;
         if(cols.group) rowHtml += `<td class="px-3 py-2">${esc(m.group||'')}</td>`;
-        if(cols.attendance) rowHtml += `<td class="px-3 py-2 text-right mono ${attColor} font-semibold">${attPct}%</td>`;
+        if(cols.family) rowHtml += `<td class="px-3 py-2">${esc(getMemberFamily(m))}</td>`;
+        if(cols.attendance) rowHtml += `<td class="px-3 py-2 text-right mono ${att.color} font-semibold">${att.text}</td>`;
+        if(voterFilter){
+          const periodText = voter?.attCheck
+            ? `${voter.attCheck.count} attended · ${voter.attCheck.from} to ${voter.attCheck.to}`
+            : 'AGM period unavailable';
+          rowHtml += `<td class="px-3 py-2 text-sm ${voter?.attCheck?.passed ? 'text-emerald-700' : 'text-rose-700'}">${esc(periodText)}</td>`;
+        }
         if(cols.joined) rowHtml += `<td class="px-3 py-2 whitespace-nowrap mono">${esc(joined)}</td>`;
         if(cols.address) rowHtml += `<td class="px-3 py-2 max-w-[22rem] truncate" title="${esc(address)}">${esc(address)}</td>`;
+        if(voterFilter){
+          const voterText = voter?.eligible
+            ? 'Eligible'
+            : (voter?.detail || 'Eligibility requirements not met');
+          rowHtml += `<td class="px-3 py-2 max-w-[28rem] ${voter?.eligible ? 'text-emerald-700' : 'text-rose-700'}">${esc(voterText)}</td>`;
+        }
         
         rowHtml += `<td class="px-3 py-2 text-right no-print whitespace-nowrap">
             <button class="rounded-lg border px-2 py-1 text-xs hover:bg-white" data-edit-member="${esc(m.id)}">Edit</button>
@@ -1208,6 +1918,30 @@
       memberTbody.querySelectorAll('button[data-edit-member]').forEach(btn => {
         btn.addEventListener('click', () => startEditMember(btn.getAttribute('data-edit-member')));
       });
+      memberTbody.querySelectorAll('input[data-select-member]').forEach(cb => cb.addEventListener('change', () => {
+        if(cb.checked) selectedMemberIds.add(cb.dataset.selectMember); else selectedMemberIds.delete(cb.dataset.selectMember);
+        updateMemberBulkBar();
+      }));
+      const all = document.getElementById('selectAllMembers');
+      if(all){
+        all.checked = rows.length > 0 && rows.every(m => selectedMemberIds.has(m.id));
+        all.indeterminate = rows.some(m => selectedMemberIds.has(m.id)) && !all.checked;
+        all.addEventListener('change', () => {
+          rows.forEach(m => all.checked ? selectedMemberIds.add(m.id) : selectedMemberIds.delete(m.id));
+          renderMembers();
+        });
+      }
+      updateMemberBulkBar();
+    }
+
+    function updateMemberBulkBar(){
+      const bar = document.getElementById('memberBulkBar');
+      const count = selectedMemberIds.size;
+      if(bar){ bar.classList.toggle('hidden', count === 0); bar.classList.toggle('flex', count > 0); }
+      const countEl = document.getElementById('memberSelectionCount');
+      if(countEl) countEl.textContent = String(count);
+      const action = document.getElementById('btnBulkFamily');
+      if(action) action.disabled = count < 2;
     }
 
     function renderAttendance(){
@@ -1243,21 +1977,18 @@
       const attendedBy = service.attendedBy || [];
       const content = document.getElementById('attendanceContent');
 
-      const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      const members = state.members.slice().sort(compareMembersForAttendance);
 
       const rowHtml = members.length === 0
         ? '<p class="text-sm text-slate-500 text-center py-6">No members yet. Add members first.</p>'
         : members.map(m => {
             const checked = attendedBy.includes(m.id);
-            const nameLine = m.chineseName
-              ? `${esc(m.name||'')} <span class="text-slate-500 font-normal">(${esc(m.chineseName)})</span>`
-              : esc(m.name||'');
-            const metaParts = [m.status, m.group, getMemberCategory(m)].filter(Boolean);
+            const metaParts = [m.status, getMembershipCategory(m), m.group, getMemberFamily(m)].filter(Boolean);
             return `
-              <label class="attendance-row ${checked ? 'is-present' : ''}" data-status="${esc((m.status||'').toLowerCase())}" data-search="${esc(((m.name||'') + ' ' + (m.chineseName||'') + ' ' + (m.status||'') + ' ' + (m.group||'') + ' ' + getMemberCategory(m)).toLowerCase())}">
+              <label class="attendance-row ${checked ? 'is-present' : ''}" data-status="${esc((m.status||'').toLowerCase())}" data-search="${esc(((m.name||'') + ' ' + (m.chineseName||'') + ' ' + (m.status||'') + ' ' + getMembershipCategory(m) + ' ' + (m.group||'') + ' ' + getMemberFamily(m)).toLowerCase())}">
                 <input type="checkbox" class="size-4 rounded border-slate-300" data-member-id="${esc(m.id)}" ${checked ? 'checked' : ''} />
                 <div class="min-w-0 flex-1">
-                  <div class="att-name">${nameLine}</div>
+                  <div class="att-name">${memberNameHtml(m)}</div>
                   <div class="att-meta">${esc(metaParts.join(' · '))}</div>
                 </div>
               </label>
@@ -1400,6 +2131,17 @@
       kpiServices.textContent = String(totalServices);
       kpiAvgAttendance.textContent = avgAttendance.toFixed(1);
 
+      const totalDirectory = state.members.length;
+      const buckets = getMembershipBucketCounts();
+      const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = String(val); };
+      setTxt('kpiMembership', buckets.membership);
+      setTxt('kpiTrueSeekers', buckets.trueSeekers);
+      setTxt('kpiActiveAttMembers', buckets.activeMembers);
+      setTxt('kpiEligibleVoters', buckets.eligible);
+      setTxt('kpiVisitingMembers', buckets.visiting);
+      setTxt('kpiInactiveMembers', buckets.inactive);
+      renderEsscReports();
+
       // By type
       const byType = new Map();
       for(const s of services){
@@ -1468,39 +2210,6 @@
         </div>
       `;
 
-      // Trend (attendance only)
-      const monthKey = (dateStr) => {
-        const d = new Date(dateStr + 'T00:00:00');
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,'0');
-        return `${y}-${m}`;
-      }
-      const byMonth = new Map();
-      for(const s of services){
-        if(!s.date) continue;
-        const k = monthKey(s.date);
-        const cur = byMonth.get(k) || {attendance:0, count:0};
-        cur.attendance += Number(s.attendance||0);
-        cur.count++;
-        byMonth.set(k, cur);
-      }
-      const months = Array.from(byMonth.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
-      const maxAtt = Math.max(1, ...months.map(([,v])=>v.attendance));
-
-      trend.innerHTML = months.length ? months.map(([k,v]) => {
-        const attPct = Math.round((v.attendance/maxAtt)*100);
-        return `
-          <div class="grid grid-cols-12 gap-2 items-center">
-            <div class="col-span-3 text-xs text-slate-600 mono">${esc(k)}</div>
-            <div class="col-span-9">
-              <div class="h-3 rounded bg-slate-100 overflow-hidden" title="Attendance: ${v.attendance}">
-                <div class="h-3 bg-sky-600" style="width:${attPct}%"></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('') : `<div class="text-sm text-slate-500">No trend data yet.</div>`;
-
       // Print summary
       document.getElementById('printSummary').innerHTML = `
         <div class="grid gap-2">
@@ -1513,10 +2222,181 @@
 
 
 
+    function renderFamiliesTab(){
+      const host = document.getElementById('familiesList');
+      if(!host) return;
+      const q = normalize(document.getElementById('familySearch')?.value || '');
+      const families = (state.families || []).filter(FamilyDomain.isFamilyEntity).filter(f => {
+        const members = FamilyDomain.getFamilyMembers(state, f.id);
+        return !q || normalize([f.displayName, ...members.map(m => `${m.name||''} ${m.chineseName||''}`)].join(' ')).includes(q);
+      }).sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
+      if(!families.length){ host.innerHTML = '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">No families found.</div>'; return; }
+      host.innerHTML = families.map(f => {
+        const members = FamilyDomain.getFamilyMembers(state, f.id);
+        const primary = state.members.find(m => m.id === f.primaryContactMemberId);
+        return `<details class="rounded-xl border bg-white p-4">
+          <summary class="cursor-pointer list-none"><div class="flex flex-wrap items-center justify-between gap-3">
+            <div><div class="font-semibold">${esc(f.displayName)}</div><div class="text-xs text-slate-500">${members.length} member${members.length===1?'':'s'}${primary ? `<div class="mt-1">Primary:${memberNameHtml(primary)}</div>` : ' · Primary: —'}</div></div>
+            <div class="flex flex-wrap gap-2 no-print">
+              <button data-rename-family="${esc(f.id)}" class="rounded-lg border px-2 py-1 text-xs">Edit/Rename</button>
+              <button data-manage-family="${esc(f.id)}" class="rounded-lg border px-2 py-1 text-xs">Manage Members</button>
+              <button data-merge-family="${esc(f.id)}" class="rounded-lg border px-2 py-1 text-xs">Merge</button>
+              <button data-delete-family="${esc(f.id)}" class="rounded-lg border border-rose-300 px-2 py-1 text-xs text-rose-700" ${members.length?'disabled title="Only empty families can be deleted"':''}>Delete</button>
+            </div></div></summary>
+          <div class="mt-3 border-t pt-3 text-sm">${members.map(m => {
+            const link = FamilyDomain.getFamilyMembership(state, m.id);
+            return `<div class="flex justify-between gap-2 py-1"><span>${memberNameHtml(m)}</span><span class="text-slate-500">${esc(link?.relationshipRole||'')}</span></div>`;
+          }).join('') || '<span class="text-slate-500">Empty family</span>'}</div>
+        </details>`;
+      }).join('');
+      host.querySelectorAll('[data-manage-family]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); openFamilyBuilder({ mode:'join', familyId:b.dataset.manageFamily, memberIds:[] }); }));
+      host.querySelectorAll('[data-rename-family]').forEach(b => b.addEventListener('click', e => {
+        e.preventDefault(); const fam = FamilyDomain.getFamilyById(state, b.dataset.renameFamily);
+        const name = prompt('Family display name:', fam?.displayName || '');
+        if(name == null) return;
+        const result = FamilyDomain.applyRenameFamily(state, b.dataset.renameFamily, name, () => new Date());
+        if(!result.ok) return alert(result.error);
+        state = result.state; saveState(); render();
+      }));
+      host.querySelectorAll('[data-delete-family]').forEach(b => b.addEventListener('click', e => {
+        e.preventDefault(); if(b.disabled || !confirm('Delete this empty family?')) return;
+        const result = FamilyDomain.applyDeleteEmptyFamily(state, b.dataset.deleteFamily);
+        if(!result.ok) return alert(result.error);
+        state = result.state; saveState(); render();
+      }));
+      host.querySelectorAll('[data-merge-family]').forEach(b => b.addEventListener('click', e => {
+        e.preventDefault(); openMergeFamily(b.dataset.mergeFamily);
+      }));
+    }
+
+    function openMergeFamily(sourceFamilyId){
+      const source = FamilyDomain.getFamilyById(state, sourceFamilyId);
+      const choices = (state.families||[]).filter(f => FamilyDomain.isFamilyEntity(f) && f.id !== sourceFamilyId);
+      if(!choices.length) return alert('Create another family before merging.');
+      openModal('Merge Family', `<div class="grid gap-3"><p class="text-sm">Move every member from <strong>${esc(source?.displayName)}</strong> into:</p>
+        <select id="mergeTarget" class="rounded-xl border px-3 py-2">${choices.map(f=>`<option value="${esc(f.id)}">${esc(f.displayName)}</option>`).join('')}</select>
+        <p class="text-xs text-amber-700">The source family will be removed. This action does not merge based on surname.</p>
+        <button id="confirmMergeFamily" class="rounded-xl bg-emerald-600 px-3 py-2 text-white">Merge Families</button></div>`);
+      document.getElementById('confirmMergeFamily').addEventListener('click', () => {
+        const result = FamilyDomain.applyMergeFamilies(state, { sourceFamilyId, targetFamilyId:document.getElementById('mergeTarget').value, nowFn:() => new Date() });
+        if(!result.ok) return alert(result.error);
+        state = result.state; if(saveState()){ closeModal(); toast(`Merged into ${result.family.displayName}`); render(); }
+      });
+    }
+
+    function reviewDuplicateFamilies(){
+      const suggestions = FamilyDomain.findDuplicateFamilySuggestions(state);
+      if(!suggestions.length) return toast('No possible duplicate families found');
+      openModal('Review Possible Duplicates', `<div class="grid gap-3">${suggestions.map((s,i)=>`
+        <div class="rounded-xl border p-3" data-duplicate-card="${i}">
+          <div class="font-medium">${esc(s.familyA.displayName)} ↔ ${esc(s.familyB.displayName)}</div>
+          <div class="mt-1 text-xs text-slate-500">${esc(s.reasons.join(' · '))}</div>
+          <div class="mt-2 grid gap-2 text-xs sm:grid-cols-2"><div>${s.membersA.map(m => memberNameHtml(m)).join('') || 'Empty'}</div><div>${s.membersB.map(m => memberNameHtml(m)).join('') || 'Empty'}</div></div>
+          <div class="mt-2 flex flex-wrap gap-2"><button data-duplicate-merge="${i}" class="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white">Merge</button><button data-duplicate-move="${i}" class="rounded-lg border px-2 py-1 text-xs">Move Members</button><button data-duplicate-keep="${i}" class="rounded-lg border px-2 py-1 text-xs">Keep Separate / Dismiss</button><button data-duplicate-rename="${i}" class="rounded-lg border px-2 py-1 text-xs">Rename</button></div>
+        </div>`).join('')}</div>`, 'max-w-3xl');
+      modalBody.querySelectorAll('[data-duplicate-keep]').forEach(b => b.addEventListener('click', () => b.closest('[data-duplicate-card]').remove()));
+      modalBody.querySelectorAll('[data-duplicate-merge]').forEach(b => b.addEventListener('click', () => openMergeFamily(suggestions[Number(b.dataset.duplicateMerge)].familyA.id)));
+      modalBody.querySelectorAll('[data-duplicate-move]').forEach(b => b.addEventListener('click', () => {
+        const s=suggestions[Number(b.dataset.duplicateMove)];
+        openFamilyBuilder({ mode:'join', familyId:s.familyB.id, memberIds:s.membersA.map(m=>m.id) });
+      }));
+      modalBody.querySelectorAll('[data-duplicate-rename]').forEach(b => b.addEventListener('click', () => {
+        const s = suggestions[Number(b.dataset.duplicateRename)], name = prompt('New display name:', s.familyA.displayName);
+        if(name == null) return; const result = FamilyDomain.applyRenameFamily(state, s.familyA.id, name, () => new Date());
+        if(result.ok){ state=result.state; saveState(); reviewDuplicateFamilies(); render(); }
+      }));
+    }
+
+    function openFamilyBuilder({ mode='create', familyId='', memberIds=[] } = {}){
+      const selected = new Set(memberIds);
+      if(mode === 'join' && familyId){
+        FamilyDomain.getFamilyMembers(state, familyId).forEach(m => selected.add(m.id));
+      }
+      const roleValues = {};
+      (state.familyMembers||[]).forEach(fm => { roleValues[fm.memberId] = fm.relationshipRole || ''; });
+      const familyOptions = (state.families||[]).filter(FamilyDomain.isFamilyEntity).sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
+      openModal('Family Builder', `<div class="grid gap-4">
+        <div class="flex gap-4 text-sm"><label><input type="radio" name="builderMode" value="create" ${mode==='create'?'checked':''}> Create new</label><label><input type="radio" name="builderMode" value="join" ${mode==='join'?'checked':''}> Join existing</label></div>
+        <div id="builderCreateFields"><label class="text-sm text-slate-600">Display name</label><input id="builderFamilyName" class="mt-1 rounded-xl border px-3 py-2" value="${esc(mode==='create' ? FamilyDomain.suggestDisplayName(memberIds.map(id=>state.members.find(m=>m.id===id)).filter(Boolean)) : '')}" placeholder="Family display name"></div>
+        <div id="builderJoinFields"><label class="text-sm text-slate-600">Find existing family</label><input id="builderFamilySearch" type="search" class="mt-1 rounded-xl border px-3 py-2" placeholder="Search families…"><select id="builderFamilyId" class="mt-2 rounded-xl border px-3 py-2"><option value="">Choose a family…</option>${familyOptions.map(f => {
+          const ms=FamilyDomain.getFamilyMembers(state,f.id), p=state.members.find(m=>m.id===f.primaryContactMemberId);
+          return `<option value="${esc(f.id)}" ${f.id===familyId?'selected':''}>${esc(f.displayName)} · ${esc(p ? memberNameText(p) : 'no primary')} · ${ms.length} · ${esc(ms.slice(0,3).map(memberNameText).join(', '))}</option>`;
+        }).join('')}</select><div id="builderCurrentFamily" class="mt-2 text-xs text-slate-500"></div></div>
+        <div class="grid gap-3 md:grid-cols-2"><div><label class="text-sm text-slate-600">Search members</label><input id="builderMemberSearch" type="search" class="mt-1 rounded-xl border px-3 py-2" placeholder="English or Chinese name"><div id="builderMemberList" class="mt-2 max-h-64 overflow-auto rounded-xl border p-2"></div></div>
+        <div><div class="text-sm text-slate-600">Selected members</div><div id="builderSelected" class="mt-2 max-h-64 overflow-auto rounded-xl border p-2"></div></div></div>
+        <div><label class="text-sm text-slate-600">Primary contact (optional)</label><select id="builderPrimary" class="mt-1 rounded-xl border px-3 py-2"><option value="">None</option></select></div>
+        <div id="builderConflicts"></div><div id="builderSummary" class="rounded-xl bg-slate-50 p-3 text-sm"></div>
+        <div class="flex gap-2"><button id="builderSave" class="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-white">Confirm & Save</button><button id="builderCancel" class="rounded-xl border px-3 py-2">Cancel</button></div>
+      </div>`, 'max-w-3xl');
+
+      const modeInputs = [...modalBody.querySelectorAll('[name="builderMode"]')], familySelect=document.getElementById('builderFamilyId');
+      const currentMode = () => modeInputs.find(x=>x.checked)?.value || 'create';
+      function updateMode(){ const create=currentMode()==='create'; document.getElementById('builderCreateFields').classList.toggle('hidden',!create); document.getElementById('builderJoinFields').classList.toggle('hidden',create); updateBuilder(); }
+      function memberLabel(m){ return memberNameText(m); }
+      function updateBuilder(){
+        const q=normalize(document.getElementById('builderMemberSearch').value);
+        document.getElementById('builderMemberList').innerHTML=state.members.filter(m=>!q||normalize(`${m.name||''} ${m.chineseName||''}`).includes(q)).sort(compareMembersForList).map(m=>`<label class="flex items-center gap-2 rounded-lg p-2 hover:bg-slate-50"><input type="checkbox" data-builder-member="${esc(m.id)}" ${selected.has(m.id)?'checked':''}><span class="min-w-0 text-sm">${memberNameHtml(m)}<span class="block text-xs text-slate-400">${esc(getMemberFamily(m)||'No family')}</span></span></label>`).join('');
+        const selectedMembers=[...selected].map(id=>state.members.find(m=>m.id===id)).filter(Boolean);
+        document.getElementById('builderSelected').innerHTML=selectedMembers.map(m=>`<div class="mb-2 rounded-lg bg-slate-50 p-2"><div class="flex justify-between gap-2 text-sm"><span>${memberNameHtml(m)}</span><button data-remove-builder="${esc(m.id)}" class="text-rose-600">×</button></div><select data-builder-role="${esc(m.id)}" class="mt-1 rounded-lg border px-2 py-1 text-xs">${FamilyDomain.RELATIONSHIP_ROLES.map(r=>`<option value="${esc(r)}" ${roleValues[m.id]===r?'selected':''}>${esc(r||'No role')}</option>`).join('')}</select></div>`).join('') || '<div class="p-3 text-sm text-slate-500">No members selected.</div>';
+        const primary=document.getElementById('builderPrimary'), old=primary.value;
+        primary.innerHTML='<option value="">None</option>'+selectedMembers.map(m=>`<option value="${esc(m.id)}">${esc(memberLabel(m))}</option>`).join('');
+        const target=currentMode()==='join'?FamilyDomain.getFamilyById(state,familySelect.value):null;
+        if(old && selected.has(old)) primary.value=old; else if(target?.primaryContactMemberId && selected.has(target.primaryContactMemberId)) primary.value=target.primaryContactMemberId;
+        document.getElementById('builderCurrentFamily').innerHTML=target
+          ? `<span class="font-medium">Current members:</span><div class="mt-1 space-y-1">${FamilyDomain.getFamilyMembers(state,target.id).map(m => memberNameHtml(m)).join('')||'None'}</div>`
+          : '';
+        const nameEl=document.getElementById('builderFamilyName');
+        if(currentMode()==='create' && nameEl && (!nameEl.dataset.touched || nameEl.value.trim()==='' || nameEl.dataset.auto==='1')){
+          const suggested=FamilyDomain.suggestDisplayName(selectedMembers);
+          if(suggested){ nameEl.value=suggested; nameEl.dataset.auto='1'; }
+        }
+        document.getElementById('builderSummary').textContent=`Summary: ${currentMode()==='create'?(nameEl?.value||'New family'):'Join selected family'} · ${selected.size} selected member${selected.size===1?'':'s'}.`;
+        modalBody.querySelectorAll('[data-builder-member]').forEach(cb=>cb.addEventListener('change',()=>{ cb.checked?selected.add(cb.dataset.builderMember):selected.delete(cb.dataset.builderMember); updateBuilder(); }));
+        modalBody.querySelectorAll('[data-remove-builder]').forEach(b=>b.addEventListener('click',()=>{ selected.delete(b.dataset.removeBuilder); updateBuilder(); }));
+        modalBody.querySelectorAll('[data-builder-role]').forEach(s=>s.addEventListener('change',()=>{ roleValues[s.dataset.builderRole]=s.value; }));
+      }
+      modeInputs.forEach(x=>x.addEventListener('change', updateMode));
+      document.getElementById('builderFamilyName')?.addEventListener('input', e => { e.target.dataset.touched='1'; e.target.dataset.auto='0'; });
+      document.getElementById('builderMemberSearch').addEventListener('input', updateBuilder);
+      document.getElementById('builderFamilySearch').addEventListener('input', e => {
+        const q=normalize(e.target.value); [...familySelect.options].forEach((o,i)=>{ if(i) o.hidden=!!q&&!normalize(o.textContent).includes(q); });
+      });
+      familySelect.addEventListener('change', () => {
+        const fam=FamilyDomain.getFamilyById(state,familySelect.value);
+        if(fam) FamilyDomain.getFamilyMembers(state,fam.id).forEach(m=>selected.add(m.id));
+        updateBuilder();
+      });
+      document.getElementById('builderCancel').addEventListener('click', closeModal);
+      document.getElementById('builderSave').addEventListener('click', () => {
+        const assignments=[...selected].map(memberId=>({memberId, relationshipRole:roleValues[memberId]||'', isPrimaryContact:memberId===document.getElementById('builderPrimary').value}));
+        const targetId=currentMode()==='join'?familySelect.value:'';
+        const conflicts=FamilyDomain.detectAssignmentConflicts(state,[...selected],targetId);
+        const conflictHost=document.getElementById('builderConflicts');
+        if(conflicts.length && !conflicts.every(c=>modalBody.querySelector(`[name="conflict-${CSS.escape(c.memberId)}"]:checked`))){
+          conflictHost.innerHTML=`<div class="rounded-xl border border-amber-300 bg-amber-50 p-3"><div class="font-medium text-amber-900">Resolve family conflicts</div>${conflicts.map(c=>{ const conflictMember=state.members.find(m=>m.id===c.memberId); return `<div class="mt-2 text-sm">${memberNameHtml(conflictMember)}<span>is in ${esc(c.currentFamilyName)}.</span> <label class="ml-2"><input type="radio" name="conflict-${esc(c.memberId)}" value="keep"> Keep there</label> <label class="ml-2"><input type="radio" name="conflict-${esc(c.memberId)}" value="move"> Move</label></div>`; }).join('')}<div class="mt-2 text-xs">Choose Keep or Move, then confirm again. Cancel closes without changes.</div></div>`;
+          return;
+        }
+        const resolutions={}; conflicts.forEach(c=>{ resolutions[c.memberId]=modalBody.querySelector(`[name="conflict-${CSS.escape(c.memberId)}"]:checked`)?.value; });
+        let draftState=FamilyDomain.cloneState(state);
+        if(currentMode()==='join' && targetId){
+          const omitted=FamilyDomain.getFamilyMembers(draftState,targetId).filter(m=>!selected.has(m.id));
+          omitted.forEach(m => { draftState=FamilyDomain.applyUnlinkMember(draftState,m.id,()=>new Date()).state; });
+        }
+        const result=FamilyDomain.applyFamilyAssignment(draftState, { mode:currentMode(), familyId:targetId, displayName:document.getElementById('builderFamilyName').value, primaryContactMemberId:document.getElementById('builderPrimary').value, memberAssignments:assignments, conflictResolutions:resolutions, uid, nowFn:()=>new Date() });
+        if(!result.ok) return alert(result.error);
+        const before=state; state=result.state;
+        if(!saveState()){ state=before; return toast('Save failed; no family changes kept'); }
+        closeModal(); selectedMemberIds.clear(); toast(`${result.family.displayName}: ${result.memberCount} member${result.memberCount===1?'':'s'}`); render();
+      });
+      updateMode();
+    }
+
     function render(){
       renderServiceTypes();
       renderMemberStatuses();
+      renderMembershipCategories();
       renderGroups();
+      renderFamilies();
       updateDriveStatusChip();
 
       const tab = activeTab();
@@ -1527,6 +2407,7 @@
         renderReports();
         renderVoterReport();
       }
+      if(tab === 'families') renderFamiliesTab();
       if(tab === 'settings'){
         // chips are already rendered
       }
@@ -1554,6 +2435,12 @@
       document.getElementById('serviceMinister').value = s.minister || '';
       document.getElementById('serviceAttendance').value = (s.attendance ?? '');
       document.getElementById('serviceNotes').value = s.notes || '';
+      document.getElementById('serviceEsscBaptized').value = (s.esscBaptized ?? '');
+      document.getElementById('serviceEsscHolySpirit').value = (s.esscHolySpirit ?? '');
+      document.getElementById('serviceEsscCommunion').value = (s.esscCommunion ?? '');
+      document.getElementById('serviceEsscDateFrom').value = s.esscDateFrom || s.date || '';
+      document.getElementById('serviceEsscDateTo').value = s.esscDateTo || s.esscDateFrom || s.date || '';
+      updateEsscFieldsVisibility();
 
       // Scroll to form so user sees it
       serviceForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1577,15 +2464,39 @@
     serviceForm.addEventListener('submit', (e) => {
       e.preventDefault();
       try{
+        const baptizedRaw = document.getElementById('serviceEsscBaptized').value;
+        const hsRaw = document.getElementById('serviceEsscHolySpirit').value;
+        const communionRaw = document.getElementById('serviceEsscCommunion').value;
+        const hasEsscCounts = baptizedRaw !== '' || hsRaw !== '' || communionRaw !== '';
+        const esscDateFrom = document.getElementById('serviceEsscDateFrom').value || document.getElementById('serviceDate').value;
+        const esscDateTo = document.getElementById('serviceEsscDateTo').value || esscDateFrom;
+
         const record = {
           id: document.getElementById('serviceId').value || uid(),
-          date: document.getElementById('serviceDate').value,
+          date: document.getElementById('serviceDate').value || esscDateFrom,
           type: document.getElementById('serviceType').value,
           title: document.getElementById('serviceTitle').value.trim(),
           minister: document.getElementById('serviceMinister').value.trim(),
           attendance: Number(document.getElementById('serviceAttendance').value || 0),
           notes: document.getElementById('serviceNotes').value.trim()
         };
+
+        // ESSC report entries only when ESSC Details counts are entered
+        if(isEsscTypeSelected() && hasEsscCounts){
+          record.esscReportEntry = true;
+          record.esscDateFrom = esscDateFrom;
+          record.esscDateTo = esscDateTo;
+          record.esscBaptized = baptizedRaw === '' ? '' : Number(baptizedRaw || 0);
+          record.esscHolySpirit = hsRaw === '' ? '' : Number(hsRaw || 0);
+          record.esscCommunion = communionRaw === '' ? '' : Number(communionRaw || 0);
+        } else {
+          record.esscReportEntry = false;
+          record.esscDateFrom = '';
+          record.esscDateTo = '';
+          record.esscBaptized = '';
+          record.esscHolySpirit = '';
+          record.esscCommunion = '';
+        }
 
         if(!record.date || !record.type){
           alert('Please provide a date and service type.');
@@ -1603,7 +2514,7 @@
         }
         const ok = saveState();
         if(ok){
-          toast('Service saved');
+          toast(record.esscReportEntry ? 'ESSC report entry saved' : 'Service saved');
           resetServiceForm();
           render();
         } else {
@@ -1806,8 +2717,8 @@
       document.getElementById('memberBirthMonth').value = m.birthMonth || '';
       document.getElementById('memberBirthYear').value = m.birthYear || '';
       document.getElementById('memberStatus').value = m.status || 'Active';
+      document.getElementById('memberMembershipCategory').value = getMembershipCategory(m);
       document.getElementById('memberGroup').value = m.group || '';
-      document.getElementById('memberCategory').value = getMemberCategory(m);
       document.getElementById('memberBaptismDate').value = m.baptismDate || '';
       document.getElementById('memberHolySpiritDate').value = m.holySpiritDate || '';
       document.getElementById('memberJoinMonth').value = joinMonth;
@@ -1816,6 +2727,8 @@
       document.getElementById('memberCity').value = m.city || '';
       document.getElementById('memberProvince').value = m.province || '';
       document.getElementById('memberPostcode').value = m.postcode || '';
+      renderFamilies();
+      renderMemberFamilyCard(m);
       
       // Scroll to form so user sees it
       memberForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1825,7 +2738,10 @@
       const m = state.members.find(x => x.id === id);
       if(!m) return;
       if(!confirm(`Delete member ${m.name}?`)) return;
+      const unlinked = FamilyDomain.applyUnlinkMember(state, id, () => new Date());
+      if(unlinked.ok) state = unlinked.state;
       state.members = state.members.filter(x => x.id !== id);
+      selectedMemberIds.delete(id);
       // Keep attendance headcounts and rosters consistent: drop this member from every
       // service's attendedBy list and resync the stored headcount.
       state.services.forEach(s => {
@@ -1866,6 +2782,8 @@
       const joined = (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear ? String(joinYear) : '');
       const address = [street, city, province, postcode].filter(Boolean).join(', ');
 
+      const existing = state.members.find(x => x.id === document.getElementById('memberId').value);
+
       const record = {
         id: document.getElementById('memberId').value || uid(),
         firstName: firstName,
@@ -1877,8 +2795,11 @@
         birthMonth: document.getElementById('memberBirthMonth').value,
         birthYear: document.getElementById('memberBirthYear').value,
         status: document.getElementById('memberStatus').value,
+        membershipCategory: document.getElementById('memberMembershipCategory').value || 'Member',
         group: document.getElementById('memberGroup').value,
-        category: document.getElementById('memberCategory').value || 'Member',
+        familyId: existing?.familyId || '',
+        family: existing ? getMemberFamily(existing) : '',
+        category: '',
         baptismDate: document.getElementById('memberBaptismDate').value,
         holySpiritDate: document.getElementById('memberHolySpiritDate').value,
         joinMonth,
@@ -1896,7 +2817,8 @@
       const ok = saveState();
       if(ok){
         toast('Member saved');
-        resetMemberForm();
+        // Keep the record open so the Family card can be used immediately.
+        startEditMember(record.id);
         render();
       } else {
         toast('Save failed (storage blocked)');
@@ -1973,20 +2895,13 @@
     serviceFilterType.addEventListener('change', render);
     serviceFrom.addEventListener('change', render);
     serviceTo.addEventListener('change', render);
-    document.getElementById('btnClearServiceFilters').addEventListener('click', () => {
-      serviceFilterType.value = '';
-      serviceFrom.value = '';
-      serviceTo.value = '';
-      render();
-    });
+    document.getElementById('serviceType')?.addEventListener('change', updateEsscFieldsVisibility);
+    document.getElementById('serviceTitle')?.addEventListener('input', updateEsscFieldsVisibility);
 
     memberFilterStatus.addEventListener('change', render);
+    memberFilterMembershipCategory?.addEventListener('change', render);
     memberFilterGroup.addEventListener('change', render);
-    document.getElementById('btnClearMemberFilters').addEventListener('click', () => {
-      memberFilterStatus.value = '';
-      memberFilterGroup.value = '';
-      render();
-    });
+    memberFilterFamily?.addEventListener('change', render);
 
     document.getElementById('btnManageTypes').addEventListener('click', () => {
       setActiveTab('settings');
@@ -1994,6 +2909,15 @@
 
     document.getElementById('btnManageStatuses').addEventListener('click', () => {
       setActiveTab('settings');
+    });
+
+    document.getElementById('btnOpenFamiliesTab')?.addEventListener('click', () => setActiveTab('families'));
+    document.getElementById('btnCreateFamily')?.addEventListener('click', () => openFamilyBuilder({ mode:'create' }));
+    document.getElementById('btnReviewDuplicates')?.addEventListener('click', reviewDuplicateFamilies);
+    document.getElementById('familySearch')?.addEventListener('input', renderFamiliesTab);
+    document.getElementById('btnClearMemberSelection')?.addEventListener('click', () => { selectedMemberIds.clear(); renderMembers(); });
+    document.getElementById('btnBulkFamily')?.addEventListener('click', () => {
+      if(selectedMemberIds.size >= 2) openFamilyBuilder({ mode:'create', memberIds:[...selectedMemberIds] });
     });
 
     document.getElementById('btnColumnOptions').addEventListener('click', () => {
@@ -2016,6 +2940,10 @@
           <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
             <input type="checkbox" id="colGroup" ${cols.group ? 'checked' : ''} class="size-4 rounded" />
             <span>Group</span>
+          </label>
+          <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" id="colFamily" ${cols.family !== false ? 'checked' : ''} class="size-4 rounded" />
+            <span>Family</span>
           </label>
           <label class="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
             <input type="checkbox" id="colAttendance" ${cols.attendance ? 'checked' : ''} class="size-4 rounded" />
@@ -2043,6 +2971,7 @@
           email: document.getElementById('colEmail').checked,
           status: document.getElementById('colStatus').checked,
           group: document.getElementById('colGroup').checked,
+          family: document.getElementById('colFamily').checked,
           attendance: document.getElementById('colAttendance').checked,
           joined: document.getElementById('colJoined').checked,
           address: document.getElementById('colAddress').checked,
@@ -2122,6 +3051,10 @@
         alert('That status already exists.');
         return;
       }
+      if(['true seeker','truth seeker','visiting member','member','visitor'].includes(normalizeLabel(v))){
+        alert('Member, True Seeker, and Visiting Member belong under Membership Categories, not Member Statuses.');
+        return;
+      }
       state.memberStatuses.push(v);
       document.getElementById('newMemberStatus').value = '';
       const ok = saveState();
@@ -2133,12 +3066,34 @@
       }
     });
 
-
+    document.getElementById('btnAddMembershipCategory').addEventListener('click', () => {
+      const v = document.getElementById('newMembershipCategory').value.trim();
+      if(!v) return;
+      if(!state.membershipCategories) state.membershipCategories = defaults().membershipCategories.slice();
+      if(normalizeLabel(v) === 'visitor'){
+        alert('Use “Visiting Member” instead of Visitor.');
+        return;
+      }
+      if(state.membershipCategories.some(c => c.toLowerCase() === v.toLowerCase())){
+        alert('That membership category already exists.');
+        return;
+      }
+      state.membershipCategories.push(v);
+      document.getElementById('newMembershipCategory').value = '';
+      const ok = saveState();
+      if(ok){
+        toast('Membership category added');
+        render();
+      } else {
+        toast('Save failed (storage blocked)');
+      }
+    });
 
     // Reports
-    document.getElementById('btnRefreshReports').addEventListener('click', renderReports);
+    document.getElementById('btnRefreshReports').addEventListener('click', () => { renderReports(); });
+    document.getElementById('btnRefreshEsscReports')?.addEventListener('click', renderEsscReports);
 
-    // Eligible Voter Report
+    // Membership Report
     document.getElementById('voterFilterStatus').addEventListener('change', renderVoterReport);
     document.getElementById('btnRefreshVoterReport').addEventListener('click', renderVoterReport);
     document.getElementById('btnExportEligibleExcel').addEventListener('click', exportEligibleVotersExcel);
@@ -2155,33 +3110,21 @@
 
       const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
 
-      const isMeeting = (s) => {
-        const t = (s.type||'').toUpperCase();
-        const ti = (s.title||'').toUpperCase();
-        return t === 'AGM' || t === 'EGM' || ti.includes('AGM') || ti.includes('EGM');
-      };
       const isAGM = (s) => {
         const t = (s.type||'').toUpperCase();
         const ti = (s.title||'').toUpperCase();
         return t === 'AGM' || ti.includes('AGM');
       };
 
-      const latestIdx = services.findIndex(isMeeting);
-      const prevAGMIdx = services.findIndex((s, i) => i > latestIdx && isAGM(s));
+      const anchorIdx = services.findIndex(isAGM);
+      const anchorAGM = anchorIdx >= 0 ? services[anchorIdx] : null;
+      const todayStr = todayLocalISO();
 
-      const latest = latestIdx >= 0 ? services[latestIdx] : null;
-      const prevAGM = prevAGMIdx >= 0 ? services[prevAGMIdx] : null;
-
-      if(!latest || !prevAGM){
+      if(!anchorAGM){
         container.innerHTML = `
           <div class="p-6 text-center">
-            <div class="text-amber-700 font-semibold mb-2">AGM/EGM Services Required</div>
-            <div class="text-sm text-slate-600">To calculate voter eligibility, you need at least:</div>
-            <ul class="text-sm text-slate-600 list-disc text-left inline-block mt-2">
-              <li>An "AGM" service (previous meeting)</li>
-              <li>An "AGM" or "EGM" service (latest meeting)</li>
-            </ul>
-            <div class="text-sm text-slate-600 mt-2">Add these services in the Services tab first.</div>
+            <div class="text-amber-700 font-semibold mb-2">AGM Service Required</div>
+            <div class="text-sm text-slate-600">To calculate eligibility, add an <strong>AGM</strong> service in the Services tab first. The voting period runs from the most recent AGM up to today.</div>
           </div>`;
         return;
       }
@@ -2189,17 +3132,15 @@
       const rows = members.map(m => {
         const voter = getVoterStatus(m.id);
 
-        if(filter === 'eligible' && !voter.eligible) return null;
-        if(filter === 'noteligible' && voter.eligible) return null;
+        if(!memberMatchesVoterFilter(m, filter, voter)) return null;
 
-        const attPct = calculateAttendancePercentage(m.id);
-        const displayName = m.chineseName ? `${esc(m.name)} (${esc(m.chineseName)})` : esc(m.name||'');
-        const category = getMemberCategory(m);
+        const att = formatAttendancePct(m.id);
+        const memCat = getMembershipCategory(m);
 
         // Age display
         const ageDisplay = voter.ageCheck && voter.ageCheck.age !== null
           ? `${voter.ageCheck.age} yrs`
-          : 'N/A';
+          : (voter.ageCheck ? (voter.ageCheck.passed ? 'no DOB*' : 'no DOB') : 'N/A');
         const ageStatus = voter.ageCheck
           ? (voter.ageCheck.passed ? '✓' : '✗')
           : '—';
@@ -2218,11 +3159,11 @@
 
         return `
           <tr class="hover:bg-slate-50">
-            <td class="px-3 py-2 font-medium">${displayName}</td>
+            <td class="px-3 py-2 font-medium">${memberNameHtml(m)}</td>
             <td class="px-3 py-2">${esc(m.status||'')}</td>
-            <td class="px-3 py-2">${esc(category)}</td>
+            <td class="px-3 py-2">${esc(memCat)}</td>
             <td class="px-3 py-2">${esc(m.group||'')}</td>
-            <td class="px-3 py-2 text-right mono">${attPct}%</td>
+            <td class="px-3 py-2 text-right mono ${att.color}">${att.text}</td>
             <td class="px-3 py-2 text-center mono" title="${esc(cellTitle)}">
               ${ageDisplay} ${ageStatus} | ${attDisplay} ${attStatus}
             </td>
@@ -2231,8 +3172,8 @@
                 ${voter.text}
               </span>
             </td>
-            <td class="px-3 py-2 text-sm text-slate-600" title="Between ${prevAGM.date} and ${latest.date}">
-              ${prevAGM.date} to ${latest.date}
+            <td class="px-3 py-2 text-sm text-slate-600" title="From ${anchorAGM.date} up to ${todayStr}">
+              ${anchorAGM.date} to ${todayStr}
             </td>
           </tr>
         `;
@@ -2245,21 +3186,26 @@
 
       container.innerHTML = `
         <div class="mb-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
-          <strong>Voter Eligibility Criteria:</strong><br/>
-          0. Must be an <strong>Active</strong> member with Category = <strong>Member</strong> (Visitors/Transferred/Inactive are not eligible)<br/>
-          1. Must be 18+ years old by birth month (Age: X yrs ✓/✗)<br/>
-          2. Must attend at least 2 services between AGM periods (Attended: X/2 ✓/✗)
+          <strong>Eligibility Criteria:</strong><br/>
+          1. Status must be <strong>Active</strong> and Membership Category <strong>Member</strong><br/>
+          2. Attended at least <strong>2 services</strong> from the most recent AGM up to today<br/>
+          3. <strong>18+</strong> by birth month as of today — <em>or</em>, if birth month/year is not recorded yet, Group/Ministry must <strong>not</strong> be RE(E), RE(J), or RE(K)
+          ${filter === 'activeatt' ? '<br/><br/><strong>Active Members filter:</strong> only ≥2 services from the most recent AGM up to today.' : ''}
+          ${filter === 'membership' ? '<br/><br/><strong>Membership filter:</strong> Membership Category = Member and Status not Inactive/Lost.' : ''}
+          ${filter === 'trueseekers' ? '<br/><br/><strong>True Seekers filter:</strong> Membership Category = True Seeker.' : ''}
+          ${filter === 'visiting' ? '<br/><br/><strong>Visiting Members filter:</strong> Membership Category = Visiting Member.' : ''}
+          ${filter === 'inactive' ? '<br/><br/><strong>Inactive filter:</strong> Status = Inactive.' : ''}
         </div>
         <table class="min-w-full text-sm">
           <thead class="bg-slate-100 text-slate-700">
             <tr>
               <th class="px-3 py-2 text-left">Name</th>
               <th class="px-3 py-2 text-left">Status</th>
-              <th class="px-3 py-2 text-left">Category</th>
+              <th class="px-3 py-2 text-left">Membership Category</th>
               <th class="px-3 py-2 text-left">Group</th>
               <th class="px-3 py-2 text-right">Attendance %</th>
               <th class="px-3 py-2 text-center">Age | Attendance</th>
-              <th class="px-3 py-2 text-center">Eligible Voter?</th>
+              <th class="px-3 py-2 text-center">Eligible?</th>
               <th class="px-3 py-2 text-left">Period</th>
             </tr>
           </thead>
@@ -2268,7 +3214,7 @@
           </tbody>
         </table>
         <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
-          Period: ${prevAGM.date} (Previous AGM) → ${latest.date} (Latest ${latest.type||'Meeting'})
+          Period: ${anchorAGM.date} (Most recent AGM) → ${todayStr} (Today)
         </div>
       `;
     }
@@ -2293,9 +3239,9 @@
             'Chinese Name': m.chineseName || '',
             'Full Name': m.name || '',
             'Status': m.status || '',
-            'Category': getMemberCategory(m),
+            'Membership Category': getMembershipCategory(m),
             'Group': m.group || '',
-            'Attendance %': calculateAttendancePercentage(m.id)
+            'Attendance %': (() => { const p = calculateAttendancePercentage(m.id); return p === null ? '' : p; })()
           }));
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
@@ -2349,9 +3295,8 @@
       await copyText(lines.join('\n') || 'No members');
     });
 
-    // --- Export/Save-to-Drive/Import/Open-from-Drive/Reset/Print ---
-    // Downloads the current state as a JSON file. Used by both "Export JSON" (dated backup
-    // filename) and "Save to Drive" (fixed filename, meant to be overwritten in a Drive folder).
+    // --- Save-to-Drive / Open-from-Drive / Reset / Print ---
+    // Downloads the current state as a JSON file for Google Drive sync.
     function downloadStateAsJSON(filename, { markSaved } = {}){
       try{
         if(markSaved){
@@ -2405,21 +3350,15 @@
       }
     }
 
-    document.getElementById('btnExport').addEventListener('click', () => {
-      const filename = `church-recorder-backup-${todayLocalISO()}.json`;
-      downloadStateAsJSON(filename, { markSaved: true });
-    });
-
     document.getElementById('btnSaveToDrive').addEventListener('click', () => {
-      const ok = downloadStateAsJSON('church-recorder-data.json', { markSaved: true });
+      const ok = downloadStateAsJSON(`church-recorder-data-${todayLocalISO()}.json`, { markSaved: true });
       if(ok){
         toast('Saved. On iPad, choose "Save to Files" → your Drive folder to finish syncing.');
         render();
       }
     });
 
-    // Shared logic for both "Import JSON" and "Open from Drive": parse the file, show a
-    // preview with member/service counts, and only replace the current data on confirmation.
+    // Open from Drive: parse JSON, show preview, replace on confirm.
     async function handleIncomingJSONFile(file, { isDriveOpen } = {}){
       if(!file) return;
       let parsed;
@@ -2437,7 +3376,7 @@
       const currentMemberCount = state.members.length;
       const currentServiceCount = state.services.length;
 
-      openModal(isDriveOpen ? 'Open from Drive (Preview)' : 'Import JSON (Preview)', `
+      openModal('Open from Drive (Preview)', `
         <div class="text-sm text-slate-600">
           File: <span class="font-semibold">${esc(file.name)}</span>
         </div>
@@ -2464,15 +3403,19 @@
 
       document.getElementById('btnCancelImportJSON')?.addEventListener('click', closeModal);
       document.getElementById('btnConfirmImportJSON')?.addEventListener('click', () => {
-        state = { ...defaults(), ...parsed,
+        state = migrateAppState({ ...defaults(), ...parsed,
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
-          serviceTypes: Array.isArray(parsed.serviceTypes) ? parsed.serviceTypes : defaults().serviceTypes,
-          memberStatuses: Array.isArray(parsed.memberStatuses) ? parsed.memberStatuses : defaults().memberStatuses,
+          serviceTypes: mergeList(parsed.serviceTypes, defaults().serviceTypes),
+          memberStatuses: mergeList(parsed.memberStatuses, defaults().memberStatuses),
+          membershipCategories: mergeList(parsed.membershipCategories, defaults().membershipCategories),
+          categories: mergeList(parsed.categories, defaults().categories),
           groups: Array.isArray(parsed.groups) ? parsed.groups : defaults().groups,
+          families: Array.isArray(parsed.families) ? parsed.families : defaults().families,
+          familyMembers: Array.isArray(parsed.familyMembers) ? parsed.familyMembers : [],
           services: Array.isArray(parsed.services) ? parsed.services : [],
           members: Array.isArray(parsed.members) ? parsed.members : []
-        };
+        });
 
         // Freshly opened data is, by definition, in sync with what's on disk/Drive.
         _suppressDirtyFlag = true;
@@ -2494,15 +3437,6 @@
       });
     }
 
-    document.getElementById('fileImport').addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      try{
-        await handleIncomingJSONFile(file, { isDriveOpen: false });
-      } finally {
-        e.target.value = '';
-      }
-    });
-
     document.getElementById('fileOpenFromDrive').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       try{
@@ -2515,7 +3449,7 @@
     document.getElementById('btnReset').addEventListener('click', () => {
       const neverSavedToDrive = !state.meta?.lastSavedAt;
       const warning = neverSavedToDrive
-        ? 'WARNING: This data has never been saved to Drive (or exported). Resetting now will permanently delete it.\n\n'
+        ? 'WARNING: This data has never been saved to Drive. Resetting now will permanently delete it.\n\n'
         : '';
       const typed = prompt(
         `${warning}This will delete ALL services and members in this browser.\n\nType RESET (all caps) to confirm:`
@@ -2525,7 +3459,7 @@
         return;
       }
       try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
-      state = defaults();
+      state = migrateAppState(defaults());
       const ok = saveState();
       if(ok){
         toast('Reset complete');
@@ -2557,9 +3491,14 @@
       if(e.key === 'Escape') closeModal();
     });
 
-    function openModal(title, html){
+    function openModal(title, html, sizeClass = 'max-w-lg'){
       modalTitle.textContent = title;
       modalBody.innerHTML = html;
+      const panel = modal.querySelector('.relative');
+      if(panel){
+        panel.classList.remove('max-w-lg','max-w-3xl','max-w-5xl');
+        panel.classList.add(sizeClass);
+      }
       modal.classList.remove('hidden');
       modal.classList.add('flex');
     }
@@ -2591,16 +3530,24 @@
               <div class="grid gap-2 min-w-0">
                 <label class="text-sm text-slate-600">Status</label>
                 <select name="status" class="rounded-xl border px-3 py-2 text-sm">
-                  ${state.memberStatuses.slice().sort((a,b)=>a.localeCompare(b)).map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+                  ${state.memberStatuses.slice().sort((a,b)=>a.localeCompare(b)).map(s=>`<option value="${esc(s)}" ${s==='Active'?'selected':''}>${esc(s)}</option>`).join('')}
                 </select>
               </div>
             </div>
-            <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Group</label>
-              <select name="group" class="rounded-xl border px-3 py-2 text-sm">
-                <option value="">—</option>
-                ${state.groups.slice().sort((a,b)=>a.localeCompare(b)).map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}
-              </select>
+            <div class="form-row-modal">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Membership Category</label>
+                <select name="membershipCategory" class="rounded-xl border px-3 py-2 text-sm">
+                  ${(state.membershipCategories || defaults().membershipCategories).slice().sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}" ${c==='Member'?'selected':''}>${esc(c)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Group</label>
+                <select name="group" class="rounded-xl border px-3 py-2 text-sm">
+                  <option value="">—</option>
+                  ${state.groups.slice().sort((a,b)=>a.localeCompare(b)).map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}
+                </select>
+              </div>
             </div>
             <div class="flex flex-wrap gap-2">
               <button class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
@@ -2628,6 +3575,7 @@
           const lastName = (fd.get('lastName')||'').toString().trim();
           
           const status = (fd.get('status')||'Active').toString();
+          const membershipCategory = (fd.get('membershipCategory')||'Member').toString();
           const record = {
             id: uid(),
             firstName: firstName,
@@ -2638,8 +3586,11 @@
             birthMonth: '',
             birthYear: '',
             status: status,
+            membershipCategory: membershipCategory,
             group: (fd.get('group')||'').toString(),
-            category: status === 'Visitor' ? 'Visitor' : 'Member',
+            familyId: '',
+            family: '',
+            category: '',
             baptismDate: '',
             holySpiritDate: '',
             joinMonth: '',
@@ -2712,14 +3663,18 @@
       });
     }
 
-    // Members: Excel Export/Import (SheetJS)
+    // Members: Excel Export/Import (SheetJS) + member info collection updates
+    function isBlankValue(v){
+      return v === '' || v === null || v === undefined;
+    }
+
     function membersToExportRows(){
-      // Include computed and raw fields; Google Sheets can consume this directly.
       return state.members.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(m => {
         const attPct = calculateAttendancePercentage(m.id);
         const joined = m.joined || (m.joinYear && m.joinMonth ? `${m.joinYear}-${m.joinMonth}` : (m.joinYear ? String(m.joinYear) : ''));
         const address = m.address || [m.street, m.city, m.province, m.postcode].filter(Boolean).join(', ');
         return {
+          'Member ID': m.id || '',
           'First Name': m.firstName || '',
           'Last Name': m.lastName || '',
           'Chinese Name': m.chineseName || '',
@@ -2727,8 +3682,10 @@
           'Phone': m.phone || '',
           'Email': m.email || '',
           'Status': m.status || '',
+          'Membership Category': getMembershipCategory(m),
           'Group': m.group || '',
-          'Category': getMemberCategory(m),
+          'Family': getMemberFamily(m),
+          'Family ID': FamilyDomain.getMemberFamilyId(m),
           'Baptism Date': m.baptismDate || '',
           'Holy Spirit Date': m.holySpiritDate || '',
           'Birth Month': m.birthMonth || '',
@@ -2741,9 +3698,41 @@
           'Province': m.province || '',
           'Postcode': m.postcode || '',
           'Address': address,
-          'Attendance %': attPct
+          'Attendance %': attPct === null ? '' : attPct
         };
       });
+    }
+
+    function membersToCollectionRows(){
+      const rows = state.members.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(m => ({
+        'Member ID': m.id || '',
+        'First Name': m.firstName || '',
+        'Last Name': m.lastName || '',
+        'Chinese Name': m.chineseName || '',
+        'Phone': m.phone || '',
+        'Email': m.email || '',
+        'Birth Month': m.birthMonth || '',
+        'Birth Year': m.birthYear || '',
+        'Baptism Date': m.baptismDate || '',
+        'Holy Spirit Date': m.holySpiritDate || '',
+        'Join Month': m.joinMonth || '',
+        'Join Year': m.joinYear || '',
+        'Street': m.street || '',
+        'City': m.city || '',
+        'Province': m.province || '',
+        'Postcode': m.postcode || '',
+        'Family': getMemberFamily(m) || '',
+        'Notes': ''
+      }));
+      if(!rows.length){
+        rows.push({
+          'Member ID': '', 'First Name': '', 'Last Name': '', 'Chinese Name': '',
+          'Phone': '', 'Email': '', 'Birth Month': '', 'Birth Year': '',
+          'Baptism Date': '', 'Holy Spirit Date': '', 'Join Month': '', 'Join Year': '',
+          'Street': '', 'City': '', 'Province': '', 'Postcode': '', 'Family': '', 'Notes': ''
+        });
+      }
+      return rows;
     }
 
     function exportMembersExcel(){
@@ -2760,13 +3749,75 @@
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Members');
-        const filename = `church-members-${new Date().toISOString().slice(0,10)}.xlsx`;
-        XLSX.writeFile(wb, filename);
+        XLSX.writeFile(wb, `church-members-${todayLocalISO()}.xlsx`);
         toast('Members exported');
       }catch(e){
         console.error('Export Members Excel failed:', e);
         alert('Export failed in this browser. Try Chrome/Edge or disable strict download blockers.');
       }
+    }
+
+    function exportMemberCollectionTemplate(){
+      try{
+        if(typeof XLSX === 'undefined'){
+          alert('Excel export is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
+          return;
+        }
+        const rows = membersToCollectionRows();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const instructions = XLSX.utils.aoa_to_sheet([
+          ['TJCKW Member Information Collection'],
+          [''],
+          ['How to use'],
+          ['1. Keep the Member ID column unchanged when updating existing members.'],
+          ['2. Ask members to fill blank cells only (Chinese name, phone, birth month/year, address, baptism/HS dates, etc.).'],
+          ['3. You can also share member-info-form.html so individuals fill a form and send back a JSON file.'],
+          ['4. In the app, use Import Updates and choose Fill missing only.'],
+          [''],
+          ['Birth Month tip: use 01-12 (January = 01).'],
+          ['Date tip: use YYYY-MM-DD for Baptism Date and Holy Spirit Date.']
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, instructions, 'Instructions');
+        XLSX.utils.book_append_sheet(wb, ws, 'Member Info');
+        XLSX.writeFile(wb, `member-info-collection-${todayLocalISO()}.xlsx`);
+        toast('Collection Excel downloaded');
+      }catch(e){
+        console.error('Export collection template failed:', e);
+        alert('Could not create the collection Excel file.');
+      }
+    }
+
+    function openCollectMemberInfoHelp(){
+      openModal('Collect Member Information', `
+        <div class="grid gap-4 text-sm text-slate-700">
+          <p>Use either method below. Both can be imported back into this app to fill missing member fields.</p>
+          <div class="rounded-xl border p-3">
+            <div class="font-semibold">Option A — Shareable form (best for individuals)</div>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-slate-600">
+              <li>Open or share <code class="rounded bg-slate-100 px-1">member-info-form.html</code> (same folder as this app).</li>
+              <li>Member fills the form and downloads a <code class="rounded bg-slate-100 px-1">.json</code> file.</li>
+              <li>Use <strong>Import Updates</strong> and choose <strong>Fill missing only</strong>.</li>
+            </ol>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <a href="member-info-form.html" target="_blank" rel="noopener" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open Form</a>
+            </div>
+          </div>
+          <div class="rounded-xl border p-3">
+            <div class="font-semibold">Option B — Excel collection sheet (best for many members)</div>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-slate-600">
+              <li>Download the Excel template (includes Member ID for matching).</li>
+              <li>Send the sheet for members to complete blank cells.</li>
+              <li>Import the completed Excel with <strong>Fill missing only</strong>.</li>
+            </ol>
+            <div class="mt-3">
+              <button id="btnDownloadCollectionExcel" type="button" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Download Collection Excel</button>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500">Tip: Prefer Member ID matching. If Member ID is blank, matching falls back to name + phone.</p>
+        </div>
+      `, 'max-w-2xl');
+      document.getElementById('btnDownloadCollectionExcel')?.addEventListener('click', exportMemberCollectionTemplate);
     }
 
     function normalizeHeader(h){
@@ -2780,9 +3831,6 @@
       return undefined;
     }
 
-    // Excel/Sheets may hand back dates as serial numbers (days since 1899-12-30) instead of
-    // strings when a column is formatted as a date. Convert those to YYYY-MM-DD; pass through
-    // strings that already look like dates.
     function excelToISODate(v){
       if(v === '' || v === null || v === undefined) return '';
       if(typeof v === 'number' && isFinite(v)){
@@ -2801,21 +3849,18 @@
     }
 
     function parseExcelMembers(rows){
-      // Build a header map based on normalized keys.
-      // rows are objects from sheet_to_json({defval:''})
       const mapped = [];
       for(const r of rows){
-        // Create a normalized-key view of the row
         const norm = {};
         for(const [k,v] of Object.entries(r||{})){
           norm[normalizeHeader(k)] = v;
         }
 
+        const memberId = (valFromRow(norm, ['memberid','id','recordid']) ?? '').toString().trim();
         const firstName = (valFromRow(norm, ['firstname','first','givenname','given']) ?? '').toString().trim();
         const lastName = (valFromRow(norm, ['lastname','last','surname','familyname']) ?? '').toString().trim();
         const fullName = (valFromRow(norm, ['fullname','name']) ?? '').toString().trim();
 
-        // If first/last missing but full name present, split best-effort
         let fn = firstName;
         let ln = lastName;
         if((!fn || !ln) && fullName){
@@ -2823,176 +3868,320 @@
           fn = fn || (parts.shift() || '');
           ln = ln || (parts.join(' ') || '');
         }
-
-        if(!fn && !ln) continue; // skip blank rows
+        if(!fn && !ln && !memberId) continue;
 
         const chineseName = (valFromRow(norm, ['chinesename','chinesenamech','chinesenamecn','chinese']) ?? '').toString().trim();
         const phoneRaw = (valFromRow(norm, ['phone','phonenumber','mobile','cell']) ?? '').toString();
         const email = (valFromRow(norm, ['email','emailaddress']) ?? '').toString().trim();
-        const status = (valFromRow(norm, ['status']) ?? 'Active').toString().trim() || 'Active';
+        const status = (valFromRow(norm, ['status']) ?? '').toString().trim();
         const group = (valFromRow(norm, ['group','ministry','department']) ?? '').toString().trim();
+        const family = (valFromRow(norm, ['family','household','familytree']) ?? '').toString().trim();
+        const familyId = (valFromRow(norm, ['familyid','householdid']) ?? '').toString().trim();
+        const notes = (valFromRow(norm, ['notes','adminnotes','comments']) ?? '').toString().trim();
 
-        // Category: Member / Visitor / Transferred (separate from Status). Fall back to
-        // inferring from Status for sheets that don't have this column yet.
-        let category = (valFromRow(norm, ['category']) ?? '').toString().trim();
-        if(category){
-          const catMatch = ['Member','Visitor','Transferred'].find(c => c.toLowerCase() === category.toLowerCase());
-          category = catMatch || 'Member';
-        } else {
-          category = status === 'Visitor' ? 'Visitor' : 'Member';
+        let membershipCategory = (valFromRow(norm, ['membershipcategory','membership','visitorcategory','category']) ?? '').toString().trim();
+        let statusVal = status;
+        if(normalizeLabel(membershipCategory) === 'truth seeker') membershipCategory = 'True Seeker';
+        if(['true seeker','truth seeker'].includes(normalizeLabel(statusVal))){
+          membershipCategory = membershipCategory || 'True Seeker';
+          statusVal = 'Active';
+        } else if(normalizeLabel(statusVal) === 'visiting member'){
+          membershipCategory = membershipCategory || 'Visiting Member';
+          statusVal = 'Active';
+        } else if(normalizeLabel(statusVal) === 'visitor'){
+          membershipCategory = membershipCategory || 'Visiting Member';
+          statusVal = 'Active';
+        } else if(normalizeLabel(statusVal) === 'member'){
+          membershipCategory = membershipCategory || 'Member';
+          statusVal = 'Active';
+        }
+        if(normalizeLabel(membershipCategory) === 'visitor') membershipCategory = 'Visiting Member';
+        if(membershipCategory){
+          const knownMemCats = state.membershipCategories || defaults().membershipCategories;
+          const memMatch = knownMemCats.find(c => c.toLowerCase() === membershipCategory.toLowerCase());
+          if(memMatch) membershipCategory = memMatch;
+          else {
+            if(!state.membershipCategories) state.membershipCategories = knownMemCats.slice();
+            state.membershipCategories.push(membershipCategory);
+          }
+        }
+        if(statusVal && !state.memberStatuses.some(s => normalizeLabel(s) === normalizeLabel(statusVal))){
+          state.memberStatuses.push(statusVal);
         }
 
         const baptismDate = excelToISODate(valFromRow(norm, ['baptismdate','baptism','dateofbaptism']));
         const holySpiritDate = excelToISODate(valFromRow(norm, ['holyspiritdate','holyspirit','dateofholyspirit','receivedholyspiritdate']));
-
-        // Birth
         let birthMonth = (valFromRow(norm, ['birthmonth','bmonth','dobmonth']) ?? '').toString().trim();
         let birthYear = (valFromRow(norm, ['birthyear','byear','dobyear']) ?? '').toString().trim();
-        // Normalize month numbers like 1..12 -> 01..12
         const bmNum = Number(birthMonth);
         if(birthMonth && isFinite(bmNum) && bmNum >= 1 && bmNum <= 12) birthMonth = String(bmNum).padStart(2,'0');
-
-        // Join
         let joinMonth = (valFromRow(norm, ['joinmonth','jmonth','membermonth']) ?? '').toString().trim();
         let joinYear = (valFromRow(norm, ['joinyear','jyear','memberyear']) ?? '').toString().trim();
         const jmNum = Number(joinMonth);
         if(joinMonth && isFinite(jmNum) && jmNum >= 1 && jmNum <= 12) joinMonth = String(jmNum).padStart(2,'0');
-
         const street = (valFromRow(norm, ['street','streetaddress','address1']) ?? '').toString().trim();
         const city = (valFromRow(norm, ['city','town']) ?? '').toString().trim();
         const province = (valFromRow(norm, ['province','prov','state']) ?? '').toString().trim();
-        const postcodeRaw = (valFromRow(norm, ['postcode','postalcode','postal','zip']) ?? '').toString().trim();
-        const postcode = formatPostalCode(postcodeRaw);
-
+        const postcode = formatPostalCode((valFromRow(norm, ['postcode','postalcode','postal','zip']) ?? '').toString().trim());
         const joined = (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear ? String(joinYear) : '');
         const address = [street, city, province, postcode].filter(Boolean).join(', ');
 
         mapped.push({
-          firstName: fn,
-          lastName: ln,
-          chineseName,
+          memberId, firstName: fn, lastName: ln, chineseName,
           name: (fn + ' ' + ln).trim(),
-          phone: formatPhone(phoneRaw),
-          email,
-          birthMonth,
-          birthYear,
-          status,
-          group,
-          category,
-          baptismDate,
-          holySpiritDate,
-          joinMonth,
-          joinYear,
-          joined,
-          street,
-          city,
-          province,
-          postcode,
-          address
+          phone: formatPhone(phoneRaw), email, birthMonth, birthYear,
+          status: statusVal, membershipCategory, group, family, familyId,
+          category: '', baptismDate, holySpiritDate, joinMonth, joinYear, joined,
+          street, city, province, postcode, address, notes
         });
       }
       return mapped;
     }
 
+    function parseMemberUpdatePayload(obj){
+      if(!obj || typeof obj !== 'object') return null;
+      if(Array.isArray(obj.members)){
+        return obj.members.map(parseMemberUpdatePayload).filter(Boolean);
+      }
+      const firstName = String(obj.firstName || '').trim();
+      const lastName = String(obj.lastName || '').trim();
+      const memberId = String(obj.memberId || obj.id || '').trim();
+      if(!firstName && !lastName && !memberId) return null;
+      const joinMonth = String(obj.joinMonth || '').trim();
+      const joinYear = String(obj.joinYear || '').trim();
+      const street = String(obj.street || '').trim();
+      const city = String(obj.city || '').trim();
+      const province = String(obj.province || '').trim();
+      const postcode = formatPostalCode(String(obj.postcode || ''));
+      return {
+        memberId, firstName, lastName,
+        chineseName: String(obj.chineseName || '').trim(),
+        name: String(obj.name || `${firstName} ${lastName}`).trim(),
+        phone: formatPhone(String(obj.phone || '')),
+        email: String(obj.email || '').trim(),
+        birthMonth: String(obj.birthMonth || '').trim(),
+        birthYear: String(obj.birthYear || '').trim(),
+        status: String(obj.status || '').trim(),
+        membershipCategory: String(obj.membershipCategory || '').trim(),
+        group: String(obj.group || '').trim(),
+        family: String(obj.family || '').trim(),
+        familyId: String(obj.familyId || '').trim(),
+        baptismDate: excelToISODate(obj.baptismDate),
+        holySpiritDate: excelToISODate(obj.holySpiritDate),
+        joinMonth, joinYear,
+        joined: (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear || ''),
+        street, city, province, postcode,
+        address: String(obj.address || [street, city, province, postcode].filter(Boolean).join(', ')).trim(),
+        notes: String(obj.notes || '').trim()
+      };
+    }
+
     function dedupeMemberKey(m){
-      const n = normalize(m.name);
+      const n = normalize(m.name || `${m.firstName||''} ${m.lastName||''}`);
       const p = (m.phone||'').replace(/\s+/g,'');
       return n + '|' + p;
     }
 
-    async function importMembersExcelFile(file){
+    function findExistingMemberIndex(working, imported){
+      if(imported.memberId){
+        const byId = working.members.findIndex(em => em.id === imported.memberId);
+        if(byId >= 0) return byId;
+      }
+      const importKey = dedupeMemberKey(imported);
+      if(!importKey || importKey === '|') return -1;
+      return working.members.findIndex(em => dedupeMemberKey(em) === importKey);
+    }
+
+    function mergeMemberRecord(existing, incoming, mode){
+      const out = { ...(existing || {}) };
+      const fields = [
+        'firstName','lastName','chineseName','phone','email',
+        'birthMonth','birthYear','baptismDate','holySpiritDate',
+        'joinMonth','joinYear','street','city','province','postcode',
+        'status','membershipCategory','group'
+      ];
+      for(const field of fields){
+        const nextVal = incoming[field];
+        if(isBlankValue(nextVal)) continue;
+        if(mode === 'overwrite' || isBlankValue(out[field])) out[field] = nextVal;
+      }
+      out.firstName = out.firstName || '';
+      out.lastName = out.lastName || '';
+      out.name = `${out.firstName} ${out.lastName}`.trim() || out.name || '';
+      out.joined = (out.joinYear && out.joinMonth)
+        ? `${out.joinYear}-${out.joinMonth}`
+        : (out.joinYear ? String(out.joinYear) : (out.joined || ''));
+      out.address = [out.street, out.city, out.province, out.postcode].filter(Boolean).join(', ');
+      if(!isBlankValue(incoming.family) && (mode === 'overwrite' || isBlankValue(out.family))) out.family = incoming.family;
+      if(!isBlankValue(incoming.familyId) && (mode === 'overwrite' || isBlankValue(out.familyId))) out.familyId = incoming.familyId;
+      return out;
+    }
+
+    function applyImportedMembers(parsed, { mode = 'fill' } = {}){
+      let added = 0, updated = 0;
+      let working = FamilyDomain.cloneState(state);
+      for(const imported of parsed){
+        const existingIdx = findExistingMemberIndex(working, imported);
+        const existingId = existingIdx >= 0 ? working.members[existingIdx].id : (imported.memberId || uid());
+        const existing = existingIdx >= 0 ? working.members[existingIdx] : null;
+        const merged = mergeMemberRecord(existing || { id: existingId, status: 'Active', membershipCategory: 'Member' }, imported, mode);
+
+        let targetFamily = null;
+        if(!isBlankValue(merged.familyId)) targetFamily = FamilyDomain.getFamilyById(working, merged.familyId);
+        if(!targetFamily && !isBlankValue(merged.family)){
+          targetFamily = (working.families||[]).find(f => FamilyDomain.isFamilyEntity(f) && normalizeLabel(f.displayName) === normalizeLabel(merged.family));
+          if(!targetFamily && (mode === 'overwrite' || !existing || isBlankValue(existing.familyId))){
+            targetFamily = FamilyDomain.createFamilyRecord({ uid, displayName: merged.family, nowFn:() => new Date() });
+            working.families.push(targetFamily);
+          }
+        }
+        if(targetFamily){
+          merged.familyId = targetFamily.id;
+          merged.family = targetFamily.displayName;
+        } else if(existing){
+          merged.familyId = existing.familyId || '';
+          merged.family = existing.family || getMemberFamily(existing) || '';
+        } else {
+          merged.familyId = '';
+          merged.family = '';
+        }
+        if(!merged.membershipCategory) merged.membershipCategory = existing?.membershipCategory || 'Member';
+        if(!merged.status) merged.status = existing?.status || 'Active';
+
+        if(existingIdx >= 0){
+          const before = JSON.stringify(working.members[existingIdx]);
+          working.members[existingIdx] = { ...working.members[existingIdx], ...merged, id: existingId };
+          if(before !== JSON.stringify(working.members[existingIdx])) updated++;
+        } else {
+          working.members.push({ ...merged, id: existingId });
+          added++;
+        }
+        if(targetFamily){
+          working.familyMembers = (working.familyMembers||[]).filter(fm => fm.memberId !== existingId);
+          working.familyMembers.push(FamilyDomain.createMembership({ familyId:targetFamily.id, memberId:existingId, nowFn:() => new Date() }));
+        }
+      }
+      FamilyDomain.migrateFamilies(working, { uid, nowFn:() => new Date() });
+      return { working, added, updated };
+    }
+
+    async function importMembersExcelFile(file, { mode = 'fill' } = {}){
       if(!file) return;
-      if(typeof XLSX === 'undefined'){
-        alert('Excel import is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
-        return;
+      let parsed = [];
+      const lower = (file.name || '').toLowerCase();
+      if(lower.endsWith('.json') || file.type === 'application/json'){
+        const text = await file.text();
+        const obj = JSON.parse(text);
+        const oneOrMore = parseMemberUpdatePayload(obj);
+        parsed = Array.isArray(oneOrMore) ? oneOrMore : (oneOrMore ? [oneOrMore] : []);
+      } else {
+        if(typeof XLSX === 'undefined'){
+          alert('Excel import is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
+          return;
+        }
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const preferred = wb.SheetNames.find(n => /member/i.test(n)) || wb.SheetNames[0];
+        const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[preferred], { defval: '' });
+        parsed = parseExcelMembers(rawRows);
       }
-
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: 'array' });
-      const wsName = wb.SheetNames[0];
-      const ws = wb.Sheets[wsName];
-      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      const parsed = parseExcelMembers(rawRows);
-
       if(parsed.length === 0){
-        alert('No valid member rows found. Make sure your sheet has columns like First Name / Last Name (or Full Name).');
+        alert('No valid member rows found. Include First/Last Name (and Member ID when updating), or use a form JSON file.');
         return;
       }
 
-      // Preview
       const preview = parsed.slice(0, 5).map(m => `
         <tr>
-          <td class="px-3 py-2">${esc(m.name)}</td>
-          <td class="px-3 py-2">${esc(m.chineseName||'')}</td>
+          <td class="px-3 py-2">${memberNameHtml(m)}</td>
           <td class="px-3 py-2">${esc(m.phone||'')}</td>
-          <td class="px-3 py-2">${esc(m.status||'')}</td>
-          <td class="px-3 py-2">${esc(m.group||'')}</td>
+          <td class="px-3 py-2 mono text-xs">${esc(m.memberId||'—')}</td>
+          <td class="px-3 py-2">${esc(m.email||'')}</td>
         </tr>
       `).join('');
 
-      openModal('Import Members (Preview)', `
+      openModal('Import Member Updates', `
         <div class="text-sm text-slate-600">
           File: <span class="font-semibold">${esc(file.name)}</span><br/>
-          Parsed members: <span class="font-semibold">${parsed.length}</span>
+          Parsed records: <span class="font-semibold">${parsed.length}</span>
         </div>
         <div class="mt-3 overflow-auto rounded-xl border">
           <table class="min-w-full text-sm">
             <thead class="bg-slate-100 text-slate-700">
               <tr>
                 <th class="px-3 py-2 text-left">Name</th>
-                <th class="px-3 py-2 text-left">Chinese</th>
                 <th class="px-3 py-2 text-left">Phone</th>
-                <th class="px-3 py-2 text-left">Status</th>
-                <th class="px-3 py-2 text-left">Group</th>
+                <th class="px-3 py-2 text-left">Member ID</th>
+                <th class="px-3 py-2 text-left">Email</th>
               </tr>
             </thead>
-            <tbody class="divide-y">
-              ${preview}
-            </tbody>
+            <tbody class="divide-y">${preview}</tbody>
           </table>
         </div>
-        <div class="mt-2 text-xs text-slate-500">Showing first 5 rows. <strong>Excel takes priority:</strong> matching members (same name + phone) will be <strong>overwritten</strong> with Excel data.</div>
+        <div class="mt-3 grid gap-2 text-sm">
+          <label class="flex items-start gap-2 rounded-xl border p-3 hover:bg-slate-50 cursor-pointer">
+            <input type="radio" name="importMode" value="fill" ${mode==='fill'?'checked':''} class="mt-1" />
+            <span><strong>Fill missing only</strong> — keep existing values; only blank fields are updated. Recommended for member-returned forms.</span>
+          </label>
+          <label class="flex items-start gap-2 rounded-xl border p-3 hover:bg-slate-50 cursor-pointer">
+            <input type="radio" name="importMode" value="overwrite" ${mode==='overwrite'?'checked':''} class="mt-1" />
+            <span><strong>Overwrite provided fields</strong> — non-blank imported values replace current data for matching members.</span>
+          </label>
+        </div>
         <div class="mt-4 flex gap-2">
           <button id="btnConfirmImportMembers" class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Import</button>
           <button id="btnCancelImportMembers" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
         </div>
-      `);
+      `, 'max-w-2xl');
 
       document.getElementById('btnCancelImportMembers')?.addEventListener('click', closeModal);
       document.getElementById('btnConfirmImportMembers')?.addEventListener('click', () => {
-        // Excel import takes priority: UPDATE existing members, ADD new ones
-        let added = 0;
-        let updated = 0;
-        
-        for(const m of parsed){
-          const importKey = dedupeMemberKey(m);
-          // Find existing member with same name+phone
-          const existingIdx = state.members.findIndex(em => dedupeMemberKey(em) === importKey);
-          
-          if(existingIdx >= 0){
-            // OVERWRITE existing member with Excel data (keep the original ID)
-            const existingId = state.members[existingIdx].id;
-            state.members[existingIdx] = { id: existingId, ...m };
-            updated++;
-          } else {
-            // ADD new member
-            state.members.push({ id: uid(), ...m });
-            added++;
-          }
-        }
-        
+        const chosen = modalBody.querySelector('input[name="importMode"]:checked')?.value || 'fill';
+        const result = applyImportedMembers(parsed, { mode: chosen });
+        const before = state;
+        state = result.working;
         const ok = saveState();
         if(ok){
           const msg = [];
-          if(added > 0) msg.push(`${added} added`);
-          if(updated > 0) msg.push(`${updated} updated`);
-          toast(`Imported: ${msg.join(', ') || '0 changes'}`);
+          if(result.added > 0) msg.push(`${result.added} added`);
+          if(result.updated > 0) msg.push(`${result.updated} updated`);
+          toast(`Imported (${chosen}): ${msg.join(', ') || '0 changes'}`);
           closeModal();
           render();
         } else {
+          state = before;
           toast('Import done, but saving is blocked');
         }
       });
+    }
+
+    async function importMemberUpdateFiles(fileList){
+      const files = [...(fileList || [])];
+      if(!files.length) return;
+      if(files.length === 1){
+        await importMembersExcelFile(files[0], { mode: 'fill' });
+        return;
+      }
+      const parsed = [];
+      for(const file of files){
+        const lower = (file.name || '').toLowerCase();
+        if(lower.endsWith('.json') || file.type === 'application/json'){
+          const text = await file.text();
+          const obj = JSON.parse(text);
+          const oneOrMore = parseMemberUpdatePayload(obj);
+          if(Array.isArray(oneOrMore)) parsed.push(...oneOrMore);
+          else if(oneOrMore) parsed.push(oneOrMore);
+        } else {
+          await importMembersExcelFile(file, { mode: 'fill' });
+          return;
+        }
+      }
+      if(!parsed.length){
+        alert('No valid member update records found in the selected files.');
+        return;
+      }
+      const blob = new Blob([JSON.stringify({ type:'church.member.update.batch.v1', members: parsed }, null, 2)], { type:'application/json' });
+      const synthetic = new File([blob], `batch-${files.length}-updates.json`, { type:'application/json' });
+      await importMembersExcelFile(synthetic, { mode: 'fill' });
     }
 
     function storageSelfTest(){
@@ -3009,52 +4198,31 @@
       }
     }
 
-    // Wire up Members Excel buttons
-    const btnExportMembersExcel = document.getElementById('btnExportMembersExcel');
-    if(btnExportMembersExcel){
-      btnExportMembersExcel.addEventListener('click', exportMembersExcel);
-    }
-    const fileMembersExcel = document.getElementById('fileMembersExcel');
-    if(fileMembersExcel){
-      fileMembersExcel.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0];
-        try{
-          if(file) await importMembersExcelFile(file);
-        }catch(err){
-          console.error('Import Members Excel failed:', err);
-          alert('Could not import this file. Please ensure it is a valid .xlsx/.xls/.csv with headers.');
-        } finally {
-          e.target.value = '';
-        }
-      });
-    }
+    document.getElementById('btnCollectMemberInfo')?.addEventListener('click', openCollectMemberInfoHelp);
+    document.getElementById('btnExportMembersExcel')?.addEventListener('click', exportMembersExcel);
+    document.getElementById('fileMembersExcel')?.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      try{
+        if(files?.length) await importMemberUpdateFiles(files);
+      }catch(err){
+        console.error('Import Members updates failed:', err);
+        alert('Could not import this file. Please ensure it is a valid .xlsx/.xls/.csv/.json member update.');
+      } finally {
+        e.target.value = '';
+      }
+    });
 
-    function updateOnlineStatus() {
-      const el = document.getElementById('onlineStatus');
-      if(!el) return;
-      const isOnline = navigator.onLine;
-      el.innerHTML = isOnline 
-        ? '<span class="size-2 rounded-full bg-emerald-500"></span> Online'
-        : '<span class="size-2 rounded-full bg-slate-400"></span> Offline';
-      el.className = `rounded-xl border px-3 py-2 text-xs flex items-center gap-2 ${isOnline ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-slate-100 text-slate-600'}`;
-    }
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-
-    // Init - wrap in DOMContentLoaded to ensure everything is loaded
     if(document.readyState === 'loading'){
       document.addEventListener('DOMContentLoaded', () => {
-        updateOnlineStatus();
         storageSelfTest();
         resetServiceForm();
         render();
       });
     } else {
-      updateOnlineStatus();
       storageSelfTest();
       resetServiceForm();
       render();
     }
-  </script>
+    </script>
 </body>
 </html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TJCKW Member Information Form</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    input, select, textarea { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; }
+    .form-row { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+    @media (min-width: 640px) {
+      .form-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="mx-auto max-w-2xl px-4 py-8">
+    <div class="rounded-2xl border bg-white p-5 shadow-sm">
+      <h1 class="text-xl font-semibold">Member Information Form</h1>
+      <p class="mt-2 text-sm text-slate-600">
+        Please fill in your details and tap <strong>Download My Info</strong>.
+        Email or send the downloaded file to church admin so your membership record can be updated.
+      </p>
+
+      <form id="memberInfoForm" class="mt-5 grid gap-3">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          If admin gave you a <strong>Member ID</strong>, paste it below. Leave blank if you are unsure.
+        </div>
+
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600">Member ID (optional)</label>
+          <input id="memberId" name="memberId" class="rounded-xl border px-3 py-2 text-sm" placeholder="Paste only if provided" />
+        </div>
+
+        <div class="form-row">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">First Name *</label>
+            <input required id="firstName" name="firstName" class="rounded-xl border px-3 py-2 text-sm" />
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Last Name *</label>
+            <input required id="lastName" name="lastName" class="rounded-xl border px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600">Chinese Name</label>
+          <input id="chineseName" name="chineseName" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 张三" />
+        </div>
+
+        <div class="form-row">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Phone *</label>
+            <input required id="phone" name="phone" type="tel" class="rounded-xl border px-3 py-2 text-sm" placeholder="+1 (555) 123-4567" />
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Email</label>
+            <input id="email" name="email" type="email" class="rounded-xl border px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Birth Month</label>
+            <select id="birthMonth" name="birthMonth" class="rounded-xl border px-3 py-2 text-sm">
+              <option value="">—</option>
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Birth Year</label>
+            <input id="birthYear" name="birthYear" type="number" min="1900" max="2030" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 1990" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Baptism Date</label>
+            <input id="baptismDate" name="baptismDate" type="date" class="rounded-xl border px-3 py-2 text-sm" />
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Holy Spirit Date</label>
+            <input id="holySpiritDate" name="holySpiritDate" type="date" class="rounded-xl border px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Joined Month</label>
+            <select id="joinMonth" name="joinMonth" class="rounded-xl border px-3 py-2 text-sm">
+              <option value="">—</option>
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Joined Year</label>
+            <input id="joinYear" name="joinYear" type="number" min="1900" max="2100" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 2020" />
+          </div>
+        </div>
+
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600">Street Address</label>
+          <input id="street" name="street" class="rounded-xl border px-3 py-2 text-sm" />
+        </div>
+
+        <div class="form-row">
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">City</label>
+            <input id="city" name="city" class="rounded-xl border px-3 py-2 text-sm" />
+          </div>
+          <div class="grid gap-2">
+            <label class="text-sm text-slate-600">Province</label>
+            <input id="province" name="province" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., ON" />
+          </div>
+        </div>
+
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600">Postal Code</label>
+          <input id="postcode" name="postcode" class="rounded-xl border px-3 py-2 text-sm" placeholder="A1A 1A1" />
+        </div>
+
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600">Family / Household name (optional)</label>
+          <input id="family" name="family" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Liu — Victor & Polly" />
+        </div>
+
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600">Notes for admin (optional)</label>
+          <textarea id="notes" name="notes" rows="3" class="rounded-xl border px-3 py-2 text-sm" placeholder="Anything else we should know…"></textarea>
+        </div>
+
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button type="submit" class="flex-1 min-w-[10rem] rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">Download My Info</button>
+          <button type="reset" class="rounded-xl border px-3 py-2.5 text-sm hover:bg-slate-50">Clear</button>
+        </div>
+      </form>
+
+      <p id="statusMsg" class="mt-4 hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"></p>
+    </div>
+  </main>
+
+  <script>
+    function formatPostalCode(value){
+      const cleaned = (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
+      if(cleaned.length <= 3) return cleaned;
+      return cleaned.slice(0,3) + ' ' + cleaned.slice(3,6);
+    }
+
+    function formatPhone(value){
+      const digitsAll = (value || '').replace(/\D+/g, '');
+      if(!digitsAll) return '';
+      let cc = '1';
+      let digits = digitsAll;
+      if(digitsAll.length === 11 && digitsAll.startsWith('1')){
+        digits = digitsAll.slice(1);
+      } else if(digitsAll.length > 11 && digitsAll.startsWith('1')){
+        digits = digitsAll.slice(1);
+      } else if(digitsAll.length === 10){
+        digits = digitsAll;
+      } else if(digitsAll.length === 11 && !digitsAll.startsWith('1')){
+        cc = digitsAll.slice(0, Math.min(3, Math.max(1, digitsAll.length - 10)));
+        digits = digitsAll.slice(cc.length);
+      }
+      if(digits.length > 10) digits = digits.slice(-10);
+      const a = digits.slice(0,3);
+      const p1 = digits.slice(3,6);
+      const p2 = digits.slice(6,10);
+      let out = '+' + cc;
+      if(a.length) out += ' (' + a;
+      if(a.length === 3) out += ')';
+      if(p1.length) out += ' ' + p1;
+      if(p2.length) out += '-' + p2;
+      return out.trim();
+    }
+
+    document.getElementById('postcode').addEventListener('input', (e) => {
+      e.target.value = formatPostalCode(e.target.value);
+    });
+    document.getElementById('phone').addEventListener('blur', (e) => {
+      e.target.value = formatPhone(e.target.value);
+    });
+
+    // Prefill Member ID from URL ?id=...
+    try{
+      const params = new URLSearchParams(location.search);
+      const id = params.get('id') || params.get('memberId') || '';
+      if(id) document.getElementById('memberId').value = id;
+      const fn = params.get('firstName') || '';
+      const ln = params.get('lastName') || '';
+      if(fn) document.getElementById('firstName').value = fn;
+      if(ln) document.getElementById('lastName').value = ln;
+    }catch(_){}
+
+    document.getElementById('memberInfoForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const firstName = String(fd.get('firstName') || '').trim();
+      const lastName = String(fd.get('lastName') || '').trim();
+      const phone = formatPhone(String(fd.get('phone') || ''));
+      const joinMonth = String(fd.get('joinMonth') || '').trim();
+      const joinYear = String(fd.get('joinYear') || '').trim();
+      const street = String(fd.get('street') || '').trim();
+      const city = String(fd.get('city') || '').trim();
+      const province = String(fd.get('province') || '').trim();
+      const postcode = formatPostalCode(String(fd.get('postcode') || ''));
+
+      const payload = {
+        type: 'church.member.update.v1',
+        submittedAt: new Date().toISOString(),
+        memberId: String(fd.get('memberId') || '').trim(),
+        firstName,
+        lastName,
+        chineseName: String(fd.get('chineseName') || '').trim(),
+        name: (firstName + ' ' + lastName).trim(),
+        phone,
+        email: String(fd.get('email') || '').trim(),
+        birthMonth: String(fd.get('birthMonth') || '').trim(),
+        birthYear: String(fd.get('birthYear') || '').trim(),
+        baptismDate: String(fd.get('baptismDate') || '').trim(),
+        holySpiritDate: String(fd.get('holySpiritDate') || '').trim(),
+        joinMonth,
+        joinYear,
+        joined: (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear || ''),
+        street,
+        city,
+        province,
+        postcode,
+        address: [street, city, province, postcode].filter(Boolean).join(', '),
+        family: String(fd.get('family') || '').trim(),
+        notes: String(fd.get('notes') || '').trim()
+      };
+
+      const safeName = (firstName + '-' + lastName).replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]+/g, '_').slice(0, 40) || 'member';
+      const filename = `member-update-${safeName}.json`;
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+
+      const msg = document.getElementById('statusMsg');
+      msg.classList.remove('hidden');
+      msg.innerHTML = `Downloaded <strong>${filename}</strong>. Please send this file to church admin.`;
+    });
+  </script>
+</body>
+</html>
