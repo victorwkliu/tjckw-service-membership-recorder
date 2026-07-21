@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.7</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.8</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -265,7 +265,7 @@
               </select>
             </div>
             <!-- MEMBERSHIP REPORT -->
-            <div class="membership-report-section mb-6 rounded-2xl border bg-white p-4">
+            <section class="membership-report-section rounded-2xl border bg-white p-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="font-semibold text-base">Membership Report</h3>
@@ -288,9 +288,8 @@
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
                 <div class="p-6 text-center text-slate-500">No data yet. Add AGM/EGM services and mark attendance first.</div>
               </div>
-            </div>
-            <div class="membership-report-section flex flex-wrap items-center justify-between gap-3">
-              <h2 class="text-base font-semibold">Reports</h2>
+            <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+              <h3 class="text-base font-semibold">Membership Summary</h3>
               <div class="responsive-actions">
                 <select id="reportRange" class="rounded-xl border px-3 py-2 text-sm">
                   <option value="30">Last 30 days</option>
@@ -301,7 +300,7 @@
               </div>
             </div>
 
-            <div class="membership-report-section mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Membership</div>
                 <div id="kpiMembership" class="mt-1 text-2xl font-semibold mono">0</div>
@@ -328,7 +327,7 @@
               </div>
             </div>
 
-            <div class="membership-report-section mt-4 grid gap-4 md:grid-cols-2">
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Total Services</div>
                 <div id="kpiServices" class="mt-1 text-2xl font-semibold mono">0</div>
@@ -338,6 +337,7 @@
                 <div id="kpiAvgAttendance" class="mt-1 text-2xl font-semibold mono">0</div>
               </div>
             </div>
+            </section>
 
             <!-- ESSC REPORTS -->
             <div id="reportSectionEssc" class="hidden rounded-2xl border bg-white p-4">
@@ -352,15 +352,6 @@
               </div>
             </div>
 
-            <div class="membership-report-section mt-4">
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-semibold">Membership Summary</h3>
-                  <button id="btnCopyMemberSummary" class="no-print rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy</button>
-                </div>
-                <div id="memberSummary" class="mt-3 text-sm"></div>
-              </div>
-            </div>
           </div>
 
           <!-- FAMILIES TAB -->
@@ -1026,7 +1017,6 @@
     // KPI
     const kpiServices = document.getElementById('kpiServices');
     const kpiAvgAttendance = document.getElementById('kpiAvgAttendance');
-    const memberSummary = document.getElementById('memberSummary');
 
     // Modal
     const modal = document.getElementById('modal');
@@ -1152,6 +1142,16 @@
     function todayLocalISO(){
       const d = new Date();
       return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    }
+
+    function setDefaultServiceMonth(){
+      if(serviceFrom.value || serviceTo.value) return;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const lastDay = String(new Date(year, now.getMonth() + 1, 0).getDate()).padStart(2, '0');
+      serviceFrom.value = `${year}-${month}-01`;
+      serviceTo.value = `${year}-${month}-${lastDay}`;
     }
 
     function resetServiceForm(){
@@ -2179,7 +2179,6 @@
       kpiServices.textContent = String(totalServices);
       kpiAvgAttendance.textContent = avgAttendance.toFixed(1);
 
-      const totalDirectory = state.members.length;
       const buckets = getMembershipBucketCounts();
       const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = String(val); };
       setTxt('kpiMembership', buckets.membership);
@@ -2188,38 +2187,6 @@
       setTxt('kpiEligibleVoters', buckets.eligible);
       setTxt('kpiVisitingMembers', buckets.visiting);
       setTxt('kpiInactiveMembers', buckets.inactive);
-
-      // Member summary
-      const mem = state.members;
-      const byStatus = mem.reduce((acc,m)=>{
-        acc[m.status||'—'] = (acc[m.status||'—']||0) + 1;
-        return acc;
-      }, {});
-      const byGroup = mem.reduce((acc,m)=>{
-        const g = m.group || '—';
-        acc[g] = (acc[g]||0) + 1;
-        return acc;
-      }, {});
-
-      const statusList = Object.entries(byStatus).sort((a,b)=>b[1]-a[1]);
-      const groupList = Object.entries(byGroup).sort((a,b)=>b[1]-a[1]).slice(0,10);
-
-      memberSummary.innerHTML = `
-        <div class="grid gap-3 sm:grid-cols-2">
-          <div>
-            <div class="text-xs uppercase tracking-wide text-slate-500">By status</div>
-            <ul class="mt-2 space-y-1">
-              ${statusList.map(([k,v])=>`<li class="flex items-center justify-between gap-3"><span>${esc(k)}</span><span class="mono">${v}</span></li>`).join('') || '<li class="text-slate-500">No members yet.</li>'}
-            </ul>
-          </div>
-          <div>
-            <div class="text-xs uppercase tracking-wide text-slate-500">Top groups</div>
-            <ul class="mt-2 space-y-1">
-              ${groupList.map(([k,v])=>`<li class="flex items-center justify-between gap-3"><span>${esc(k)}</span><span class="mono">${v}</span></li>`).join('') || '<li class="text-slate-500">—</li>'}
-            </ul>
-          </div>
-        </div>
-      `;
 
       // Print summary
       document.getElementById('printSummary').innerHTML = `
@@ -3340,16 +3307,6 @@
       }
     }
 
-    document.getElementById('btnCopyMemberSummary').addEventListener('click', async () => {
-      const byStatus = {};
-      for(const m of state.members){
-        const k = m.status || '—';
-        byStatus[k] = (byStatus[k]||0)+1;
-      }
-      const lines = Object.entries(byStatus).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `${k}: ${v}`);
-      await copyText(lines.join('\n') || 'No members');
-    });
-
     // --- Save-to-Drive / Open-from-Drive / Reset / Print ---
     // Downloads the current state as a JSON file for Google Drive sync.
     function downloadStateAsJSON(filename, { markSaved } = {}){
@@ -4243,11 +4200,13 @@
       document.addEventListener('DOMContentLoaded', () => {
         storageSelfTest();
         resetServiceForm();
+        setDefaultServiceMonth();
         render();
       });
     } else {
       storageSelfTest();
       resetServiceForm();
+      setDefaultServiceMonth();
       render();
     }
     </script>
