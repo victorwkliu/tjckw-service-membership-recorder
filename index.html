@@ -48,7 +48,7 @@
     .responsive-actions,.control-pair,.modal-footer,.chip-list{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;min-width:0;max-width:100%;}
     .responsive-actions > *,.control-pair > *,.modal-footer > *{min-width:0;max-width:100%;}
     .responsive-actions > input,.responsive-actions > select,.control-pair > input,.control-pair > select{flex:1 1 10rem;}
-    .report-toolbar{display:grid;grid-template-columns:minmax(9rem,1.4fr) repeat(3,minmax(7rem,1fr));gap:0.5rem;width:100%;min-width:0;}
+    .report-toolbar{display:grid;grid-template-columns:minmax(9rem,1.4fr) repeat(2,minmax(7rem,1fr));gap:0.5rem;width:100%;min-width:0;}
     .report-toolbar > *{min-width:0;max-width:100%;width:100% !important;}
     .modal-footer > button[type="submit"],.modal-footer > .btn-primary{flex:1 1 8rem;}
     .chip-list > span{min-width:0;max-width:100%;white-space:normal;}
@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.6</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.7</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -257,8 +257,15 @@
 
           <!-- REPORTS TAB -->
           <div id="tab-reports" class="mt-4 hidden">
+            <div class="mb-4">
+              <label for="reportTypeSelect" class="text-sm font-medium text-slate-700">Report Type</label>
+              <select id="reportTypeSelect" class="mt-1 rounded-xl border px-3 py-2 text-sm">
+                <option value="membership">Membership Report</option>
+                <option value="essc">ESSC Report</option>
+              </select>
+            </div>
             <!-- MEMBERSHIP REPORT -->
-            <div class="mb-6 rounded-2xl border bg-white p-4">
+            <div class="membership-report-section mb-6 rounded-2xl border bg-white p-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="font-semibold text-base">Membership Report</h3>
@@ -274,7 +281,6 @@
                     <option value="visiting">Visiting Members</option>
                     <option value="inactive">Inactive</option>
                   </select>
-                  <button id="btnRefreshVoterReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
                   <button id="btnVoterColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
                   <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
                 </div>
@@ -283,7 +289,7 @@
                 <div class="p-6 text-center text-slate-500">No data yet. Add AGM/EGM services and mark attendance first.</div>
               </div>
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="membership-report-section flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold">Reports</h2>
               <div class="responsive-actions">
                 <select id="reportRange" class="rounded-xl border px-3 py-2 text-sm">
@@ -292,11 +298,10 @@
                   <option value="365">Last 12 months</option>
                   <option value="all">All time</option>
                 </select>
-                <button id="btnRefreshReports" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
               </div>
             </div>
 
-            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div class="membership-report-section mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Membership</div>
                 <div id="kpiMembership" class="mt-1 text-2xl font-semibold mono">0</div>
@@ -323,7 +328,7 @@
               </div>
             </div>
 
-            <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div class="membership-report-section mt-4 grid gap-4 md:grid-cols-2">
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Total Services</div>
                 <div id="kpiServices" class="mt-1 text-2xl font-semibold mono">0</div>
@@ -335,27 +340,19 @@
             </div>
 
             <!-- ESSC REPORTS -->
-            <div class="mt-4 rounded-2xl border bg-white p-4">
+            <div id="reportSectionEssc" class="hidden rounded-2xl border bg-white p-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="font-semibold text-base">ESSC Reports</h3>
                   <p class="text-sm text-slate-500">General Evangelical Service / Spiritual Convocations — only services with ESSC Details filled in (baptized / holy spirit / communion)</p>
                 </div>
-                <button id="btnRefreshEsscReports" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
               </div>
               <div id="esscReportContent" class="mt-4 grid gap-3">
                 <div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet. Fill ESSC Details counts on an ESSC service and Save.</div>
               </div>
             </div>
 
-            <div class="mt-4 grid gap-4 md:grid-cols-2">
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-semibold">Services by Type</h3>
-                  <button id="btnCopyTypeSummary" class="no-print rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy</button>
-                </div>
-                <div id="typeSummary" class="mt-3 text-sm"></div>
-              </div>
+            <div class="membership-report-section mt-4">
               <div class="rounded-2xl border bg-white p-4">
                 <div class="flex items-center justify-between">
                   <h3 class="font-semibold">Membership Summary</h3>
@@ -1029,7 +1026,6 @@
     // KPI
     const kpiServices = document.getElementById('kpiServices');
     const kpiAvgAttendance = document.getElementById('kpiAvgAttendance');
-    const typeSummary = document.getElementById('typeSummary');
     const memberSummary = document.getElementById('memberSummary');
 
     // Modal
@@ -2192,43 +2188,6 @@
       setTxt('kpiEligibleVoters', buckets.eligible);
       setTxt('kpiVisitingMembers', buckets.visiting);
       setTxt('kpiInactiveMembers', buckets.inactive);
-      renderEsscReports();
-
-      // By type
-      const byType = new Map();
-      for(const s of services){
-        const key = s.type || '—';
-        const cur = byType.get(key) || {count:0, attendance:0};
-        cur.count++;
-        cur.attendance += Number(s.attendance||0);
-        byType.set(key, cur);
-      }
-      const typeRows = Array.from(byType.entries())
-        .sort((a,b)=>b[1].count - a[1].count)
-        .map(([type, v]) => ({ type, ...v, avgAttendance: v.count ? v.attendance / v.count : 0 }));
-
-      typeSummary.innerHTML = typeRows.length ? `
-        <div class="overflow-auto rounded-xl border">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-100">
-              <tr>
-                <th class="px-3 py-2 text-left">Type</th>
-                <th class="px-3 py-2 text-right">Services</th>
-                <th class="px-3 py-2 text-right">Avg Att.</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              ${typeRows.map(r => `
-                <tr>
-                  <td class="px-3 py-2">${esc(r.type)}</td>
-                  <td class="px-3 py-2 text-right mono">${r.count}</td>
-                  <td class="px-3 py-2 text-right mono">${r.avgAttendance.toFixed(1)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      ` : `<div class="text-sm text-slate-500">No service data in this range.</div>`;
 
       // Member summary
       const mem = state.members;
@@ -2455,10 +2414,7 @@
       if(tab === 'services') renderServices();
       if(tab === 'members') renderMembers();
       if(tab === 'attendance') renderAttendance();
-      if(tab === 'reports') {
-        renderReports();
-        renderVoterReport();
-      }
+      if(tab === 'reports') renderSelectedReport();
       if(tab === 'families') renderFamiliesTab();
       if(tab === 'settings'){
         // chips are already rendered
@@ -3143,15 +3099,27 @@
       }
     });
 
-    // Reports
-    document.getElementById('btnRefreshReports').addEventListener('click', () => { renderReports(); });
-    document.getElementById('btnRefreshEsscReports')?.addEventListener('click', renderEsscReports);
+    // Reports update automatically when data or a report selector changes.
+    document.getElementById('reportTypeSelect').addEventListener('change', renderSelectedReport);
+    document.getElementById('reportRange').addEventListener('change', renderReports);
 
     // Membership Report
     document.getElementById('voterFilterStatus').addEventListener('change', renderVoterReport);
-    document.getElementById('btnRefreshVoterReport').addEventListener('click', renderVoterReport);
     document.getElementById('btnVoterColumnOptions').addEventListener('click', openVoterColumnOptions);
     document.getElementById('btnExportEligibleExcel').addEventListener('click', exportEligibleVotersExcel);
+
+    function renderSelectedReport(){
+      const selected = document.getElementById('reportTypeSelect').value;
+      const showMembership = selected === 'membership';
+      document.querySelectorAll('.membership-report-section').forEach(el => el.classList.toggle('hidden', !showMembership));
+      document.getElementById('reportSectionEssc').classList.toggle('hidden', showMembership);
+      if(showMembership){
+        renderReports();
+        renderVoterReport();
+      } else {
+        renderEsscReports();
+      }
+    }
 
     function openVoterColumnOptions(){
       const cols = state.voterReportColumns || defaults().voterReportColumns;
@@ -3371,23 +3339,6 @@
         ta.remove();
       }
     }
-
-    document.getElementById('btnCopyTypeSummary').addEventListener('click', async () => {
-      const range = document.getElementById('reportRange').value;
-      const cutoff = dateCutoffForRange(range);
-      const services = state.services.filter(s => !cutoff || (s.date && new Date(s.date+'T00:00:00') >= cutoff));
-      const byType = {};
-      for(const s of services){
-        const k = s.type || '—';
-        byType[k] = byType[k] || {count:0, attendance:0};
-        byType[k].count++;
-        byType[k].attendance += Number(s.attendance||0);
-      }
-      const lines = Object.entries(byType)
-        .sort((a,b)=>b[1].count-a[1].count)
-        .map(([k,v]) => `${k}: services=${v.count}, avgAttendance=${(v.attendance/v.count).toFixed(1)}`);
-      await copyText(lines.join('\n') || 'No data');
-    });
 
     document.getElementById('btnCopyMemberSummary').addEventListener('click', async () => {
       const byStatus = {};
