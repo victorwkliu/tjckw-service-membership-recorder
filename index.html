@@ -48,6 +48,8 @@
     .responsive-actions,.control-pair,.modal-footer,.chip-list{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;min-width:0;max-width:100%;}
     .responsive-actions > *,.control-pair > *,.modal-footer > *{min-width:0;max-width:100%;}
     .responsive-actions > input,.responsive-actions > select,.control-pair > input,.control-pair > select{flex:1 1 10rem;}
+    .report-toolbar{display:grid;grid-template-columns:minmax(9rem,1.4fr) repeat(3,minmax(7rem,1fr));gap:0.5rem;width:100%;min-width:0;}
+    .report-toolbar > *{min-width:0;max-width:100%;width:100% !important;}
     .modal-footer > button[type="submit"],.modal-footer > .btn-primary{flex:1 1 8rem;}
     .chip-list > span{min-width:0;max-width:100%;white-space:normal;}
     .chip-list > span > span{min-width:0;overflow-wrap:anywhere;}
@@ -69,7 +71,6 @@
       .app-header-actions .header-btn{text-align:center;}
       .responsive-actions,.modal-footer{width:100%;}
       .responsive-actions > button,.responsive-actions > label,.modal-footer > button,.modal-footer > label{flex:1 1 9rem;text-align:center;}
-      #voterFilterStatus{width:100% !important;flex:1 1 100%;}
       #toast{left:1rem;right:1rem;max-width:none;}
     }
     @media (max-width: 639px){
@@ -80,6 +81,8 @@
       .responsive-actions > button,.responsive-actions > label{flex-basis:calc(50% - 0.5rem);}
       .responsive-actions > input,.responsive-actions > select{flex:1 1 100%;}
       .control-pair > input,.control-pair > select{flex:1 1 12rem;}
+      .report-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .report-toolbar > select{grid-column:1 / -1;}
       #memberBulkBar > div:last-child{display:flex;flex-wrap:wrap;width:100%;}
       #memberBulkBar button{flex:1 1 9rem;}
       #modal{padding:0.75rem;}
@@ -99,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.5</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.6</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -261,7 +264,7 @@
                   <h3 class="font-semibold text-base">Membership Report</h3>
                   <p class="text-sm text-slate-500">Active status · Membership Category Member · ≥2 services from the most recent AGM up to today · 18+ by birth month (or group not RE(E/J/K) if birth date missing)</p>
                 </div>
-                <div class="responsive-actions w-full lg:w-auto">
+                <div class="report-toolbar">
                   <select id="voterFilterStatus" class="min-w-0 rounded-xl border px-3 py-2 text-sm">
                     <option value="all">All</option>
                     <option value="membership">Membership</option>
@@ -272,6 +275,7 @@
                     <option value="inactive">Inactive</option>
                   </select>
                   <button id="btnRefreshVoterReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Refresh</button>
+                  <button id="btnVoterColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
                   <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
                 </div>
               </div>
@@ -708,6 +712,15 @@
         joined: true,
         address: true
       },
+      voterReportColumns: {
+        status: true,
+        membershipCategory: true,
+        group: true,
+        attendance: true,
+        checks: true,
+        eligibility: true,
+        period: true
+      },
       services: [],
       members: []
     });
@@ -917,6 +930,7 @@
         let st = { ...defaults(), ...parsed,
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
+          voterReportColumns: { ...defaults().voterReportColumns, ...(parsed.voterReportColumns||{}) },
           serviceTypes: mergeList(parsed.serviceTypes, defaults().serviceTypes),
           memberStatuses: mergeList(parsed.memberStatuses, defaults().memberStatuses),
           membershipCategories: mergeList(parsed.membershipCategories, defaults().membershipCategories),
@@ -1974,9 +1988,13 @@
     function renderAttendance(){
       const select = document.getElementById('attendanceServiceSelect');
       const previouslySelected = select.value;
-      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      const allServices = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      // Older records predate attendanceRecordedAt, so a non-empty roster also means complete.
+      const services = allServices.filter(s =>
+        !s.attendanceRecordedAt && !(Array.isArray(s.attendedBy) && s.attendedBy.length > 0)
+      );
 
-      if(services.length === 0){
+      if(allServices.length === 0){
         select.innerHTML = '<option value="">No services yet - add a service first</option>';
         document.getElementById('attendanceContent').innerHTML = `
           <div class="rounded-xl border bg-amber-50 border-amber-200 p-6 text-center">
@@ -1986,6 +2004,10 @@
           </div>
         `;
         document.getElementById('btnGoToServices')?.addEventListener('click', () => setActiveTab('services'));
+      } else if(services.length === 0){
+        select.innerHTML = '<option value="">All service attendance has been recorded</option>';
+        document.getElementById('attendanceContent').innerHTML =
+          '<div class="rounded-xl border bg-emerald-50 border-emerald-200 p-6 text-center text-emerald-800">Attendance has been recorded for all services.</div>';
       } else {
         select.innerHTML = '<option value="">Select a service...</option>' + 
           services.map(s => `<option value="${esc(s.id)}">${esc(s.date||'')} - ${esc(s.type||'')} ${s.title ? '(' + esc(s.title) + ')' : ''}</option>`).join('');
@@ -1993,6 +2015,9 @@
         if(previouslySelected && services.some(s => s.id === previouslySelected)){
           select.value = previouslySelected;
           showAttendanceForService(previouslySelected);
+        } else {
+          document.getElementById('attendanceContent').innerHTML =
+            '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance</div>';
         }
       }
     }
@@ -2117,10 +2142,10 @@
         });
         service.attendedBy = newAttendedBy;
         service.attendance = newAttendedBy.length;
+        service.attendanceRecordedAt = new Date().toISOString();
         const ok = saveState();
         if(ok){
           toast('Attendance saved');
-          document.getElementById('attendanceServiceSelect').value = serviceId;
           render();
         } else {
           toast('Save failed (storage blocked)');
@@ -3125,11 +3150,61 @@
     // Membership Report
     document.getElementById('voterFilterStatus').addEventListener('change', renderVoterReport);
     document.getElementById('btnRefreshVoterReport').addEventListener('click', renderVoterReport);
+    document.getElementById('btnVoterColumnOptions').addEventListener('click', openVoterColumnOptions);
     document.getElementById('btnExportEligibleExcel').addEventListener('click', exportEligibleVotersExcel);
+
+    function openVoterColumnOptions(){
+      const cols = state.voterReportColumns || defaults().voterReportColumns;
+      const choices = [
+        ['Status', 'status'],
+        ['Membership Category', 'membershipCategory'],
+        ['Group', 'group'],
+        ['Attendance %', 'attendance'],
+        ['Age | Attendance', 'checks'],
+        ['Eligible?', 'eligibility'],
+        ['Period', 'period']
+      ];
+      openModal('Membership Report Columns', `
+        <div class="grid gap-3">
+          <div class="text-sm font-semibold text-slate-600">Name is always shown. Choose the other columns:</div>
+          ${choices.map(([label,key]) => `
+            <label class="flex items-center gap-3 rounded-lg border p-3 hover:bg-slate-50 cursor-pointer">
+              <input type="checkbox" data-voter-column="${key}" ${cols[key] !== false ? 'checked' : ''} class="size-4 rounded" />
+              <span>${label}</span>
+            </label>
+          `).join('')}
+          <div class="modal-footer pt-2">
+            <button id="btnSaveVoterColumns" class="btn-primary rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Save</button>
+            <button id="btnResetVoterColumns" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Reset to Default</button>
+          </div>
+        </div>
+      `);
+      document.getElementById('btnSaveVoterColumns').addEventListener('click', () => {
+        const next = {};
+        modalBody.querySelectorAll('[data-voter-column]').forEach(cb => {
+          next[cb.dataset.voterColumn] = cb.checked;
+        });
+        state.voterReportColumns = next;
+        if(saveState()){
+          closeModal();
+          renderVoterReport();
+          toast('Report column settings saved');
+        }
+      });
+      document.getElementById('btnResetVoterColumns').addEventListener('click', () => {
+        state.voterReportColumns = { ...defaults().voterReportColumns };
+        if(saveState()){
+          closeModal();
+          renderVoterReport();
+          toast('Report columns reset');
+        }
+      });
+    }
 
     function renderVoterReport(){
       const filter = document.getElementById('voterFilterStatus').value;
       const container = document.getElementById('voterReportContent');
+      const reportCols = state.voterReportColumns || defaults().voterReportColumns;
 
       const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
       if(members.length === 0){
@@ -3189,21 +3264,21 @@
         return `
           <tr class="hover:bg-slate-50">
             <td class="px-3 py-2 font-medium">${memberNameHtml(m)}</td>
-            <td class="px-3 py-2">${esc(m.status||'')}</td>
-            <td class="px-3 py-2">${esc(memCat)}</td>
-            <td class="px-3 py-2">${esc(m.group||'')}</td>
-            <td class="px-3 py-2 text-right mono ${att.color}">${att.text}</td>
-            <td class="px-3 py-2 text-center mono" title="${esc(cellTitle)}">
+            ${reportCols.status ? `<td class="px-3 py-2">${esc(m.status||'')}</td>` : ''}
+            ${reportCols.membershipCategory ? `<td class="px-3 py-2">${esc(memCat)}</td>` : ''}
+            ${reportCols.group ? `<td class="px-3 py-2">${esc(m.group||'')}</td>` : ''}
+            ${reportCols.attendance ? `<td class="px-3 py-2 text-right mono ${att.color}">${att.text}</td>` : ''}
+            ${reportCols.checks ? `<td class="px-3 py-2 text-center mono" title="${esc(cellTitle)}">
               ${ageDisplay} ${ageStatus} | ${attDisplay} ${attStatus}
-            </td>
-            <td class="px-3 py-2">
+            </td>` : ''}
+            ${reportCols.eligibility ? `<td class="px-3 py-2">
               <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${voter.color}" title="${esc(voter.detail||'')}">
                 ${voter.text}
               </span>
-            </td>
-            <td class="px-3 py-2 text-sm text-slate-600" title="From ${anchorAGM.date} up to ${todayStr}">
+            </td>` : ''}
+            ${reportCols.period ? `<td class="px-3 py-2 text-sm text-slate-600" title="From ${anchorAGM.date} up to ${todayStr}">
               ${anchorAGM.date} to ${todayStr}
-            </td>
+            </td>` : ''}
           </tr>
         `;
       }).filter(Boolean);
@@ -3229,13 +3304,13 @@
           <thead class="bg-slate-100 text-slate-700">
             <tr>
               <th class="px-3 py-2 text-left">Name</th>
-              <th class="px-3 py-2 text-left">Status</th>
-              <th class="px-3 py-2 text-left">Membership Category</th>
-              <th class="px-3 py-2 text-left">Group</th>
-              <th class="px-3 py-2 text-right">Attendance %</th>
-              <th class="px-3 py-2 text-center">Age | Attendance</th>
-              <th class="px-3 py-2 text-center">Eligible?</th>
-              <th class="px-3 py-2 text-left">Period</th>
+              ${reportCols.status ? '<th class="px-3 py-2 text-left">Status</th>' : ''}
+              ${reportCols.membershipCategory ? '<th class="px-3 py-2 text-left">Membership Category</th>' : ''}
+              ${reportCols.group ? '<th class="px-3 py-2 text-left">Group</th>' : ''}
+              ${reportCols.attendance ? '<th class="px-3 py-2 text-right">Attendance %</th>' : ''}
+              ${reportCols.checks ? '<th class="px-3 py-2 text-center">Age | Attendance</th>' : ''}
+              ${reportCols.eligibility ? '<th class="px-3 py-2 text-center">Eligible?</th>' : ''}
+              ${reportCols.period ? '<th class="px-3 py-2 text-left">Period</th>' : ''}
             </tr>
           </thead>
           <tbody class="divide-y">
@@ -3435,6 +3510,7 @@
         state = migrateAppState({ ...defaults(), ...parsed,
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
+          voterReportColumns: { ...defaults().voterReportColumns, ...(parsed.voterReportColumns||{}) },
           serviceTypes: mergeList(parsed.serviceTypes, defaults().serviceTypes),
           memberStatuses: mergeList(parsed.memberStatuses, defaults().memberStatuses),
           membershipCategories: mergeList(parsed.membershipCategories, defaults().membershipCategories),
