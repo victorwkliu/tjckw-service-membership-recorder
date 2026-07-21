@@ -11,6 +11,9 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <style>
     :root{color-scheme: light;}
+    html,body{max-width:100%;overflow-x:hidden;}
+    button,[role="button"],label{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;}
+    .flex,.inline-flex,.flex > *,.inline-flex > *{min-width:0;}
     .tab-btn[aria-selected="true"]{background:#0f172a;color:white;}
     .mono{font-variant-numeric: tabular-nums;}
     /* Prevent inputs/selects from overflowing narrow grid columns (PC sidebar + iPad).
@@ -38,17 +41,47 @@
       .form-row-modal{grid-template-columns:1fr 1fr;}
     }
     /* Sticky header: wrap cleanly on iPad / narrow windows */
-    .app-header-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:0.5rem;}
+    .app-header-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:0.5rem;min-width:0;}
     .tab-bar{display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;}
     .tab-bar-scroll{display:flex;flex-wrap:nowrap;gap:0.5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;max-width:100%;}
     .tab-bar-scroll::-webkit-scrollbar{height:4px;}
+    .responsive-actions,.control-pair{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;min-width:0;max-width:100%;}
+    .responsive-actions > *,.control-pair > *{min-width:0;max-width:100%;}
+    .responsive-actions > input,.responsive-actions > select,.control-pair > input,.control-pair > select{flex:1 1 10rem;}
+    .chip-list > span{min-width:0;max-width:100%;white-space:normal;}
+    .chip-list > span > span{min-width:0;overflow-wrap:anywhere;}
+    .chip-list button{flex:0 0 auto;}
+    #driveStatus{min-width:0;max-width:100%;white-space:normal;}
+    #driveStatusText{min-width:0;overflow-wrap:anywhere;}
     aside .rounded-2xl, #memberForm, #serviceForm{min-width:0;}
     table{border-collapse:separate;border-spacing:0;}
-    @media (max-width: 767px){
+    /* iPad portrait/landscape: avoid the narrow 8/4 desktop split and crowded header. */
+    @media (min-width: 768px) and (max-width: 1099px){
+      #mainPanel,#sidePanel{grid-column:span 12 / span 12;}
+    }
+    @media (max-width: 1099px){
       .app-header{flex-direction:column;align-items:stretch !important;}
       .app-header-brand{width:100%;}
-      .app-header-actions{justify-content:flex-start;}
-      .app-header-actions .header-btn{flex:1 1 auto;text-align:center;}
+      .app-header-actions{justify-content:flex-start;width:100%;}
+      .app-header-actions > *{flex:1 1 auto;}
+      .app-header-actions .header-btn{text-align:center;}
+      .responsive-actions{width:100%;}
+      .responsive-actions > button,.responsive-actions > label{flex:1 1 9rem;text-align:center;}
+      #modalBody .flex{flex-wrap:wrap;}
+    }
+    @media (max-width: 639px){
+      main{padding-left:0.75rem !important;padding-right:0.75rem !important;}
+      .app-header{padding-left:0.75rem !important;padding-right:0.75rem !important;}
+      .app-header-actions > *{flex:1 1 calc(50% - 0.5rem);}
+      #driveStatus,#storageWarning{flex-basis:100%;}
+      .responsive-actions > button,.responsive-actions > label{flex-basis:calc(50% - 0.5rem);}
+      .responsive-actions > input,.responsive-actions > select{flex:1 1 100%;}
+      .control-pair > input,.control-pair > select{flex:1 1 12rem;}
+      #voterFilterStatus{width:100% !important;flex:1 1 100%;}
+      #memberBulkBar > div:last-child{display:flex;flex-wrap:wrap;width:100%;}
+      #memberBulkBar button{flex:1 1 9rem;}
+      #modal{padding:0.75rem;}
+      #toast{left:0.75rem;right:0.75rem;max-width:none;}
     }
     @media print{
       .no-print{display:none !important;}
@@ -64,7 +97,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.2</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -112,7 +145,7 @@
           <div id="tab-services" class="mt-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold">Service Records</h2>
-              <div class="flex flex-wrap items-center gap-2 min-w-0">
+              <div class="responsive-actions">
                 <select id="serviceFilterType" class="min-w-0 max-w-full rounded-xl border px-3 py-2 text-sm">
                   <option value="">All types</option>
                 </select>
@@ -146,7 +179,7 @@
                 <h2 class="text-base font-semibold">Membership Directory</h2>
                 <p id="memberCountSummary" class="text-xs text-slate-500 mt-0.5">0 members</p>
               </div>
-              <div class="flex flex-wrap items-center gap-2 min-w-0">
+              <div class="responsive-actions">
                 <button id="btnColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
                 <button id="btnCollectMemberInfo" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Collect Info</button>
                 <button id="btnExportMembersExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Excel</button>
@@ -172,7 +205,7 @@
             </div>
             <div id="memberBulkBar" class="mt-3 hidden flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <div class="text-sm"><span id="memberSelectionCount" class="font-semibold">0</span> selected</div>
-              <div class="flex gap-2">
+              <div class="responsive-actions">
                 <button id="btnClearMemberSelection" class="rounded-lg border bg-white px-3 py-1.5 text-sm">Clear</button>
                 <button id="btnBulkFamily" disabled class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40">Create/Link Family</button>
               </div>
@@ -228,7 +261,7 @@
                   <h3 class="font-semibold text-base">Membership Report</h3>
                   <p class="text-sm text-slate-500">Active status · Membership Category Member · ≥2 services from the most recent AGM up to today · 18+ by birth month (or group not RE(E/J/K) if birth date missing)</p>
                 </div>
-                <div class="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+                <div class="responsive-actions w-full lg:w-auto">
                   <select id="voterFilterStatus" class="rounded-xl border px-3 py-2 text-sm" style="width:auto">
                     <option value="all">All</option>
                     <option value="membership">Membership</option>
@@ -238,8 +271,8 @@
                     <option value="visiting">Visiting Members</option>
                     <option value="inactive">Inactive</option>
                   </select>
-                  <button id="btnRefreshVoterReport" class="flex-1 whitespace-nowrap rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Refresh</button>
-                  <button id="btnExportEligibleExcel" class="flex-1 whitespace-nowrap rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Export Eligible Excel</button>
+                  <button id="btnRefreshVoterReport" class="flex-1 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Refresh</button>
+                  <button id="btnExportEligibleExcel" class="flex-1 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 sm:flex-none">Export Eligible Excel</button>
                 </div>
               </div>
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
@@ -248,7 +281,7 @@
             </div>
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-base font-semibold">Reports</h2>
-              <div class="flex items-center gap-2">
+              <div class="responsive-actions">
                 <select id="reportRange" class="rounded-xl border px-3 py-2 text-sm">
                   <option value="30">Last 30 days</option>
                   <option value="90">Last 90 days</option>
@@ -336,7 +369,7 @@
                 <h2 class="text-base font-semibold">Families</h2>
                 <p class="mt-0.5 text-xs text-slate-500">Create households, manage members, and review possible duplicates.</p>
               </div>
-              <div class="flex gap-2">
+              <div class="responsive-actions">
                 <input id="familySearch" type="search" placeholder="Search family or member…" class="rounded-xl border px-3 py-2 text-sm" />
                 <button id="btnCreateFamily" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Create Family</button>
                 <button id="btnReviewDuplicates" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Review Duplicates</button>
@@ -352,27 +385,27 @@
               <div class="rounded-2xl border bg-white p-4">
                 <h3 class="font-semibold">Default Service Types</h3>
                 <p class="text-sm text-slate-500 mt-1">Used for the service type dropdown and filters.</p>
-                <div class="mt-3 flex items-center gap-2">
+                <div class="control-pair mt-3">
                   <input id="newServiceType" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Sunday Service" />
                   <button id="btnAddServiceType" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
-                <div id="serviceTypeChips" class="mt-3 flex flex-wrap gap-2"></div>
+                <div id="serviceTypeChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
 
               <div class="rounded-2xl border bg-white p-4">
                 <h3 class="font-semibold">Groups / Ministries</h3>
                 <p class="text-sm text-slate-500 mt-1">Used for member grouping and filters.</p>
-                <div class="mt-3 flex items-center gap-2">
+                <div class="control-pair mt-3">
                   <input id="newGroup" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Choir" />
                   <button id="btnAddGroup" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
-                <div id="groupChips" class="mt-3 flex flex-wrap gap-2"></div>
+                <div id="groupChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
 
               <div class="rounded-2xl border bg-white p-4">
                 <h3 class="font-semibold">Families</h3>
                 <p class="text-sm text-slate-500 mt-1">Families are managed as households with members, roles, and an optional primary contact.</p>
-                <div class="mt-3 flex items-center gap-2">
+                <div class="control-pair mt-3">
                   <button id="btnOpenFamiliesTab" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open Families</button>
                 </div>
               </div>
@@ -380,21 +413,21 @@
               <div class="rounded-2xl border bg-white p-4">
                 <h3 class="font-semibold">Member Statuses</h3>
                 <p class="text-sm text-slate-500 mt-1">Manage the available statuses for members.</p>
-                <div class="mt-3 flex items-center gap-2">
+                <div class="control-pair mt-3">
                   <input id="newMemberStatus" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Probation" />
                   <button id="btnAddMemberStatus" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
-                <div id="memberStatusChips" class="mt-3 flex flex-wrap gap-2"></div>
+                <div id="memberStatusChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
 
               <div class="rounded-2xl border bg-white p-4">
                 <h3 class="font-semibold">Membership Categories</h3>
                 <p class="text-sm text-slate-500 mt-1">e.g. Member, True Seeker, Visiting Member.</p>
-                <div class="mt-3 flex items-center gap-2">
+                <div class="control-pair mt-3">
                   <input id="newMembershipCategory" class="flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., True Seeker" />
                   <button id="btnAddMembershipCategory" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
-                <div id="membershipCategoryChips" class="mt-3 flex flex-wrap gap-2"></div>
+                <div id="membershipCategoryChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
             </div>
 

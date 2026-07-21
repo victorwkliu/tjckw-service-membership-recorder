@@ -6,10 +6,18 @@
   <title>TJCKW Member Information Form</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
+    html, body { max-width: 100%; overflow-x: hidden; }
     input, select, textarea { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; }
-    .form-row { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+    button { min-width: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+    .form-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; min-width: 0; }
+    .form-row > * { min-width: 0; }
     @media (min-width: 640px) {
-      .form-row { grid-template-columns: 1fr 1fr; }
+      .form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 639px) {
+      main { padding: 0.75rem !important; }
+      main > div { padding: 1rem !important; }
+      form > .flex button { flex: 1 1 10rem; }
     }
   </style>
 </head>
