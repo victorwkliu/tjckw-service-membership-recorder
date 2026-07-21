@@ -99,7 +99,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.4</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.5</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -116,7 +116,6 @@
           <input id="fileOpenFromDrive" type="file" accept="application/json" class="hidden" />
         </label>
         <button id="btnPrint" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Print</button>
-        <button id="btnReset" class="header-btn rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Reset</button>
       </div>
     </div>
   </header>
@@ -3474,31 +3473,6 @@
       } finally {
         e.target.value = '';
       }
-    });
-
-    document.getElementById('btnReset').addEventListener('click', () => {
-      const neverSavedToDrive = !state.meta?.lastSavedAt;
-      const warning = neverSavedToDrive
-        ? 'WARNING: This data has never been saved to Drive. Resetting now will permanently delete it.\n\n'
-        : '';
-      const typed = prompt(
-        `${warning}This will delete ALL services and members in this browser.\n\nType RESET (all caps) to confirm:`
-      );
-      if(typed !== 'RESET') {
-        if(typed !== null) toast('Reset cancelled (must type RESET exactly)');
-        return;
-      }
-      try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
-      state = migrateAppState(defaults());
-      const ok = saveState();
-      if(ok){
-        toast('Reset complete');
-      } else {
-        toast('Reset done, but saving is blocked');
-      }
-      resetServiceForm();
-      resetMemberForm();
-      render();
     });
 
     document.getElementById('btnPrint').addEventListener('click', () => {
