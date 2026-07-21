@@ -97,7 +97,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.2</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.3</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -160,9 +160,8 @@
                   <tr>
                     <th class="px-3 py-2 text-left">Date</th>
                     <th class="px-3 py-2 text-left">Type</th>
-                    <th class="px-3 py-2 text-left">Theme</th>
-                    <th class="px-3 py-2 text-left">Minister</th>
-                    <th class="px-3 py-2 text-right">Attendance</th>
+                    <th class="px-3 py-2 text-left">Theme/Topic</th>
+                    <th class="px-3 py-2 text-left">Speaker</th>
                     <th class="px-3 py-2 text-left">Notes</th>
                     <th class="px-3 py-2 text-right no-print">Actions</th>
                   </tr>
@@ -458,16 +457,12 @@
               <select id="serviceType" required class="rounded-xl border px-3 py-2 text-sm"></select>
             </div>
             <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Theme</label>
+              <label class="text-sm text-slate-600">Theme/Topic</label>
               <input id="serviceTitle" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Faith & Hope" />
             </div>
             <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Minister</label>
+              <label class="text-sm text-slate-600">Speaker</label>
               <input id="serviceMinister" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., Pr. Barry, Dn. Scott" />
-            </div>
-            <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Attendance</label>
-              <input id="serviceAttendance" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm" placeholder="0" />
             </div>
             <div id="esscFields" class="hidden grid gap-3 min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div class="text-sm font-semibold text-slate-700">ESSC Details</div>
@@ -1567,19 +1562,17 @@
       rows = rows.filter(s => (!type || s.type === type) && inDateRange(s.date, from, to) && serviceMatches(s, q));
 
       if(rows.length === 0){
-        serviceTbody.innerHTML = `<tr><td class="px-3 py-6 text-center text-slate-500" colspan="7">No service records found.</td></tr>`;
+        serviceTbody.innerHTML = `<tr><td class="px-3 py-6 text-center text-slate-500" colspan="6">No service records found.</td></tr>`;
         return;
       }
 
       serviceTbody.innerHTML = rows.map(s => {
-        const att = Number(s.attendance||0);
         return `
           <tr class="hover:bg-slate-50">
             <td class="px-3 py-2 whitespace-nowrap mono">${esc(s.date||'')}</td>
             <td class="px-3 py-2">${esc(s.type||'')}</td>
             <td class="px-3 py-2">${esc(s.title||'')}</td>
             <td class="px-3 py-2">${esc(s.minister||'')}</td>
-            <td class="px-3 py-2 text-right mono">${isFinite(att)?att:0}</td>
             <td class="px-3 py-2 max-w-[22rem] truncate" title="${esc(s.notes||'')}">${esc(s.notes||'')}</td>
             <td class="px-3 py-2 text-right no-print whitespace-nowrap">
               <button class="rounded-lg border px-2 py-1 text-xs hover:bg-white" data-edit-service="${esc(s.id)}">Edit</button>
@@ -1704,8 +1697,8 @@
           <h4 class="font-semibold text-slate-800">General Evangelical Service / Spiritual Convocations</h4>
           <dl class="mt-3 grid gap-2">
             <div><span class="text-slate-500">Date:</span> <span class="mono font-medium">${esc(esscDateRangeText(s))}</span></div>
-            <div><span class="text-slate-500">Minister:</span> <span class="font-medium">${esc(blankDisp(s.minister))}</span></div>
-            <div><span class="text-slate-500">Theme:</span> <span class="font-medium">${esc(blankDisp(s.title))}</span></div>
+            <div><span class="text-slate-500">Speaker:</span> <span class="font-medium">${esc(blankDisp(s.minister))}</span></div>
+            <div><span class="text-slate-500">Theme/Topic:</span> <span class="font-medium">${esc(blankDisp(s.title))}</span></div>
             <div><span class="text-slate-500">Number of Newly Baptized:</span> <span class="mono font-medium">${esc(blankDisp(s.esscBaptized))}</span></div>
             <div><span class="text-slate-500">Number of Receiving Holy Spirit:</span> <span class="mono font-medium">${esc(blankDisp(s.esscHolySpirit))}</span></div>
             <div><span class="text-slate-500">Number of Holy Communion Partakers:</span> <span class="mono font-medium">${esc(blankDisp(s.esscCommunion))}</span></div>
@@ -2466,7 +2459,6 @@
       document.getElementById('serviceType').value = s.type || '';
       document.getElementById('serviceTitle').value = s.title || '';
       document.getElementById('serviceMinister').value = s.minister || '';
-      document.getElementById('serviceAttendance').value = (s.attendance ?? '');
       document.getElementById('serviceNotes').value = s.notes || '';
       document.getElementById('serviceEsscBaptized').value = (s.esscBaptized ?? '');
       document.getElementById('serviceEsscHolySpirit').value = (s.esscHolySpirit ?? '');
@@ -2504,13 +2496,15 @@
         const esscDateFrom = document.getElementById('serviceEsscDateFrom').value || document.getElementById('serviceDate').value;
         const esscDateTo = document.getElementById('serviceEsscDateTo').value || esscDateFrom;
 
+        const existingIdx = state.services.findIndex(x => x.id === (document.getElementById('serviceId').value || ''));
+        const existingAttendedBy = existingIdx >= 0 ? (state.services[existingIdx].attendedBy || []) : [];
         const record = {
           id: document.getElementById('serviceId').value || uid(),
           date: document.getElementById('serviceDate').value || esscDateFrom,
           type: document.getElementById('serviceType').value,
           title: document.getElementById('serviceTitle').value.trim(),
           minister: document.getElementById('serviceMinister').value.trim(),
-          attendance: Number(document.getElementById('serviceAttendance').value || 0),
+          attendance: existingAttendedBy.length,
           notes: document.getElementById('serviceNotes').value.trim()
         };
 
@@ -2536,13 +2530,14 @@
           return;
         }
 
-        const idx = state.services.findIndex(x => x.id === record.id);
-        if(idx >= 0) {
-          // Preserve attendedBy when editing
-          record.attendedBy = state.services[idx].attendedBy || [];
-          state.services[idx] = record;
+        if(existingIdx >= 0) {
+          // Preserve attendedBy when editing; headcount follows the roster
+          record.attendedBy = existingAttendedBy;
+          record.attendance = existingAttendedBy.length;
+          state.services[existingIdx] = record;
         } else {
           record.attendedBy = [];
+          record.attendance = 0;
           state.services.push(record);
         }
         const ok = saveState();
@@ -3659,10 +3654,6 @@
               ${state.serviceTypes.slice().sort((a,b)=>a.localeCompare(b)).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}
             </select>
           </div>
-          <div class="grid gap-2">
-            <label class="text-sm text-slate-600">Attendance</label>
-            <input name="attendance" type="number" min="0" step="1" class="rounded-xl border px-3 py-2 text-sm" placeholder="0" />
-          </div>
           <div class="flex gap-2">
             <button class="flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save</button>
             <button class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button" id="quickCancel">Cancel</button>
@@ -3680,7 +3671,7 @@
           type: (fd.get('type')||'').toString(),
           title: '',
           minister: '',
-          attendance: Number(fd.get('attendance')||0),
+          attendance: 0,
           notes: '',
           attendedBy: []
         };
