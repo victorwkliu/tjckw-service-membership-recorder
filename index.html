@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.8</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.9</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -334,7 +334,7 @@
               </div>
               <div class="rounded-2xl border bg-white p-4">
                 <div class="text-sm text-slate-500">Avg Attendance</div>
-                <div id="kpiAvgAttendance" class="mt-1 text-2xl font-semibold mono">0</div>
+                <div id="kpiAvgAttendance" class="mt-1 text-2xl font-semibold mono" title="Average Members present per service (Membership Category Member only)">0</div>
               </div>
             </div>
             </section>
@@ -2162,6 +2162,15 @@
       return d;
     }
 
+    // Headcount for Avg Attendance: Membership Category Member only (excludes True Seekers / Visiting Members).
+    function memberAttendanceCount(service){
+      const ids = Array.isArray(service?.attendedBy) ? service.attendedBy : [];
+      return ids.filter(id => {
+        const m = state.members.find(x => x.id === id);
+        return m && normalizeLabel(getMembershipCategory(m)) === 'member';
+      }).length;
+    }
+
     function renderReports(){
       const range = document.getElementById('reportRange').value;
       const cutoff = dateCutoffForRange(range);
@@ -2173,7 +2182,7 @@
       });
 
       const totalServices = services.length;
-      const totalAttendance = services.reduce((sum,s)=>sum + Number(s.attendance||0), 0);
+      const totalAttendance = services.reduce((sum,s)=>sum + memberAttendanceCount(s), 0);
       const avgAttendance = totalServices ? (totalAttendance/totalServices) : 0;
 
       kpiServices.textContent = String(totalServices);
@@ -2193,7 +2202,7 @@
         <div class="grid gap-2">
           <div><span class="font-semibold">Range:</span> ${range === 'all' ? 'All time' : `Last ${esc(range)} days`}</div>
           <div><span class="font-semibold">Total services:</span> ${totalServices}</div>
-          <div><span class="font-semibold">Average attendance:</span> ${avgAttendance.toFixed(1)}</div>
+          <div><span class="font-semibold">Average attendance (Members only):</span> ${avgAttendance.toFixed(1)}</div>
         </div>
       `;
     }
