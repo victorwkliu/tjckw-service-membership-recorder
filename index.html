@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.3</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.4</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -117,6 +117,10 @@
         <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open from Drive</button>
         <input id="fileOpenFromDrive" type="file" accept="application/json,.json" class="hidden" />
         <button id="btnPrint" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Print</button>
+        <button type="button" id="btnHelp" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 inline-flex items-center justify-center gap-1.5" aria-haspopup="dialog" aria-controls="helpModal">
+          <span aria-hidden="true" class="text-base leading-none font-semibold">?</span>
+          <span>Help</span>
+        </button>
       </div>
     </div>
   </header>
@@ -126,6 +130,7 @@
       <div class="min-w-0 text-sm text-amber-950">
         <div id="driveFreshnessTitle" class="font-semibold">Open latest data from Drive before recording</div>
         <div id="driveFreshnessDetail" class="mt-0.5 text-amber-900/80"></div>
+        <button type="button" id="btnBannerNeedHelp" class="mt-1 text-xs font-medium text-amber-900 underline hover:no-underline">Need Help?</button>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" id="btnBannerOpenFromDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open from Drive</button>
@@ -655,7 +660,7 @@
   </main>
 
   <!-- MODAL -->
-  <div id="modal" class="no-print fixed inset-0 hidden items-center justify-center p-4">
+  <div id="modal" class="no-print fixed inset-0 z-40 hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/40"></div>
     <div class="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-2xl bg-white border p-4 shadow-xl min-w-0">
       <div class="flex items-center justify-between gap-3 min-w-0">
@@ -663,6 +668,117 @@
         <button id="modalClose" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Close</button>
       </div>
       <div id="modalBody" class="mt-3"></div>
+    </div>
+  </div>
+
+  <!-- HELP MODAL (separate so opening Help never clears other work or form state) -->
+  <div id="helpModal" class="no-print fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" hidden>
+    <div id="helpModalBackdrop" class="absolute inset-0 bg-slate-900/40" tabindex="-1" aria-hidden="true"></div>
+    <div class="relative flex w-full max-w-2xl max-h-[92vh] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl min-w-0">
+      <div class="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
+        <h2 id="helpModalTitle" class="min-w-0 text-base sm:text-lg font-semibold text-slate-900">How to Use This App</h2>
+        <button type="button" id="btnHelpCloseX" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" aria-label="Close help">✕</button>
+      </div>
+      <div id="helpModalBody" class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 text-sm text-slate-700 leading-relaxed">
+        <p class="text-slate-600">This app uses a shared church record stored in Google Drive. Follow these steps to avoid missing or overwriting another person’s work.</p>
+
+        <section class="mt-5">
+          <h3 class="text-base font-semibold text-slate-900">1. Connect to Google Drive</h3>
+          <p class="mt-2">Make sure Google Drive for desktop is running and signed in with the authorized church Google account.</p>
+          <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Authorized account</div>
+            <div class="mt-1 font-semibold text-slate-900 mono break-all">tjckw.cb@gmail.com</div>
+            <p class="mt-2 text-xs text-slate-500">You will need the proper password and verification method. For security, the password must never be displayed or stored inside this app.</p>
+          </div>
+        </section>
+
+        <section class="mt-5">
+          <h3 class="text-base font-semibold text-slate-900">2. Open the shared church record</h3>
+          <p class="mt-2">Click <strong>Open from Drive</strong> (Open Shared Record) and go to:</p>
+          <div class="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
+            <div class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Google Drive folder</div>
+            <div class="mt-1 font-semibold">Google Drive → My Drive → Service&amp;Membership Record</div>
+            <p class="mt-2 text-sm">On the church computer, Google Drive may appear as the <strong>H:</strong> drive.</p>
+          </div>
+          <p class="mt-3">Select the church record file and click <strong>Open</strong>.</p>
+        </section>
+
+        <section class="mt-5">
+          <h3 class="text-base font-semibold text-slate-900">3. Follow newer-record warnings</h3>
+          <p class="mt-2">After the shared record has been opened, the app will automatically check whether a newer version is available.</p>
+          <div class="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-amber-950">
+            <div class="text-xs font-semibold uppercase tracking-wide text-amber-800">Newer-record warning</div>
+            <p class="mt-1">If you see <strong>“A newer record is available”</strong> (or a similar yellow warning), open the newer record before entering or changing information. This protects updates made by another user.</p>
+          </div>
+          <p class="mt-3">Users do not need to manually compare file dates unless the automatic check is unavailable.</p>
+        </section>
+
+        <section class="mt-5">
+          <h3 class="text-base font-semibold text-slate-900">4. Add or update information</h3>
+          <p class="mt-2">After the latest record is open, you may:</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>Add a service record</li>
+            <li>Add a member</li>
+            <li>Update existing information</li>
+            <li>Use Quick Add</li>
+          </ul>
+          <p class="mt-3">Review the information before saving.</p>
+        </section>
+
+        <section class="mt-5">
+          <h3 class="text-base font-semibold text-slate-900">5. Save your work</h3>
+          <p class="mt-2">When finished, click <strong>Save to Drive</strong> (Save Updated Record).</p>
+          <p class="mt-2">Save the file back to:</p>
+          <div class="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
+            <div class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Google Drive folder</div>
+            <div class="mt-1 font-semibold">Google Drive → My Drive → Service&amp;Membership Record</div>
+          </div>
+          <div class="mt-3 rounded-xl border-2 border-emerald-400 bg-emerald-50 p-3 text-emerald-950">
+            <div class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Save confirmation</div>
+            <p class="mt-1">Do not close the app until the header status shows a green <strong>Saved</strong> message (changes saved successfully). If it shows <strong>Unsaved changes</strong>, click <strong>Save to Drive</strong> again.</p>
+          </div>
+        </section>
+
+        <section class="mt-5 rounded-xl border-2 border-rose-300 bg-rose-50 p-3 text-rose-950">
+          <h3 class="text-base font-semibold">Important notice</h3>
+          <p class="mt-2">Never ignore a newer-record warning. Opening an older copy may cause another person’s changes to be lost.</p>
+          <p class="mt-2">If you cannot sign in, cannot find the shared folder, or are unsure which file to open, stop and contact the church administrator before entering information.</p>
+        </section>
+
+        <section class="mt-6">
+          <h3 class="text-base font-semibold text-slate-900">Troubleshooting</h3>
+
+          <div class="mt-3 rounded-xl border p-3">
+            <h4 class="font-semibold text-slate-900">Google Drive is not shown</h4>
+            <p class="mt-1 text-slate-600">Make sure Google Drive for desktop is running and signed in with the authorized church account. Wait a moment, and then try again.</p>
+          </div>
+          <div class="mt-3 rounded-xl border p-3">
+            <h4 class="font-semibold text-slate-900">The shared folder is missing</h4>
+            <p class="mt-1 text-slate-600">Confirm that you are signed in with the correct authorized account. If the folder is still missing, contact the church administrator.</p>
+          </div>
+          <div class="mt-3 rounded-xl border p-3">
+            <h4 class="font-semibold text-slate-900">The app asks me to open the file again</h4>
+            <p class="mt-1 text-slate-600">The file may have been moved or renamed, or this computer may no longer have access to it. Click <strong>Open from Drive</strong> and select the file again.</p>
+          </div>
+          <div class="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
+            <h4 class="font-semibold">A newer record is available</h4>
+            <p class="mt-1">Click <strong>Open from Drive</strong> (Open Newer Record) before making any changes. Do not continue with the older copy on this computer.</p>
+          </div>
+          <div class="mt-3 rounded-xl border p-3">
+            <h4 class="font-semibold text-slate-900">I am not sure whether my work was saved</h4>
+            <p class="mt-1 text-slate-600">Look at the app’s record status in the header. Do not close the app unless it says <strong>Saved</strong> (changes saved successfully). If it says <strong>Unsaved changes</strong>, click <strong>Save to Drive</strong>.</p>
+          </div>
+        </section>
+      </div>
+      <div class="border-t px-4 py-3 sm:px-5">
+        <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+          <input type="checkbox" id="helpDontShowAgain" class="mt-0.5 size-4 rounded border-slate-300" />
+          <span>Do not show these instructions automatically again</span>
+        </label>
+        <div class="mt-3">
+          <button type="button" id="btnHelpClose" class="w-full rounded-xl bg-slate-900 px-3 py-2.5 text-sm text-white hover:bg-slate-800">Close Help</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1154,11 +1270,11 @@
       if(!show) return;
 
       if(showNewer){
-        titleEl.textContent = 'Newer data found in Drive';
-        detailEl.textContent = `${driveNewerDetail || 'Your Drive JSON is newer than what is loaded.'} Location: ${getDriveLocationText()}. Open from Drive before recording new entries.`;
+        titleEl.textContent = 'A newer record is available';
+        detailEl.textContent = `${driveNewerDetail || 'A newer shared record was found.'} Location: ${getDriveLocationText()}. Open the newer record before entering or changing information.`;
       } else {
-        titleEl.textContent = 'Open latest data from Drive before recording';
-        detailEl.textContent = `This browser may have older cached data. Location: ${getDriveLocationText()}. Use Open from Drive first, then add new services or members.`;
+        titleEl.textContent = 'Open the shared record before recording';
+        detailEl.textContent = `Open the latest shared church record first. Location: ${getDriveLocationText()}. Use Open from Drive, then add new services or members.`;
       }
     }
 
@@ -1291,19 +1407,21 @@
       return new Promise((resolve) => {
         openModal('Open from Drive first', `
           <div class="text-sm text-slate-700 space-y-3">
-            <p>Before recording a <strong>new</strong> entry, open the latest JSON from Google Drive so you do not overwrite newer data from another device.</p>
+            <p>Before recording a <strong>new</strong> entry, open the latest shared church record from Google Drive so you do not overwrite another person’s work.</p>
             <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
               <div class="text-xs font-semibold uppercase tracking-wide text-amber-800">Drive location</div>
               <div class="mt-1 break-words">${esc(getDriveLocationText())}</div>
               ${driveNewerAvailable && driveNewerDetail ? `<div class="mt-2 text-sm">${esc(driveNewerDetail)}</div>` : ''}
             </div>
-            <p class="text-slate-500">Tip: use the same Save to Drive JSON file on PC and iPad.</p>
+            <p class="text-slate-500">Tip: always use the same shared file in <strong>Service&amp;Membership Record</strong>.</p>
+            <button type="button" id="btnAdviceNeedHelp" class="text-xs font-medium text-slate-700 underline hover:no-underline">Need Help?</button>
           </div>
           <div class="mt-4 modal-footer">
             <button type="button" id="btnAdviceOpenDrive" class="btn-primary flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open from Drive</button>
-            <button type="button" id="btnAdviceContinueCached" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Continue with cached data</button>
+            <button type="button" id="btnAdviceContinueCached" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Continue with this copy</button>
           </div>
         `);
+        document.getElementById('btnAdviceNeedHelp')?.addEventListener('click', () => openHelpModal());
         document.getElementById('btnAdviceOpenDrive')?.addEventListener('click', () => {
           closeModal();
           triggerOpenFromDrivePicker();
@@ -3866,8 +3984,62 @@
       if(e.target === modal) closeModal();
     });
     window.addEventListener('keydown', (e) => {
-      if(e.key === 'Escape') closeModal();
+      if(e.key !== 'Escape') return;
+      if(isHelpModalOpen()){
+        closeHelpModal({ saveDontShowPreference: true });
+        return;
+      }
+      closeModal();
     });
+
+    const HELP_HIDE_AUTO_KEY = 'church.recorder.hideHelpAuto';
+    const helpModal = document.getElementById('helpModal');
+    let helpLastFocus = null;
+
+    function isHelpModalOpen(){
+      return !!(helpModal && !helpModal.classList.contains('hidden'));
+    }
+
+    function openHelpModal(){
+      if(!helpModal) return;
+      helpLastFocus = document.activeElement;
+      const box = document.getElementById('helpDontShowAgain');
+      if(box) box.checked = localStorage.getItem(HELP_HIDE_AUTO_KEY) === '1';
+      helpModal.hidden = false;
+      helpModal.classList.remove('hidden');
+      helpModal.classList.add('flex');
+      // Focus close control for keyboard users without clearing page data
+      document.getElementById('btnHelpCloseX')?.focus();
+    }
+
+    function closeHelpModal({ saveDontShowPreference = true } = {}){
+      if(!helpModal) return;
+      if(saveDontShowPreference){
+        const box = document.getElementById('helpDontShowAgain');
+        if(box?.checked) localStorage.setItem(HELP_HIDE_AUTO_KEY, '1');
+        else localStorage.removeItem(HELP_HIDE_AUTO_KEY);
+      }
+      helpModal.classList.add('hidden');
+      helpModal.classList.remove('flex');
+      helpModal.hidden = true;
+      if(helpLastFocus && typeof helpLastFocus.focus === 'function'){
+        try{ helpLastFocus.focus(); }catch(_){/* ignore */}
+      }
+      helpLastFocus = null;
+    }
+
+    document.getElementById('btnHelp')?.addEventListener('click', () => openHelpModal());
+    document.getElementById('btnHelpClose')?.addEventListener('click', () => closeHelpModal({ saveDontShowPreference: true }));
+    document.getElementById('btnHelpCloseX')?.addEventListener('click', () => closeHelpModal({ saveDontShowPreference: true }));
+    document.getElementById('helpModalBackdrop')?.addEventListener('click', () => closeHelpModal({ saveDontShowPreference: true }));
+    document.getElementById('btnBannerNeedHelp')?.addEventListener('click', () => openHelpModal());
+
+    // First visit on this computer: show help automatically (does not clear unsaved work)
+    try{
+      if(localStorage.getItem(HELP_HIDE_AUTO_KEY) !== '1'){
+        setTimeout(() => openHelpModal(), 250);
+      }
+    }catch(_){/* private mode */}
 
     function openModal(title, html, sizeClass = 'max-w-lg'){
       modalTitle.textContent = title;
