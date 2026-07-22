@@ -170,7 +170,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.10</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.11</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -376,6 +376,7 @@
                 <label class="inline-flex items-center gap-2 text-sm text-slate-600">
                   <span class="sr-only">Summary period</span>
                   <select id="reportRange" class="rounded-xl border px-3 py-1.5 text-sm w-auto min-w-[10rem]">
+                    <option value="last">Last service</option>
                     <option value="30">Last 30 days</option>
                     <option value="90">Last 90 days</option>
                     <option value="365">Last 12 months</option>
@@ -3009,11 +3010,27 @@
     }
 
     function dateCutoffForRange(range){
-      if(range === 'all') return null;
+      if(range === 'all' || range === 'last') return null;
       const days = Number(range || 30);
       const d = new Date();
       d.setDate(d.getDate() - days);
       return d;
+    }
+
+    function servicesForReportRange(range){
+      if(range === 'last'){
+        const sorted = state.services
+          .filter(s => s && s.date)
+          .slice()
+          .sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+        return sorted.length ? [sorted[0]] : [];
+      }
+      const cutoff = dateCutoffForRange(range);
+      return state.services.filter(s => {
+        if(!cutoff) return true;
+        if(!s.date) return false;
+        return new Date(s.date + 'T00:00:00') >= cutoff;
+      });
     }
 
     // Headcount for Avg Attendance: Membership Category Member only (excludes True Seekers / Visiting Members).
@@ -3040,13 +3057,7 @@
 
     function renderReports(){
       const range = document.getElementById('reportRange').value;
-      const cutoff = dateCutoffForRange(range);
-
-      const services = state.services.filter(s => {
-        if(!cutoff) return true;
-        if(!s.date) return false;
-        return new Date(s.date + 'T00:00:00') >= cutoff;
-      });
+      const services = servicesForReportRange(range);
 
       const totalServices = services.length;
       const totalAttendance = services.reduce((sum,s)=>sum + memberAttendanceCount(s), 0);
