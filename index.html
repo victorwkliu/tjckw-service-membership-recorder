@@ -90,8 +90,66 @@
     }
     @media print{
       .no-print{display:none !important;}
-      .print-block{display:block !important;}
-      body{background:white;}
+      body.printing-report{
+        background:#fff !important;
+        color:#111 !important;
+      }
+      body.printing-report > *:not(#printReportRoot){
+        display:none !important;
+      }
+      body.printing-report #printReportRoot{
+        display:block !important;
+        position:static !important;
+        width:auto !important;
+        max-width:none !important;
+        margin:0 !important;
+        padding:0 !important;
+        background:#fff !important;
+        color:#111 !important;
+        overflow:visible !important;
+      }
+      #printReportRoot table{
+        width:100%;
+        border-collapse:collapse;
+        table-layout:auto;
+      }
+      #printReportRoot thead{
+        display:table-header-group;
+      }
+      #printReportRoot tfoot{
+        display:table-footer-group;
+      }
+      #printReportRoot tr{
+        break-inside:avoid;
+        page-break-inside:avoid;
+      }
+      #printReportRoot th,
+      #printReportRoot td{
+        border:1px solid #333;
+        padding:6px 8px;
+        vertical-align:top;
+        word-wrap:break-word;
+        overflow-wrap:anywhere;
+        white-space:normal;
+      }
+      #printReportRoot th{
+        background:#f3f3f3 !important;
+        color:#111 !important;
+        font-weight:700;
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+      }
+      #printReportRoot .print-meta,
+      #printReportRoot .print-criteria{
+        break-inside:avoid;
+        page-break-inside:avoid;
+      }
+    }
+    #printReportRoot{
+      display:none;
+      font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC","Source Han Sans TC","Segoe UI",Arial,sans-serif;
+      color:#111;
+      background:#fff;
     }
   </style>
 </head>
@@ -102,7 +160,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.4</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.5</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -116,7 +174,6 @@
         <button id="btnSaveToDrive" class="header-btn rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save to Drive</button>
         <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open from Drive</button>
         <input id="fileOpenFromDrive" type="file" accept="application/json,.json" class="hidden" />
-        <button id="btnPrint" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Print</button>
         <button type="button" id="btnHelp" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 inline-flex items-center justify-center gap-1.5" aria-haspopup="dialog" aria-controls="helpModal">
           <span aria-hidden="true" class="text-base leading-none font-semibold">?</span>
           <span>Help</span>
@@ -294,6 +351,7 @@
                   </select>
                   <button id="btnVoterColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
                   <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
+                  <button type="button" id="btnPrintReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" aria-label="Print Report for the currently selected report">Print Report</button>
                 </div>
               </div>
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
@@ -357,6 +415,7 @@
                   <h3 class="font-semibold text-base">ESSC Reports</h3>
                   <p class="text-sm text-slate-500">General Evangelical Service / Spiritual Convocations — only services with ESSC Details filled in (baptized / holy spirit / communion)</p>
                 </div>
+                <button type="button" id="btnPrintReportEssc" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" aria-label="Print ESSC Report">Print Report</button>
               </div>
               <div id="esscReportContent" class="mt-4 grid gap-3">
                 <div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet. Fill ESSC Details counts on an ESSC service and Save.</div>
@@ -652,12 +711,10 @@
         </div>
       </aside>
     </section>
-
-    <section class="print-block hidden mt-6">
-      <h2 class="text-lg font-semibold">Printed Summary</h2>
-      <div id="printSummary" class="mt-2 text-sm"></div>
-    </section>
   </main>
+
+  <div id="printReportRoot" aria-hidden="true"></div>
+  <style id="printPageStyle"></style>
 
   <!-- MODAL -->
   <div id="modal" class="no-print fixed inset-0 z-40 hidden items-center justify-center p-4">
@@ -2070,41 +2127,420 @@
       return `${from} / ${to}`;
     }
 
-    function renderEsscReports(){
-      const esscServices = state.services
+    function voterFilterLabel(filter){
+      const labels = {
+        all: 'All Members',
+        membership: 'Membership',
+        trueseekers: 'True Seekers',
+        activeatt: 'Active Members',
+        eligible: 'Eligible',
+        visiting: 'Visiting Members',
+        inactive: 'Inactive'
+      };
+      return labels[filter] || filter || 'All Members';
+    }
+
+    function formatReportDate(isoDate){
+      if(!isoDate) return '—';
+      const d = new Date(String(isoDate) + (String(isoDate).includes('T') ? '' : 'T00:00:00'));
+      if(isNaN(d.getTime())) return String(isoDate);
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function formatPrintedAt(date = new Date()){
+      return date.toLocaleString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+      });
+    }
+
+    function getMostRecentAgm(){
+      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      const isAGM = (s) => {
+        const t = (s.type||'').toUpperCase();
+        const ti = (s.title||'').toUpperCase();
+        return t === 'AGM' || ti.includes('AGM');
+      };
+      const idx = services.findIndex(isAGM);
+      return idx >= 0 ? services[idx] : null;
+    }
+
+    // Shared dataset for on-screen Membership Report and Print Report (same filters/columns/sort).
+    function buildMembershipReportModel(){
+      const filter = document.getElementById('voterFilterStatus')?.value || 'all';
+      const reportCols = state.voterReportColumns || defaults().voterReportColumns;
+      const todayStr = todayLocalISO();
+      const anchorAGM = getMostRecentAgm();
+      const generatedAt = new Date();
+
+      const columns = [{ key: 'name', label: 'Name' }];
+      if(reportCols.status !== false) columns.push({ key: 'status', label: 'Status' });
+      if(reportCols.membershipCategory !== false) columns.push({ key: 'membershipCategory', label: 'Membership Category' });
+      if(reportCols.group !== false) columns.push({ key: 'group', label: 'Group' });
+      if(reportCols.attendance !== false) columns.push({ key: 'attendance', label: 'Attendance %' });
+      if(reportCols.checks !== false) columns.push({ key: 'checks', label: 'Age | Attendance' });
+      if(reportCols.eligibility !== false) columns.push({ key: 'eligibility', label: 'Eligible?' });
+      if(reportCols.period !== false) columns.push({ key: 'period', label: 'Period' });
+
+      if(!anchorAGM){
+        return {
+          type: 'membership',
+          ok: false,
+          title: 'Membership Report',
+          churchName: 'TJCKW Service & Membership Record',
+          filterKey: filter,
+          filterLabel: voterFilterLabel(filter),
+          columns,
+          rows: [],
+          recordCount: 0,
+          generatedAt,
+          errorTitle: 'AGM Service Required',
+          errorDetail: 'To calculate eligibility, add an AGM service in the Services tab first. The voting period runs from the most recent AGM up to today.'
+        };
+      }
+
+      const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      const rows = [];
+      for(const m of members){
+        const voter = getVoterStatus(m.id);
+        if(!memberMatchesVoterFilter(m, filter, voter)) continue;
+
+        const att = formatAttendancePct(m.id);
+        const memCat = getMembershipCategory(m);
+        const ageDisplay = voter.ageCheck && voter.ageCheck.age !== null
+          ? `${voter.ageCheck.age} yrs`
+          : (voter.ageCheck ? (voter.ageCheck.passed ? 'no DOB*' : 'no DOB') : 'N/A');
+        const ageStatus = voter.ageCheck ? (voter.ageCheck.passed ? 'Pass' : 'Fail') : '—';
+        const attDisplay = voter.attCheck ? `${voter.attCheck.count}/2` : (voter.ageCheck || voter.attCheck ? '0/2' : 'N/A');
+        const attStatus = voter.attCheck ? (voter.attCheck.passed ? 'Pass' : 'Fail') : '—';
+        const eligibleText = voter.text === 'Yes' ? 'Yes' : (voter.text || 'No');
+
+        rows.push({
+          id: m.id,
+          member: m,
+          voter,
+          att,
+          cells: {
+            nameHtml: memberNameHtml(m),
+            nameText: memberNameText(m),
+            status: m.status || '',
+            membershipCategory: memCat || '',
+            group: m.group || '',
+            attendance: att.text,
+            attendanceTone: att.value == null ? '' : (att.value >= 75 ? 'high' : att.value >= 50 ? 'mid' : 'low'),
+            checks: `${ageDisplay} ${ageStatus} | ${attDisplay} ${attStatus}`,
+            checksTitle: voter.ageCheck || voter.attCheck
+              ? `Age check: ${voter.ageCheck?.reason || 'N/A'}, Attendance: ${voter.attCheck?.reason || 'N/A'}`
+              : (voter.detail || ''),
+            eligibility: eligibleText,
+            eligibilityDetail: voter.detail || '',
+            period: `${anchorAGM.date} to ${todayStr}`
+          }
+        });
+      }
+
+      const criteria = [
+        'Status must be Active and Membership Category Member',
+        'Attended at least 2 services from the most recent AGM up to today',
+        '18+ by birth month as of today — or, if birth month/year is not recorded yet, Group/Ministry must not be RE(E), RE(J), or RE(K)'
+      ];
+      if(filter === 'activeatt') criteria.push('Active Members filter: only ≥2 services from the most recent AGM up to today.');
+      if(filter === 'membership') criteria.push('Membership filter: Membership Category = Member and Status not Inactive/Lost.');
+      if(filter === 'trueseekers') criteria.push('True Seekers filter: Membership Category = True Seeker.');
+      if(filter === 'visiting') criteria.push('Visiting Members filter: Membership Category = Visiting Member.');
+      if(filter === 'inactive') criteria.push('Inactive filter: Status = Inactive.');
+
+      return {
+        type: 'membership',
+        ok: true,
+        title: 'Membership Report',
+        churchName: 'TJCKW Service & Membership Record',
+        filterKey: filter,
+        filterLabel: voterFilterLabel(filter),
+        periodFrom: anchorAGM.date,
+        periodTo: todayStr,
+        periodLabel: `${formatReportDate(anchorAGM.date)} to ${formatReportDate(todayStr)}`,
+        columns,
+        rows,
+        criteria,
+        recordCount: rows.length,
+        generatedAt,
+        wide: columns.length >= 5
+      };
+    }
+
+    function buildEsscReportModel(){
+      const generatedAt = new Date();
+      const entries = state.services
         .filter(s => isEsscService(s) && hasEsscReportEntry(s))
         .slice()
         .sort((a,b)=>{
           const da = a.esscDateFrom || a.date || '';
           const db = b.esscDateFrom || b.date || '';
           return db.localeCompare(da);
-        });
+        })
+        .map(s => ({
+          id: s.id,
+          service: s,
+          dateText: esscDateRangeText(s),
+          speaker: blankDisp(s.minister),
+          theme: blankDisp(s.title),
+          baptized: blankDisp(s.esscBaptized),
+          holySpirit: blankDisp(s.esscHolySpirit),
+          communion: blankDisp(s.esscCommunion)
+        }));
 
+      return {
+        type: 'essc',
+        ok: true,
+        title: 'ESSC Report',
+        churchName: 'TJCKW Service & Membership Record',
+        filterLabel: 'ESSC services with details filled in',
+        periodLabel: entries.length ? 'All ESSC report entries on file' : '—',
+        columns: [
+          { key: 'date', label: 'Date' },
+          { key: 'speaker', label: 'Speaker' },
+          { key: 'theme', label: 'Theme/Topic' },
+          { key: 'baptized', label: 'Newly Baptized' },
+          { key: 'holySpirit', label: 'Receiving Holy Spirit' },
+          { key: 'communion', label: 'Holy Communion Partakers' }
+        ],
+        rows: entries,
+        recordCount: entries.length,
+        generatedAt,
+        wide: true
+      };
+    }
+
+    function buildActivePrintReportModel(){
+      const selected = document.getElementById('reportTypeSelect')?.value || 'membership';
+      return selected === 'essc' ? buildEsscReportModel() : buildMembershipReportModel();
+    }
+
+    function renderEsscReports(){
+      const model = buildEsscReportModel();
       const content = document.getElementById('esscReportContent');
       if(!content) return;
-      if(esscServices.length === 0){
+      if(!model.rows.length){
         content.innerHTML = '<div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet.<br/><span class="text-xs">Add/edit an ESSC service and fill Newly Baptized, Receiving Holy Spirit, and/or Holy Communion Partakers in ESSC Details, then Save.</span></div>';
         return;
       }
-      content.innerHTML = esscServices.map(s => `
+      content.innerHTML = model.rows.map(row => `
         <article class="rounded-xl border bg-white p-4 text-sm">
           <h4 class="font-semibold text-slate-800">General Evangelical Service / Spiritual Convocations</h4>
           <dl class="mt-3 grid gap-2">
-            <div><span class="text-slate-500">Date:</span> <span class="mono font-medium">${esc(esscDateRangeText(s))}</span></div>
-            <div><span class="text-slate-500">Speaker:</span> <span class="font-medium">${esc(blankDisp(s.minister))}</span></div>
-            <div><span class="text-slate-500">Theme/Topic:</span> <span class="font-medium">${esc(blankDisp(s.title))}</span></div>
-            <div><span class="text-slate-500">Number of Newly Baptized:</span> <span class="mono font-medium">${esc(blankDisp(s.esscBaptized))}</span></div>
-            <div><span class="text-slate-500">Number of Receiving Holy Spirit:</span> <span class="mono font-medium">${esc(blankDisp(s.esscHolySpirit))}</span></div>
-            <div><span class="text-slate-500">Number of Holy Communion Partakers:</span> <span class="mono font-medium">${esc(blankDisp(s.esscCommunion))}</span></div>
+            <div><span class="text-slate-500">Date:</span> <span class="mono font-medium">${esc(row.dateText)}</span></div>
+            <div><span class="text-slate-500">Speaker:</span> <span class="font-medium">${esc(row.speaker)}</span></div>
+            <div><span class="text-slate-500">Theme/Topic:</span> <span class="font-medium">${esc(row.theme)}</span></div>
+            <div><span class="text-slate-500">Number of Newly Baptized:</span> <span class="mono font-medium">${esc(row.baptized)}</span></div>
+            <div><span class="text-slate-500">Number of Receiving Holy Spirit:</span> <span class="mono font-medium">${esc(row.holySpirit)}</span></div>
+            <div><span class="text-slate-500">Number of Holy Communion Partakers:</span> <span class="mono font-medium">${esc(row.communion)}</span></div>
           </dl>
           <div class="mt-3 flex flex-wrap gap-2 no-print">
-            <button type="button" class="rounded-lg border px-2 py-1 text-xs hover:bg-slate-50" data-edit-essc="${esc(s.id)}">Edit</button>
+            <button type="button" class="rounded-lg border px-2 py-1 text-xs hover:bg-slate-50" data-edit-essc="${esc(row.id)}">Edit</button>
           </div>
         </article>
       `).join('');
 
       content.querySelectorAll('button[data-edit-essc]').forEach(btn => {
         btn.addEventListener('click', () => startEditService(btn.getAttribute('data-edit-essc')));
+      });
+    }
+
+    function renderVoterReport(){
+      const model = buildMembershipReportModel();
+      const container = document.getElementById('voterReportContent');
+      if(!container) return;
+
+      if(!model.ok){
+        container.innerHTML = `
+          <div class="p-6 text-center">
+            <div class="text-amber-700 font-semibold mb-2">${esc(model.errorTitle)}</div>
+            <div class="text-sm text-slate-600">${esc(model.errorDetail)}</div>
+          </div>`;
+        return;
+      }
+
+      if(state.members.length === 0){
+        container.innerHTML = '<div class="p-6 text-center text-slate-500">No members yet.</div>';
+        return;
+      }
+
+      if(model.rows.length === 0){
+        container.innerHTML = '<div class="p-6 text-center text-slate-500">No members match the filter.</div>';
+        return;
+      }
+
+      const reportCols = Object.fromEntries(model.columns.map(c => [c.key, true]));
+      const rowsHtml = model.rows.map(row => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-3 py-2 font-medium">${row.cells.nameHtml}</td>
+            ${reportCols.status ? `<td class="px-3 py-2">${esc(row.cells.status)}</td>` : ''}
+            ${reportCols.membershipCategory ? `<td class="px-3 py-2">${esc(row.cells.membershipCategory)}</td>` : ''}
+            ${reportCols.group ? `<td class="px-3 py-2">${esc(row.cells.group)}</td>` : ''}
+            ${reportCols.attendance ? `<td class="px-3 py-2 text-right mono ${row.att.color}">${esc(row.cells.attendance)}</td>` : ''}
+            ${reportCols.checks ? `<td class="px-3 py-2 text-center mono" title="${esc(row.cells.checksTitle)}">${esc(row.cells.checks)}</td>` : ''}
+            ${reportCols.eligibility ? `<td class="px-3 py-2">
+              <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${row.voter.color}" title="${esc(row.cells.eligibilityDetail)}">
+                ${esc(row.cells.eligibility)}
+              </span>
+            </td>` : ''}
+            ${reportCols.period ? `<td class="px-3 py-2 text-sm text-slate-600" title="From ${esc(model.periodFrom)} up to ${esc(model.periodTo)}">${esc(row.cells.period)}</td>` : ''}
+          </tr>
+        `).join('');
+
+      container.innerHTML = `
+        <div class="mb-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
+          <strong>Eligibility Criteria:</strong><br/>
+          1. Status must be <strong>Active</strong> and Membership Category <strong>Member</strong><br/>
+          2. Attended at least <strong>2 services</strong> from the most recent AGM up to today<br/>
+          3. <strong>18+</strong> by birth month as of today — <em>or</em>, if birth month/year is not recorded yet, Group/Ministry must <strong>not</strong> be RE(E), RE(J), or RE(K)
+          ${model.filterKey === 'activeatt' ? '<br/><br/><strong>Active Members filter:</strong> only ≥2 services from the most recent AGM up to today.' : ''}
+          ${model.filterKey === 'membership' ? '<br/><br/><strong>Membership filter:</strong> Membership Category = Member and Status not Inactive/Lost.' : ''}
+          ${model.filterKey === 'trueseekers' ? '<br/><br/><strong>True Seekers filter:</strong> Membership Category = True Seeker.' : ''}
+          ${model.filterKey === 'visiting' ? '<br/><br/><strong>Visiting Members filter:</strong> Membership Category = Visiting Member.' : ''}
+          ${model.filterKey === 'inactive' ? '<br/><br/><strong>Inactive filter:</strong> Status = Inactive.' : ''}
+        </div>
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              ${model.columns.map(c => {
+                const align = c.key === 'attendance' ? 'text-right' : (c.key === 'checks' || c.key === 'eligibility' ? 'text-center' : 'text-left');
+                return `<th class="px-3 py-2 ${align}">${esc(c.label)}</th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
+          Period: ${esc(model.periodFrom)} (Most recent AGM) → ${esc(model.periodTo)} (Today) · Records: ${model.recordCount}
+        </div>
+      `;
+    }
+
+    function renderPrintReportHtml(model){
+      const printedAt = formatPrintedAt(model.generatedAt || new Date());
+      const heading = `
+        <header class="print-meta" style="margin-bottom:14px;">
+          <div style="font-size:14px;font-weight:700;">${esc(model.churchName || 'TJCKW Service & Membership Record')}</div>
+          <div style="font-size:18px;font-weight:700;margin-top:4px;">${esc(model.title)}</div>
+          <div style="margin-top:10px;font-size:12px;line-height:1.5;">
+            ${model.periodLabel ? `<div><strong>Period:</strong> ${esc(model.periodLabel)}</div>` : ''}
+            <div><strong>Filter:</strong> ${esc(model.filterLabel || '—')}</div>
+            <div><strong>Records:</strong> ${model.recordCount}</div>
+            <div><strong>Printed:</strong> ${esc(printedAt)}</div>
+          </div>
+        </header>
+      `;
+
+      if(model.type === 'membership' && !model.ok){
+        return `${heading}<p style="font-size:13px;">${esc(model.errorDetail || 'Nothing to print.')}</p>`;
+      }
+
+      if(model.type === 'membership'){
+        const criteria = (model.criteria || []).map((c,i) => `<div>${i+1}. ${esc(c)}</div>`).join('');
+        const thead = model.columns.map(c => `<th>${esc(c.label)}</th>`).join('');
+        const tbody = model.rows.map(row => {
+          const tds = model.columns.map(c => {
+            if(c.key === 'name'){
+              const chinese = row.member?.chineseName ? `<div style="font-size:11px;">${esc(row.member.chineseName)}</div>` : '';
+              const english = esc((row.member?.name || row.cells.nameText || '—'));
+              return `<td><div style="font-weight:600;">${english}</div>${chinese}</td>`;
+            }
+            if(c.key === 'eligibility'){
+              const mark = row.cells.eligibility === 'Yes' ? 'Yes (Eligible)' : `${esc(row.cells.eligibility || 'No')} (Not Eligible)`;
+              return `<td>${mark}</td>`;
+            }
+            if(c.key === 'attendance'){
+              const tone = row.cells.attendanceTone === 'high' ? 'High' : row.cells.attendanceTone === 'mid' ? 'Medium' : row.cells.attendanceTone === 'low' ? 'Low' : '';
+              return `<td>${esc(row.cells.attendance)}${tone ? ` (${tone})` : ''}</td>`;
+            }
+            return `<td>${esc(row.cells[c.key] ?? '—')}</td>`;
+          }).join('');
+          return `<tr>${tds}</tr>`;
+        }).join('');
+
+        return `
+          ${heading}
+          <section class="print-criteria" style="margin-bottom:12px;font-size:11px;line-height:1.45;border:1px solid #333;padding:8px;">
+            <div style="font-weight:700;margin-bottom:4px;">Eligibility criteria</div>
+            ${criteria}
+          </section>
+          <table>
+            <thead><tr>${thead}</tr></thead>
+            <tbody>${tbody || `<tr><td colspan="${model.columns.length}">No matching records.</td></tr>`}</tbody>
+          </table>
+          <div style="margin-top:10px;font-size:11px;">Total records: ${model.recordCount}</div>
+        `;
+      }
+
+      // ESSC
+      const thead = model.columns.map(c => `<th>${esc(c.label)}</th>`).join('');
+      const tbody = model.rows.map(row => `
+        <tr>
+          <td>${esc(row.dateText)}</td>
+          <td>${esc(row.speaker)}</td>
+          <td>${esc(row.theme)}</td>
+          <td>${esc(row.baptized)}</td>
+          <td>${esc(row.holySpirit)}</td>
+          <td>${esc(row.communion)}</td>
+        </tr>
+      `).join('');
+      return `
+        ${heading}
+        <table>
+          <thead><tr>${thead}</tr></thead>
+          <tbody>${tbody || `<tr><td colspan="6">No ESSC report entries yet.</td></tr>`}</tbody>
+        </table>
+        <div style="margin-top:10px;font-size:11px;">Total records: ${model.recordCount}</div>
+      `;
+    }
+
+    function printActiveReport(){
+      const btn = document.activeElement?.id?.startsWith('btnPrintReport')
+        ? document.activeElement
+        : document.getElementById('btnPrintReport');
+      const root = document.getElementById('printReportRoot');
+      const pageStyle = document.getElementById('printPageStyle');
+      if(!root) return;
+
+      const model = buildActivePrintReportModel();
+      root.innerHTML = renderPrintReportHtml(model);
+      root.setAttribute('aria-hidden', 'false');
+      if(pageStyle){
+        pageStyle.textContent = model.wide
+          ? '@page { size: landscape; margin: 10mm; }'
+          : '@page { size: portrait; margin: 12mm; }';
+      }
+
+      const cleanup = () => {
+        document.body.classList.remove('printing-report');
+        root.innerHTML = '';
+        root.setAttribute('aria-hidden', 'true');
+        if(pageStyle) pageStyle.textContent = '';
+        window.removeEventListener('afterprint', cleanup);
+        try{ btn?.focus(); }catch(_){/* ignore */}
+      };
+
+      window.addEventListener('afterprint', cleanup);
+      document.body.classList.add('printing-report');
+      // Allow the print layout to paint before opening the system dialog
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try{
+            window.print();
+          }catch(err){
+            console.error('Print failed', err);
+            cleanup();
+            alert('Print failed in this browser. Try Chrome or Edge.');
+          }
+          // Safety net only — do not clear while the print dialog may still be open
+          setTimeout(() => {
+            if(document.body.classList.contains('printing-report')) cleanup();
+          }, 60_000);
+        }, 30);
       });
     }
 
@@ -2582,15 +3018,6 @@
       setTxt('kpiEligibleVoters', buckets.eligible);
       setTxt('kpiVisitingMembers', buckets.visiting);
       setTxt('kpiInactiveMembers', buckets.inactive);
-
-      // Print summary
-      document.getElementById('printSummary').innerHTML = `
-        <div class="grid gap-2">
-          <div><span class="font-semibold">Range:</span> ${range === 'all' ? 'All time' : `Last ${esc(range)} days`}</div>
-          <div><span class="font-semibold">Total services:</span> ${totalServices}</div>
-          <div><span class="font-semibold">Average attendance (Members only):</span> ${avgAttendance.toFixed(1)}</div>
-        </div>
-      `;
     }
 
 
@@ -3550,128 +3977,6 @@
       });
     }
 
-    function renderVoterReport(){
-      const filter = document.getElementById('voterFilterStatus').value;
-      const container = document.getElementById('voterReportContent');
-      const reportCols = state.voterReportColumns || defaults().voterReportColumns;
-
-      const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
-      if(members.length === 0){
-        container.innerHTML = '<div class="p-6 text-center text-slate-500">No members yet.</div>';
-        return;
-      }
-
-      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
-
-      const isAGM = (s) => {
-        const t = (s.type||'').toUpperCase();
-        const ti = (s.title||'').toUpperCase();
-        return t === 'AGM' || ti.includes('AGM');
-      };
-
-      const anchorIdx = services.findIndex(isAGM);
-      const anchorAGM = anchorIdx >= 0 ? services[anchorIdx] : null;
-      const todayStr = todayLocalISO();
-
-      if(!anchorAGM){
-        container.innerHTML = `
-          <div class="p-6 text-center">
-            <div class="text-amber-700 font-semibold mb-2">AGM Service Required</div>
-            <div class="text-sm text-slate-600">To calculate eligibility, add an <strong>AGM</strong> service in the Services tab first. The voting period runs from the most recent AGM up to today.</div>
-          </div>`;
-        return;
-      }
-
-      const rows = members.map(m => {
-        const voter = getVoterStatus(m.id);
-
-        if(!memberMatchesVoterFilter(m, filter, voter)) return null;
-
-        const att = formatAttendancePct(m.id);
-        const memCat = getMembershipCategory(m);
-
-        // Age display
-        const ageDisplay = voter.ageCheck && voter.ageCheck.age !== null
-          ? `${voter.ageCheck.age} yrs`
-          : (voter.ageCheck ? (voter.ageCheck.passed ? 'no DOB*' : 'no DOB') : 'N/A');
-        const ageStatus = voter.ageCheck
-          ? (voter.ageCheck.passed ? '✓' : '✗')
-          : '—';
-
-        // Attendance display
-        const attDisplay = voter.attCheck
-          ? `${voter.attCheck.count}/2`
-          : (voter.ageCheck || voter.attCheck ? '0/2' : 'N/A');
-        const attStatus = voter.attCheck
-          ? (voter.attCheck.passed ? '✓' : '✗')
-          : '—';
-
-        const cellTitle = voter.ageCheck || voter.attCheck
-          ? `Age check: ${voter.ageCheck?.reason || 'N/A'}, Attendance: ${voter.attCheck?.reason || 'N/A'}`
-          : voter.detail;
-
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="px-3 py-2 font-medium">${memberNameHtml(m)}</td>
-            ${reportCols.status ? `<td class="px-3 py-2">${esc(m.status||'')}</td>` : ''}
-            ${reportCols.membershipCategory ? `<td class="px-3 py-2">${esc(memCat)}</td>` : ''}
-            ${reportCols.group ? `<td class="px-3 py-2">${esc(m.group||'')}</td>` : ''}
-            ${reportCols.attendance ? `<td class="px-3 py-2 text-right mono ${att.color}">${att.text}</td>` : ''}
-            ${reportCols.checks ? `<td class="px-3 py-2 text-center mono" title="${esc(cellTitle)}">
-              ${ageDisplay} ${ageStatus} | ${attDisplay} ${attStatus}
-            </td>` : ''}
-            ${reportCols.eligibility ? `<td class="px-3 py-2">
-              <span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${voter.color}" title="${esc(voter.detail||'')}">
-                ${voter.text}
-              </span>
-            </td>` : ''}
-            ${reportCols.period ? `<td class="px-3 py-2 text-sm text-slate-600" title="From ${anchorAGM.date} up to ${todayStr}">
-              ${anchorAGM.date} to ${todayStr}
-            </td>` : ''}
-          </tr>
-        `;
-      }).filter(Boolean);
-
-      if(rows.length === 0){
-        container.innerHTML = '<div class="p-6 text-center text-slate-500">No members match the filter.</div>';
-        return;
-      }
-
-      container.innerHTML = `
-        <div class="mb-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
-          <strong>Eligibility Criteria:</strong><br/>
-          1. Status must be <strong>Active</strong> and Membership Category <strong>Member</strong><br/>
-          2. Attended at least <strong>2 services</strong> from the most recent AGM up to today<br/>
-          3. <strong>18+</strong> by birth month as of today — <em>or</em>, if birth month/year is not recorded yet, Group/Ministry must <strong>not</strong> be RE(E), RE(J), or RE(K)
-          ${filter === 'activeatt' ? '<br/><br/><strong>Active Members filter:</strong> only ≥2 services from the most recent AGM up to today.' : ''}
-          ${filter === 'membership' ? '<br/><br/><strong>Membership filter:</strong> Membership Category = Member and Status not Inactive/Lost.' : ''}
-          ${filter === 'trueseekers' ? '<br/><br/><strong>True Seekers filter:</strong> Membership Category = True Seeker.' : ''}
-          ${filter === 'visiting' ? '<br/><br/><strong>Visiting Members filter:</strong> Membership Category = Visiting Member.' : ''}
-          ${filter === 'inactive' ? '<br/><br/><strong>Inactive filter:</strong> Status = Inactive.' : ''}
-        </div>
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-100 text-slate-700">
-            <tr>
-              <th class="px-3 py-2 text-left">Name</th>
-              ${reportCols.status ? '<th class="px-3 py-2 text-left">Status</th>' : ''}
-              ${reportCols.membershipCategory ? '<th class="px-3 py-2 text-left">Membership Category</th>' : ''}
-              ${reportCols.group ? '<th class="px-3 py-2 text-left">Group</th>' : ''}
-              ${reportCols.attendance ? '<th class="px-3 py-2 text-right">Attendance %</th>' : ''}
-              ${reportCols.checks ? '<th class="px-3 py-2 text-center">Age | Attendance</th>' : ''}
-              ${reportCols.eligibility ? '<th class="px-3 py-2 text-center">Eligible?</th>' : ''}
-              ${reportCols.period ? '<th class="px-3 py-2 text-left">Period</th>' : ''}
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            ${rows.join('')}
-          </tbody>
-        </table>
-        <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
-          Period: ${anchorAGM.date} (Most recent AGM) → ${todayStr} (Today)
-        </div>
-      `;
-    }
-
     function exportEligibleVotersExcel(){
       try{
         if(typeof XLSX === 'undefined'){
@@ -3964,11 +4269,8 @@
     loadDriveFileHandle().then(() => checkLinkedDriveFileForUpdates({ interactive: false }));
     updateDriveFreshnessBanner();
 
-    document.getElementById('btnPrint').addEventListener('click', () => {
-      setActiveTab('reports');
-      renderReports();
-      window.print();
-    });
+    document.getElementById('btnPrintReport')?.addEventListener('click', printActiveReport);
+    document.getElementById('btnPrintReportEssc')?.addEventListener('click', printActiveReport);
 
     // Quick Add modal
     document.getElementById('btnQuickAdd').addEventListener('click', () => {
