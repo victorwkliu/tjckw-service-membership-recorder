@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.2</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.3</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -114,14 +114,25 @@
           Storage blocked: changes may not save
         </div>
         <button id="btnSaveToDrive" class="header-btn rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save to Drive</button>
-        <label class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
-          Open from Drive
-          <input id="fileOpenFromDrive" type="file" accept="application/json" class="hidden" />
-        </label>
+        <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open from Drive</button>
+        <input id="fileOpenFromDrive" type="file" accept="application/json,.json" class="hidden" />
         <button id="btnPrint" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Print</button>
       </div>
     </div>
   </header>
+
+  <div id="driveFreshnessBanner" class="no-print hidden border-b border-amber-300 bg-amber-50">
+    <div class="mx-auto max-w-7xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0 text-sm text-amber-950">
+        <div id="driveFreshnessTitle" class="font-semibold">Open latest data from Drive before recording</div>
+        <div id="driveFreshnessDetail" class="mt-0.5 text-amber-900/80"></div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="btnBannerOpenFromDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open from Drive</button>
+        <button type="button" id="btnBannerDismissDrive" class="rounded-xl border border-amber-400 bg-white px-3 py-2 text-sm hover:bg-amber-100">Dismiss for now</button>
+      </div>
+    </div>
+  </div>
 
   <main class="mx-auto max-w-7xl px-4 py-6">
     <section class="grid gap-4 md:grid-cols-12">
@@ -409,6 +420,18 @@
               </div>
 
               <div class="rounded-2xl border bg-white p-4 md:col-span-2">
+                <h3 class="font-semibold">Drive data location</h3>
+                <p class="text-sm text-slate-500 mt-1">Shown when the app advises you to open the latest JSON from Google Drive before adding new records.</p>
+                <label class="mt-3 block text-sm text-slate-600">Folder / path hint</label>
+                <input id="driveLocationHint" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., My Drive → TJCKW → church-recorder-data-….json" />
+                <p id="driveLastFileLabel" class="mt-2 text-xs text-slate-500"></p>
+                <div class="control-pair mt-3">
+                  <button type="button" id="btnSaveDriveLocation" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Save location hint</button>
+                  <button type="button" id="btnCheckDriveNow" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Check Drive now</button>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4 md:col-span-2">
                 <h3 class="font-semibold">Live site link</h3>
                 <p class="text-sm text-slate-500 mt-1">Download a shortcut file, then save it to Google Drive (same as Save to Drive). Open that file anytime to launch the live app.</p>
                 <p class="mt-2 text-sm mono break-all text-slate-700" id="liveSiteUrlText">https://victorwkliu.github.io/tjckw-service-membership-recorder/</p>
@@ -684,7 +707,7 @@
       families: [],
       familyMembers: [],
 
-      meta: { lastSavedAt: '', lastOpenedAt: '' },
+      meta: { lastSavedAt: '', lastOpenedAt: '', driveFileName: '', driveLocationHint: '', openedFileLastModified: 0, loadedDataSavedAt: '' },
       memberColumns: {
         name: true,
         phone: true,
@@ -1063,6 +1086,245 @@
         chip.classList.add('border-emerald-200','bg-emerald-50','text-emerald-800');
         if(dot) dot.classList.add('bg-emerald-500');
       }
+      updateDriveFreshnessBanner();
+      updateDriveLocationSettingsUI();
+    }
+
+    // --- Drive freshness: advise Open from Drive before new entries ---
+    const DRIVE_SESSION_OPEN_KEY = 'church.recorder.sessionOpenedFromDrive';
+    const DRIVE_SESSION_DISMISS_KEY = 'church.recorder.sessionDismissDriveAdvice';
+    const DRIVE_HANDLE_DB = 'church.recorder.fs';
+    const DRIVE_HANDLE_STORE = 'handles';
+    const DRIVE_HANDLE_KEY = 'dataJson';
+    let driveFileHandle = null;
+    let driveNewerAvailable = false;
+    let driveNewerDetail = '';
+
+    function didOpenFromDriveThisSession(){
+      return sessionStorage.getItem(DRIVE_SESSION_OPEN_KEY) === '1';
+    }
+    function markOpenedFromDriveThisSession(){
+      sessionStorage.setItem(DRIVE_SESSION_OPEN_KEY, '1');
+      sessionStorage.removeItem(DRIVE_SESSION_DISMISS_KEY);
+      driveNewerAvailable = false;
+      driveNewerDetail = '';
+    }
+    function didDismissDriveAdviceThisSession(){
+      return sessionStorage.getItem(DRIVE_SESSION_DISMISS_KEY) === '1';
+    }
+    function dismissDriveAdviceThisSession(){
+      sessionStorage.setItem(DRIVE_SESSION_DISMISS_KEY, '1');
+      updateDriveFreshnessBanner();
+    }
+
+    function getDriveLocationText(){
+      const meta = state.meta || {};
+      const parts = [];
+      if(meta.driveLocationHint) parts.push(meta.driveLocationHint);
+      if(meta.driveFileName) parts.push(`File: ${meta.driveFileName}`);
+      if(!parts.length) parts.push('Google Drive → your church recorder JSON (from Save to Drive)');
+      return parts.join(' · ');
+    }
+
+    function updateDriveLocationSettingsUI(){
+      const hint = document.getElementById('driveLocationHint');
+      const label = document.getElementById('driveLastFileLabel');
+      if(hint && document.activeElement !== hint){
+        hint.value = state.meta?.driveLocationHint || '';
+      }
+      if(label){
+        const name = state.meta?.driveFileName;
+        const opened = formatTimestamp(state.meta?.lastOpenedAt);
+        label.textContent = name
+          ? `Last opened: ${name}${opened ? ` (${opened})` : ''}`
+          : 'No Drive file opened yet in this browser.';
+      }
+    }
+
+    function updateDriveFreshnessBanner(){
+      const banner = document.getElementById('driveFreshnessBanner');
+      const titleEl = document.getElementById('driveFreshnessTitle');
+      const detailEl = document.getElementById('driveFreshnessDetail');
+      if(!banner || !titleEl || !detailEl) return;
+
+      const showNewer = driveNewerAvailable;
+      const showSessionAdvice = !didOpenFromDriveThisSession() && !didDismissDriveAdviceThisSession();
+      const show = showNewer || showSessionAdvice;
+      banner.classList.toggle('hidden', !show);
+      if(!show) return;
+
+      if(showNewer){
+        titleEl.textContent = 'Newer data found in Drive';
+        detailEl.textContent = `${driveNewerDetail || 'Your Drive JSON is newer than what is loaded.'} Location: ${getDriveLocationText()}. Open from Drive before recording new entries.`;
+      } else {
+        titleEl.textContent = 'Open latest data from Drive before recording';
+        detailEl.textContent = `This browser may have older cached data. Location: ${getDriveLocationText()}. Use Open from Drive first, then add new services or members.`;
+      }
+    }
+
+    function openIdb(dbName){
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if(!db.objectStoreNames.contains(DRIVE_HANDLE_STORE)) db.createObjectStore(DRIVE_HANDLE_STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function saveDriveFileHandle(handle){
+      driveFileHandle = handle || null;
+      if(!handle || !window.indexedDB) return;
+      try{
+        const db = await openIdb(DRIVE_HANDLE_DB);
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DRIVE_HANDLE_STORE, 'readwrite');
+          tx.objectStore(DRIVE_HANDLE_STORE).put(handle, DRIVE_HANDLE_KEY);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      }catch(_){/* unsupported / denied */}
+    }
+
+    async function loadDriveFileHandle(){
+      if(driveFileHandle) return driveFileHandle;
+      if(!window.indexedDB) return null;
+      try{
+        const db = await openIdb(DRIVE_HANDLE_DB);
+        const handle = await new Promise((resolve, reject) => {
+          const tx = db.transaction(DRIVE_HANDLE_STORE, 'readonly');
+          const req = tx.objectStore(DRIVE_HANDLE_STORE).get(DRIVE_HANDLE_KEY);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+        db.close();
+        driveFileHandle = handle || null;
+        return driveFileHandle;
+      }catch(_){
+        return null;
+      }
+    }
+
+    async function ensureDriveHandlePermission(handle){
+      if(!handle?.queryPermission || !handle?.requestPermission) return true;
+      const opts = { mode: 'read' };
+      if((await handle.queryPermission(opts)) === 'granted') return true;
+      return (await handle.requestPermission(opts)) === 'granted';
+    }
+
+    function isoTime(value){
+      const t = Date.parse(value || '');
+      return Number.isFinite(t) ? t : 0;
+    }
+
+    async function checkLinkedDriveFileForUpdates({ interactive = false } = {}){
+      const handle = await loadDriveFileHandle();
+      if(!handle){
+        if(interactive){
+          toast('Link a Drive file first with Open from Drive (Chrome/Edge can remember it for auto-check).');
+        }
+        return false;
+      }
+      try{
+        if(!(await ensureDriveHandlePermission(handle))){
+          if(interactive) toast('Permission needed to re-check the Drive file.');
+          return false;
+        }
+        const file = await handle.getFile();
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const fileSavedAt = parsed?.meta?.lastSavedAt || '';
+        const loadedSavedAt = state.meta?.loadedDataSavedAt || state.meta?.lastSavedAt || '';
+        const prevMod = Number(state.meta?.openedFileLastModified || 0);
+        const fileIsNewerByStamp = fileSavedAt && isoTime(fileSavedAt) > isoTime(loadedSavedAt);
+        const fileIsNewerByMod = prevMod > 0 && file.lastModified > prevMod + 1500;
+        // Also treat as newer if file saved-at is ahead of what this browser last saved locally
+        const newerThanLocalSave = fileSavedAt && isoTime(fileSavedAt) > isoTime(state.meta?.lastSavedAt || '');
+
+        if(fileIsNewerByStamp || fileIsNewerByMod || (newerThanLocalSave && fileSavedAt !== loadedSavedAt)){
+          driveNewerAvailable = true;
+          driveNewerDetail = fileSavedAt
+            ? `Drive file saved ${formatTimestamp(fileSavedAt)}.`
+            : `Drive file was updated ${formatTimestamp(new Date(file.lastModified).toISOString())}.`;
+          updateDriveFreshnessBanner();
+          if(interactive) toast('Newer Drive data found — open it before recording.');
+          return true;
+        }
+
+        driveNewerAvailable = false;
+        driveNewerDetail = '';
+        updateDriveFreshnessBanner();
+        if(interactive) toast('Loaded data matches the linked Drive file.');
+        return false;
+      }catch(err){
+        console.warn('Drive freshness check failed', err);
+        if(interactive) toast('Could not check the linked Drive file. Use Open from Drive.');
+        return false;
+      }
+    }
+
+    function triggerOpenFromDrivePicker(){
+      // Prefer File System Access API so we can re-check the same file later (Chrome/Edge + Drive desktop folder).
+      if(typeof window.showOpenFilePicker === 'function'){
+        window.showOpenFilePicker({
+          multiple: false,
+          types: [{ description: 'Church recorder JSON', accept: { 'application/json': ['.json'] } }]
+        }).then(async (handles) => {
+          const handle = handles?.[0];
+          if(!handle) return;
+          await saveDriveFileHandle(handle);
+          const file = await handle.getFile();
+          await handleIncomingJSONFile(file, { isDriveOpen: true });
+        }).catch((err) => {
+          if(err?.name === 'AbortError') return;
+          document.getElementById('fileOpenFromDrive')?.click();
+        });
+        return;
+      }
+      document.getElementById('fileOpenFromDrive')?.click();
+    }
+
+    function showDriveAdviceModal(){
+      return new Promise((resolve) => {
+        openModal('Open from Drive first', `
+          <div class="text-sm text-slate-700 space-y-3">
+            <p>Before recording a <strong>new</strong> entry, open the latest JSON from Google Drive so you do not overwrite newer data from another device.</p>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+              <div class="text-xs font-semibold uppercase tracking-wide text-amber-800">Drive location</div>
+              <div class="mt-1 break-words">${esc(getDriveLocationText())}</div>
+              ${driveNewerAvailable && driveNewerDetail ? `<div class="mt-2 text-sm">${esc(driveNewerDetail)}</div>` : ''}
+            </div>
+            <p class="text-slate-500">Tip: use the same Save to Drive JSON file on PC and iPad.</p>
+          </div>
+          <div class="mt-4 modal-footer">
+            <button type="button" id="btnAdviceOpenDrive" class="btn-primary flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open from Drive</button>
+            <button type="button" id="btnAdviceContinueCached" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Continue with cached data</button>
+          </div>
+        `);
+        document.getElementById('btnAdviceOpenDrive')?.addEventListener('click', () => {
+          closeModal();
+          triggerOpenFromDrivePicker();
+          resolve(false);
+        });
+        document.getElementById('btnAdviceContinueCached')?.addEventListener('click', () => {
+          dismissDriveAdviceThisSession();
+          closeModal();
+          resolve(true);
+        });
+      });
+    }
+
+    async function ensureFreshDriveBeforeNewEntry(){
+      await checkLinkedDriveFileForUpdates({ interactive: false });
+      if(driveNewerAvailable){
+        return showDriveAdviceModal();
+      }
+      if(didOpenFromDriveThisSession()) return true;
+      if(didDismissDriveAdviceThisSession()) return true;
+      return showDriveAdviceModal();
     }
 
     function esc(s){
@@ -2450,8 +2712,20 @@
       }
     }
 
+    let driveFreshSubmitUnlocked = false;
+
     serviceForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      const isNew = !document.getElementById('serviceId').value;
+      if(isNew && !driveFreshSubmitUnlocked){
+        ensureFreshDriveBeforeNewEntry().then((ok) => {
+          if(!ok) return;
+          driveFreshSubmitUnlocked = true;
+          serviceForm.requestSubmit();
+          driveFreshSubmitUnlocked = false;
+        });
+        return;
+      }
       try{
         const baptizedRaw = document.getElementById('serviceEsscBaptized').value;
         const hsRaw = document.getElementById('serviceEsscHolySpirit').value;
@@ -2754,6 +3028,16 @@
 
     memberForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      const isNew = !document.getElementById('memberId').value;
+      if(isNew && !driveFreshSubmitUnlocked){
+        ensureFreshDriveBeforeNewEntry().then((ok) => {
+          if(!ok) return;
+          driveFreshSubmitUnlocked = true;
+          memberForm.requestSubmit();
+          driveFreshSubmitUnlocked = false;
+        });
+        return;
+      }
       const firstName = document.getElementById('memberFirstName').value.trim();
       const lastName = document.getElementById('memberLastName').value.trim();
       const chineseName = document.getElementById('memberChineseName').value.trim();
@@ -3505,7 +3789,13 @@
         // Freshly opened data is, by definition, in sync with what's on disk/Drive.
         _suppressDirtyFlag = true;
         state.meta.dirty = false;
-        if(isDriveOpen) state.meta.lastOpenedAt = new Date().toISOString();
+        if(isDriveOpen){
+          state.meta.lastOpenedAt = new Date().toISOString();
+          state.meta.driveFileName = file?.name || state.meta.driveFileName || '';
+          state.meta.openedFileLastModified = file?.lastModified || 0;
+          state.meta.loadedDataSavedAt = parsed?.meta?.lastSavedAt || '';
+          markOpenedFromDriveThisSession();
+        }
 
         const ok = saveState();
         _suppressDirtyFlag = false;
@@ -3522,6 +3812,23 @@
       });
     }
 
+    document.getElementById('btnOpenFromDrive')?.addEventListener('click', () => triggerOpenFromDrivePicker());
+    document.getElementById('btnBannerOpenFromDrive')?.addEventListener('click', () => triggerOpenFromDrivePicker());
+    document.getElementById('btnBannerDismissDrive')?.addEventListener('click', () => dismissDriveAdviceThisSession());
+    document.getElementById('btnSaveDriveLocation')?.addEventListener('click', () => {
+      state.meta = state.meta || {};
+      state.meta.driveLocationHint = (document.getElementById('driveLocationHint')?.value || '').trim();
+      const ok = saveState();
+      toast(ok ? 'Drive location hint saved' : 'Save failed (storage blocked)');
+      updateDriveFreshnessBanner();
+      updateDriveLocationSettingsUI();
+    });
+    document.getElementById('btnCheckDriveNow')?.addEventListener('click', () => {
+      checkLinkedDriveFileForUpdates({ interactive: true }).then((newer) => {
+        if(!newer && !driveFileHandle) updateDriveFreshnessBanner();
+      });
+    });
+
     document.getElementById('fileOpenFromDrive').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       try{
@@ -3530,6 +3837,14 @@
         e.target.value = '';
       }
     });
+
+    window.addEventListener('focus', () => { checkLinkedDriveFileForUpdates({ interactive: false }); });
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState === 'visible') checkLinkedDriveFileForUpdates({ interactive: false });
+    });
+    // Initial advice + try restore linked Drive handle for auto-check (Chrome/Edge)
+    loadDriveFileHandle().then(() => checkLinkedDriveFileForUpdates({ interactive: false }));
+    updateDriveFreshnessBanner();
 
     document.getElementById('btnPrint').addEventListener('click', () => {
       setActiveTab('reports');
@@ -3540,7 +3855,10 @@
     // Quick Add modal
     document.getElementById('btnQuickAdd').addEventListener('click', () => {
       const tab = activeTab();
-      openQuickAdd(tab);
+      ensureFreshDriveBeforeNewEntry().then((ok) => {
+        if(!ok) return;
+        openQuickAdd(tab);
+      });
     });
 
     document.getElementById('modalClose').addEventListener('click', closeModal);
