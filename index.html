@@ -160,7 +160,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.5</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.6</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -172,7 +172,7 @@
           Storage blocked: changes may not save
         </div>
         <button id="btnSaveToDrive" class="header-btn rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save to Drive</button>
-        <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open from Drive</button>
+        <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Import from Drive</button>
         <input id="fileOpenFromDrive" type="file" accept="application/json,.json" class="hidden" />
         <button type="button" id="btnHelp" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 inline-flex items-center justify-center gap-1.5" aria-haspopup="dialog" aria-controls="helpModal">
           <span aria-hidden="true" class="text-base leading-none font-semibold">?</span>
@@ -185,12 +185,12 @@
   <div id="driveFreshnessBanner" class="no-print hidden border-b border-amber-300 bg-amber-50">
     <div class="mx-auto max-w-7xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="min-w-0 text-sm text-amber-950">
-        <div id="driveFreshnessTitle" class="font-semibold">Open latest data from Drive before recording</div>
+        <div id="driveFreshnessTitle" class="font-semibold">A newer record is available</div>
         <div id="driveFreshnessDetail" class="mt-0.5 text-amber-900/80"></div>
         <button type="button" id="btnBannerNeedHelp" class="mt-1 text-xs font-medium text-amber-900 underline hover:no-underline">Need Help?</button>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button type="button" id="btnBannerOpenFromDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open from Drive</button>
+        <button type="button" id="btnBannerOpenFromDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Import from Drive</button>
         <button type="button" id="btnBannerDismissDrive" class="rounded-xl border border-amber-400 bg-white px-3 py-2 text-sm hover:bg-amber-100">Dismiss for now</button>
       </div>
     </div>
@@ -751,7 +751,7 @@
 
         <section class="mt-5">
           <h3 class="text-base font-semibold text-slate-900">2. Open the shared church record</h3>
-          <p class="mt-2">Click <strong>Open from Drive</strong> (Open Shared Record) and go to:</p>
+          <p class="mt-2">Click <strong>Import from Drive</strong> (Open Shared Record) and go to:</p>
           <div class="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
             <div class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Google Drive folder</div>
             <div class="mt-1 font-semibold">Google Drive → My Drive → Service&amp;Membership Record</div>
@@ -815,11 +815,11 @@
           </div>
           <div class="mt-3 rounded-xl border p-3">
             <h4 class="font-semibold text-slate-900">The app asks me to open the file again</h4>
-            <p class="mt-1 text-slate-600">The file may have been moved or renamed, or this computer may no longer have access to it. Click <strong>Open from Drive</strong> and select the file again.</p>
+            <p class="mt-1 text-slate-600">The file may have been moved or renamed, or this computer may no longer have access to it. Click <strong>Import from Drive</strong> and select the file again.</p>
           </div>
           <div class="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
             <h4 class="font-semibold">A newer record is available</h4>
-            <p class="mt-1">Click <strong>Open from Drive</strong> (Open Newer Record) before making any changes. Do not continue with the older copy on this computer.</p>
+            <p class="mt-1">Click <strong>Import from Drive</strong> (Open Newer Record) before making any changes. Do not continue with the older copy on this computer.</p>
           </div>
           <div class="mt-3 rounded-xl border p-3">
             <h4 class="font-semibold text-slate-900">I am not sure whether my work was saved</h4>
@@ -1263,7 +1263,7 @@
       updateDriveLocationSettingsUI();
     }
 
-    // --- Drive freshness: advise Open from Drive before new entries ---
+    // --- Drive freshness: advise Import from Drive before new entries ---
     const DRIVE_SESSION_OPEN_KEY = 'church.recorder.sessionOpenedFromDrive';
     const DRIVE_SESSION_DISMISS_KEY = 'church.recorder.sessionDismissDriveAdvice';
     const DRIVE_HANDLE_DB = 'church.recorder.fs';
@@ -1295,7 +1295,7 @@
       const parts = [];
       if(meta.driveLocationHint) parts.push(meta.driveLocationHint);
       if(meta.driveFileName) parts.push(`File: ${meta.driveFileName}`);
-      if(!parts.length) parts.push('Google Drive → your church recorder JSON (from Save to Drive)');
+      if(!parts.length) parts.push('Google Drive → My Drive → Service&Membership Record');
       return parts.join(' · ');
     }
 
@@ -1320,19 +1320,13 @@
       const detailEl = document.getElementById('driveFreshnessDetail');
       if(!banner || !titleEl || !detailEl) return;
 
-      const showNewer = driveNewerAvailable;
-      const showSessionAdvice = !didOpenFromDriveThisSession() && !didDismissDriveAdviceThisSession();
-      const show = showNewer || showSessionAdvice;
+      // Only show when a newer shared file was detected — not on every visit
+      const show = !!driveNewerAvailable;
       banner.classList.toggle('hidden', !show);
       if(!show) return;
 
-      if(showNewer){
-        titleEl.textContent = 'A newer record is available';
-        detailEl.textContent = `${driveNewerDetail || 'A newer shared record was found.'} Location: ${getDriveLocationText()}. Open the newer record before entering or changing information.`;
-      } else {
-        titleEl.textContent = 'Open the shared record before recording';
-        detailEl.textContent = `Open the latest shared church record first. Location: ${getDriveLocationText()}. Use Open from Drive, then add new services or members.`;
-      }
+      titleEl.textContent = 'A newer record is available';
+      detailEl.textContent = `${driveNewerDetail || 'A newer shared record was found.'} Location: ${getDriveLocationText()}. Import the newer record before entering or changing information.`;
     }
 
     function openIdb(dbName){
@@ -1397,7 +1391,7 @@
       const handle = await loadDriveFileHandle();
       if(!handle){
         if(interactive){
-          toast('Link a Drive file first with Open from Drive (Chrome/Edge can remember it for auto-check).');
+          toast('Link a Drive file first with Import from Drive (Chrome/Edge can remember it for auto-check).');
         }
         return false;
       }
@@ -1434,54 +1428,80 @@
         return false;
       }catch(err){
         console.warn('Drive freshness check failed', err);
-        if(interactive) toast('Could not check the linked Drive file. Use Open from Drive.');
+        if(interactive) toast('Could not check the linked Drive file. Use Import from Drive.');
         return false;
       }
     }
 
-    function triggerOpenFromDrivePicker(){
+    async function importLinkedDriveFileIfPossible(){
+      const handle = await loadDriveFileHandle();
+      if(!handle) return false;
+      try{
+        if(!(await ensureDriveHandlePermission(handle))) return false;
+        const file = await handle.getFile();
+        await handleIncomingJSONFile(file, { isDriveOpen: true });
+        return true;
+      }catch(err){
+        console.warn('Auto-import from linked Drive file failed', err);
+        return false;
+      }
+    }
+
+    async function triggerImportFromDrive(){
+      // When a newer linked file is available, import it automatically (Chrome/Edge with remembered file).
+      if(driveNewerAvailable){
+        const imported = await importLinkedDriveFileIfPossible();
+        if(imported) return;
+      }
+
       // Prefer File System Access API so we can re-check the same file later (Chrome/Edge + Drive desktop folder).
       if(typeof window.showOpenFilePicker === 'function'){
-        window.showOpenFilePicker({
-          multiple: false,
-          types: [{ description: 'Church recorder JSON', accept: { 'application/json': ['.json'] } }]
-        }).then(async (handles) => {
+        try{
+          const handles = await window.showOpenFilePicker({
+            multiple: false,
+            types: [{ description: 'Church recorder data', accept: { 'application/json': ['.json'] } }]
+          });
           const handle = handles?.[0];
           if(!handle) return;
           await saveDriveFileHandle(handle);
           const file = await handle.getFile();
           await handleIncomingJSONFile(file, { isDriveOpen: true });
-        }).catch((err) => {
+        }catch(err){
           if(err?.name === 'AbortError') return;
           document.getElementById('fileOpenFromDrive')?.click();
-        });
+        }
         return;
       }
       document.getElementById('fileOpenFromDrive')?.click();
     }
 
+    // Back-compat alias used by older call sites
+    function triggerOpenFromDrivePicker(){
+      triggerImportFromDrive();
+    }
+
     function showDriveAdviceModal(){
       return new Promise((resolve) => {
-        openModal('Open from Drive first', `
+        openModal('Import newer record', `
           <div class="text-sm text-slate-700 space-y-3">
-            <p>Before recording a <strong>new</strong> entry, open the latest shared church record from Google Drive so you do not overwrite another person’s work.</p>
+            <p>A <strong>newer shared church record</strong> is available. Import it before recording a new entry so you do not overwrite another person’s work.</p>
             <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
               <div class="text-xs font-semibold uppercase tracking-wide text-amber-800">Drive location</div>
               <div class="mt-1 break-words">${esc(getDriveLocationText())}</div>
-              ${driveNewerAvailable && driveNewerDetail ? `<div class="mt-2 text-sm">${esc(driveNewerDetail)}</div>` : ''}
+              ${driveNewerDetail ? `<div class="mt-2 text-sm">${esc(driveNewerDetail)}</div>` : ''}
             </div>
             <p class="text-slate-500">Tip: always use the same shared file in <strong>Service&amp;Membership Record</strong>.</p>
             <button type="button" id="btnAdviceNeedHelp" class="text-xs font-medium text-slate-700 underline hover:no-underline">Need Help?</button>
           </div>
           <div class="mt-4 modal-footer">
-            <button type="button" id="btnAdviceOpenDrive" class="btn-primary flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open from Drive</button>
+            <button type="button" id="btnAdviceOpenDrive" class="btn-primary flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Import from Drive</button>
             <button type="button" id="btnAdviceContinueCached" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Continue with this copy</button>
           </div>
         `);
         document.getElementById('btnAdviceNeedHelp')?.addEventListener('click', () => openHelpModal());
         document.getElementById('btnAdviceOpenDrive')?.addEventListener('click', () => {
           closeModal();
-          triggerOpenFromDrivePicker();
+          triggerImportFromDrive();
           resolve(false);
         });
         document.getElementById('btnAdviceContinueCached')?.addEventListener('click', () => {
@@ -1494,12 +1514,11 @@
 
     async function ensureFreshDriveBeforeNewEntry(){
       await checkLinkedDriveFileForUpdates({ interactive: false });
+      // Only interrupt when a newer Drive file was detected
       if(driveNewerAvailable){
         return showDriveAdviceModal();
       }
-      if(didOpenFromDriveThisSession()) return true;
-      if(didDismissDriveAdviceThisSession()) return true;
-      return showDriveAdviceModal();
+      return true;
     }
 
     function esc(s){
@@ -4149,7 +4168,7 @@
       toast('Live site link copied');
     });
 
-    // Open from Drive: parse JSON, show preview, replace on confirm.
+    // Import from Drive: parse JSON, show preview, replace on confirm.
     async function handleIncomingJSONFile(file, { isDriveOpen } = {}){
       if(!file) return;
       let parsed;
@@ -4167,7 +4186,7 @@
       const currentMemberCount = state.members.length;
       const currentServiceCount = state.services.length;
 
-      openModal('Open from Drive (Preview)', `
+      openModal('Import from Drive (Preview)', `
         <div class="text-sm text-slate-600">
           File: <span class="font-semibold">${esc(file.name)}</span>
         </div>
@@ -4224,7 +4243,7 @@
         _suppressDirtyFlag = false;
 
         if(ok){
-          toast(isDriveOpen ? 'Opened from Drive' : 'Import successful');
+          toast(isDriveOpen ? 'Imported from Drive' : 'Import successful');
         } else {
           toast('Loaded, but saving is blocked');
         }
@@ -4235,8 +4254,8 @@
       });
     }
 
-    document.getElementById('btnOpenFromDrive')?.addEventListener('click', () => triggerOpenFromDrivePicker());
-    document.getElementById('btnBannerOpenFromDrive')?.addEventListener('click', () => triggerOpenFromDrivePicker());
+    document.getElementById('btnOpenFromDrive')?.addEventListener('click', () => triggerImportFromDrive());
+    document.getElementById('btnBannerOpenFromDrive')?.addEventListener('click', () => triggerImportFromDrive());
     document.getElementById('btnBannerDismissDrive')?.addEventListener('click', () => dismissDriveAdviceThisSession());
     document.getElementById('btnSaveDriveLocation')?.addEventListener('click', () => {
       state.meta = state.meta || {};
