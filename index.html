@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-21.10</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.1</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -406,6 +406,16 @@
                   <button id="btnAddMembershipCategory" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
                 <div id="membershipCategoryChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4 md:col-span-2">
+                <h3 class="font-semibold">Live site link</h3>
+                <p class="text-sm text-slate-500 mt-1">Download a shortcut file, then save it to Google Drive (same as Save to Drive). Open that file anytime to launch the live app.</p>
+                <p class="mt-2 text-sm mono break-all text-slate-700" id="liveSiteUrlText">https://victorwkliu.github.io/tjckw-service-membership-recorder/</p>
+                <div class="control-pair mt-3">
+                  <button type="button" id="btnSaveLiveSiteToDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Save live site link to Drive</button>
+                  <button type="button" id="btnCopyLiveSiteLink" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy link</button>
+                </div>
               </div>
             </div>
 
@@ -3362,6 +3372,66 @@
         toast('Saved. On iPad, choose "Save to Files" → your Drive folder to finish syncing.');
         render();
       }
+    });
+
+    const LIVE_SITE_URL = 'https://victorwkliu.github.io/tjckw-service-membership-recorder/';
+
+    function downloadLiveSiteShortcut(){
+      try{
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="0;url=${LIVE_SITE_URL}" />
+  <title>Church Service &amp; Membership Recorder</title>
+</head>
+<body>
+  <p>Opening the live app…</p>
+  <p><a href="${LIVE_SITE_URL}">${LIVE_SITE_URL}</a></p>
+</body>
+</html>`;
+        const filename = 'Church-Recorder-Live-Site.html';
+        const blob = new Blob([html], { type: 'text/html' });
+        if(navigator && typeof navigator.msSaveOrOpenBlob === 'function'){
+          navigator.msSaveOrOpenBlob(blob, filename);
+          return true;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua);
+        if(isIOS){
+          window.open(url, '_blank', 'noopener');
+          alert('If the download did not start, a new tab opened. Use Share → Save to Files (in your Drive folder).');
+        }
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          a.remove();
+        }, 60_000);
+        return true;
+      }catch(err){
+        console.error('Live site shortcut download failed', err);
+        alert('Could not download the link file. Try Chrome/Edge, or copy the link instead.');
+        return false;
+      }
+    }
+
+    document.getElementById('btnSaveLiveSiteToDrive')?.addEventListener('click', () => {
+      const ok = downloadLiveSiteShortcut();
+      if(ok){
+        toast('Link file downloaded. Save it to your Drive folder (iPad: Share → Save to Files).');
+      }
+    });
+
+    document.getElementById('btnCopyLiveSiteLink')?.addEventListener('click', async () => {
+      await copyText(LIVE_SITE_URL);
+      toast('Live site link copied');
     });
 
     // Open from Drive: parse JSON, show preview, replace on confirm.
