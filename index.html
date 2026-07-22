@@ -133,14 +133,9 @@
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="members">Members</button>
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="attendance">Attendance</button>
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="reports">Reports</button>
-              <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="families">Families</button>
               <button class="tab-btn shrink-0 rounded-xl px-3 py-2 text-sm border" data-tab="settings">Settings</button>
             </div>
             <div class="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
-              <div class="relative flex-1 min-w-[10rem] sm:flex-none">
-                <input id="globalSearch" type="search" placeholder="Search…" class="w-full sm:w-64 max-w-full rounded-xl border px-3 py-2 text-sm pl-9 focus:outline-none focus:ring-2 focus:ring-slate-900/20" />
-                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">⌕</div>
-              </div>
               <button id="btnQuickAdd" class="shrink-0 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">+ Quick Add</button>
             </div>
           </div>
@@ -372,8 +367,7 @@
 
           <!-- SETTINGS TAB -->
           <div id="tab-settings" class="mt-4 hidden">
-            <h2 class="text-base font-semibold">Settings</h2>
-            <div class="mt-3 grid gap-4 md:grid-cols-2">
+            <div class="grid gap-4 md:grid-cols-2">
               <div class="rounded-2xl border bg-white p-4">
                 <h3 class="font-semibold">Default Service Types</h3>
                 <p class="text-sm text-slate-500 mt-1">Used for the service type dropdown and filters.</p>
@@ -392,14 +386,6 @@
                   <button id="btnAddGroup" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Add</button>
                 </div>
                 <div id="groupChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
-              </div>
-
-              <div class="rounded-2xl border bg-white p-4">
-                <h3 class="font-semibold">Families</h3>
-                <p class="text-sm text-slate-500 mt-1">Families are managed as households with members, roles, and an optional primary contact.</p>
-                <div class="control-pair mt-3">
-                  <button id="btnOpenFamiliesTab" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Open Families</button>
-                </div>
               </div>
 
               <div class="rounded-2xl border bg-white p-4">
@@ -990,7 +976,6 @@
       families: document.getElementById('tab-families'),
       settings: document.getElementById('tab-settings')
     };
-    const globalSearch = document.getElementById('globalSearch');
 
     const serviceTbody = document.getElementById('serviceTbody');
     const memberTbody = document.getElementById('memberTbody');
@@ -1121,7 +1106,7 @@
         mainPanel.classList.toggle('md:col-span-12', !showSide);
       }
 
-      // Quick Add only helps on Services / Members — hide on Attendance, Reports, Settings
+      // Quick Add only helps on Services / Members — hide on Attendance, Reports, Families, Settings
       const btnQuickAdd = document.getElementById('btnQuickAdd');
       if(btnQuickAdd){
         btnQuickAdd.classList.toggle('hidden', !showSide);
@@ -1563,7 +1548,7 @@
     }
 
     function renderServices(){
-      const q = normalize(globalSearch.value);
+      const q = '';
       const type = serviceFilterType.value;
       const from = serviceFrom.value;
       const to = serviceTo.value;
@@ -1849,7 +1834,7 @@
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     function renderMembers(){
-      const q = normalize(globalSearch.value);
+      const q = '';
       const statusFilter = memberFilterStatus.value;
       const voterFilter = statusFilter === '__eligible_voter' || statusFilter === '__ineligible_voter';
       const memCat = memberFilterMembershipCategory ? memberFilterMembershipCategory.value : '';
@@ -2879,8 +2864,6 @@
       setActiveTab(btn.dataset.tab);
     }));
 
-    globalSearch.addEventListener('input', () => render());
-
     serviceFilterType.addEventListener('change', render);
     serviceFrom.addEventListener('change', render);
     serviceTo.addEventListener('change', render);
@@ -2900,7 +2883,6 @@
       setActiveTab('settings');
     });
 
-    document.getElementById('btnOpenFamiliesTab')?.addEventListener('click', () => setActiveTab('families'));
     document.getElementById('btnCreateFamily')?.addEventListener('click', () => openFamilyBuilder({ mode:'create' }));
     document.getElementById('btnReviewDuplicates')?.addEventListener('click', reviewDuplicateFamilies);
     document.getElementById('familySearch')?.addEventListener('input', renderFamiliesTab);
