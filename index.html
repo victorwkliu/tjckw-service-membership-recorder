@@ -102,7 +102,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.1</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.2</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -915,7 +915,7 @@
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
           voterReportColumns: { ...defaults().voterReportColumns, ...(parsed.voterReportColumns||{}) },
-          serviceTypes: mergeList(parsed.serviceTypes, defaults().serviceTypes),
+          serviceTypes: Array.isArray(parsed.serviceTypes) ? parsed.serviceTypes.slice() : defaults().serviceTypes.slice(),
           memberStatuses: mergeList(parsed.memberStatuses, defaults().memberStatuses),
           membershipCategories: mergeList(parsed.membershipCategories, defaults().membershipCategories),
           categories: mergeList(parsed.categories, defaults().categories),
@@ -1333,21 +1333,29 @@
       chips.innerHTML = types.map(t => `
         <span class="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1 text-sm">
           <span>${esc(t)}</span>
-          <button class="text-slate-500 hover:text-rose-600" data-del-type="${esc(t)}" title="Delete">✕</button>
+          <button type="button" class="shrink-0 text-slate-500 hover:text-rose-600" data-del-type="${esc(t)}" title="Delete" aria-label="Remove ${esc(t)}">✕</button>
         </span>
       `).join('');
 
       chips.querySelectorAll('button[data-del-type]').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
           const val = btn.getAttribute('data-del-type');
-          if(state.services.some(s => s.type === val)){
-            alert('This type is used by existing services. Change those records first.');
-            return;
+          if(!val) return;
+          const usedCount = state.services.filter(s => s.type === val).length;
+          if(usedCount > 0){
+            const ok = confirm(
+              `"${val}" is used by ${usedCount} service record(s).\n\n` +
+              `Remove it from the list anyway?\n` +
+              `Those records will keep this type until you edit them.`
+            );
+            if(!ok) return;
           }
           state.serviceTypes = state.serviceTypes.filter(x => x !== val);
           const ok = saveState();
           if(ok){
-            toast('Service type deleted');
+            toast('Service type removed');
             render();
           } else {
             toast('Delete failed (storage blocked)');
@@ -3483,7 +3491,7 @@
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
           voterReportColumns: { ...defaults().voterReportColumns, ...(parsed.voterReportColumns||{}) },
-          serviceTypes: mergeList(parsed.serviceTypes, defaults().serviceTypes),
+          serviceTypes: Array.isArray(parsed.serviceTypes) ? parsed.serviceTypes.slice() : defaults().serviceTypes.slice(),
           memberStatuses: mergeList(parsed.memberStatuses, defaults().memberStatuses),
           membershipCategories: mergeList(parsed.membershipCategories, defaults().membershipCategories),
           categories: mergeList(parsed.categories, defaults().categories),
