@@ -170,7 +170,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.9</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.10</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -369,7 +369,10 @@
               </div>
             <div class="mt-5 border-t pt-4">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <h3 class="text-base font-semibold">Membership Summary</h3>
+                <div class="min-w-0">
+                  <h3 class="text-base font-semibold">Actual Membership Summary</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Attendance check-ins in the selected period (by category)</p>
+                </div>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-600">
                   <span class="sr-only">Summary period</span>
                   <select id="reportRange" class="rounded-xl border px-3 py-1.5 text-sm w-auto min-w-[10rem]">
@@ -383,27 +386,27 @@
 
               <div class="membership-summary-grid mt-3">
                 <div class="kpi-card">
-                  <div class="kpi-label">Membership</div>
+                  <div class="kpi-label">Membership Att.</div>
                   <div id="kpiMembership" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">True Seekers</div>
+                  <div class="kpi-label">True Seeker Att.</div>
                   <div id="kpiTrueSeekers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Active Members</div>
+                  <div class="kpi-label">Active Member Att.</div>
                   <div id="kpiActiveAttMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Eligible</div>
+                  <div class="kpi-label">Eligible Att.</div>
                   <div id="kpiEligibleVoters" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Visiting Members</div>
+                  <div class="kpi-label">Visiting Att.</div>
                   <div id="kpiVisitingMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Inactive</div>
+                  <div class="kpi-label">Inactive Att.</div>
                   <div id="kpiInactiveMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
@@ -3022,6 +3025,19 @@
       }).length;
     }
 
+    // Sum of attendance check-ins in the given services for members matching predicate.
+    function countAttendanceInServices(services, predicate){
+      let total = 0;
+      for(const s of services){
+        const ids = Array.isArray(s?.attendedBy) ? s.attendedBy : [];
+        for(const id of ids){
+          const m = state.members.find(x => x.id === id);
+          if(m && predicate(m)) total++;
+        }
+      }
+      return total;
+    }
+
     function renderReports(){
       const range = document.getElementById('reportRange').value;
       const cutoff = dateCutoffForRange(range);
@@ -3039,14 +3055,23 @@
       kpiServices.textContent = String(totalServices);
       kpiAvgAttendance.textContent = avgAttendance.toFixed(1);
 
-      const buckets = getMembershipBucketCounts();
+      // Cache voter status once per member for Active / Eligible attendance totals
+      const voterById = new Map();
+      const voterOf = (id) => {
+        if(!voterById.has(id)) voterById.set(id, getVoterStatus(id));
+        return voterById.get(id);
+      };
+
       const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = String(val); };
-      setTxt('kpiMembership', buckets.membership);
-      setTxt('kpiTrueSeekers', buckets.trueSeekers);
-      setTxt('kpiActiveAttMembers', buckets.activeMembers);
-      setTxt('kpiEligibleVoters', buckets.eligible);
-      setTxt('kpiVisitingMembers', buckets.visiting);
-      setTxt('kpiInactiveMembers', buckets.inactive);
+      setTxt('kpiMembership', countAttendanceInServices(services, m => normalizeLabel(getMembershipCategory(m)) === 'member'));
+      setTxt('kpiTrueSeekers', countAttendanceInServices(services, isTrueSeeker));
+      setTxt('kpiActiveAttMembers', countAttendanceInServices(services, m => {
+        const v = voterOf(m.id);
+        return !!(v.attCheck && v.attCheck.passed);
+      }));
+      setTxt('kpiEligibleVoters', countAttendanceInServices(services, m => !!voterOf(m.id).eligible));
+      setTxt('kpiVisitingMembers', countAttendanceInServices(services, isVisitingPerson));
+      setTxt('kpiInactiveMembers', countAttendanceInServices(services, m => (m.status || '') === 'Inactive'));
     }
 
 
