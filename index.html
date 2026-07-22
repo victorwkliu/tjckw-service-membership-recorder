@@ -51,6 +51,17 @@
     .report-toolbar{display:flex;flex-wrap:nowrap;align-items:center;gap:0.5rem;width:100%;min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
     .report-toolbar > *{flex:0 0 auto;width:auto !important;max-width:none;white-space:nowrap;}
     .report-toolbar > select{flex:0 1 9rem;min-width:7rem;}
+    .membership-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.5rem;}
+    @media (min-width:640px){
+      .membership-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+    }
+    .membership-summary-grid .kpi-card{
+      display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;
+      min-width:0;padding:0.65rem 0.85rem;border:1px solid #e2e8f0;border-radius:0.75rem;background:#fff;
+    }
+    .membership-summary-grid .kpi-label{font-size:0.75rem;line-height:1.2;color:#64748b;min-width:0;}
+    .membership-summary-grid .kpi-value{font-size:1.25rem;line-height:1.1;font-weight:600;color:#0f172a;flex:0 0 auto;}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
     .modal-footer > button[type="submit"],.modal-footer > .btn-primary{flex:1 1 8rem;}
     .chip-list > span{min-width:0;max-width:100%;white-space:normal;}
     .chip-list > span > span{min-width:0;overflow-wrap:anywhere;}
@@ -159,7 +170,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.8</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.9</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -356,53 +367,53 @@
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
                 <div class="p-6 text-center text-slate-500">No data yet. Add AGM/EGM services and mark attendance first.</div>
               </div>
-            <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-              <h3 class="text-base font-semibold">Membership Summary</h3>
-              <div class="responsive-actions">
-                <select id="reportRange" class="rounded-xl border px-3 py-2 text-sm">
-                  <option value="30">Last 30 days</option>
-                  <option value="90">Last 90 days</option>
-                  <option value="365">Last 12 months</option>
-                  <option value="all">All time</option>
-                </select>
+            <div class="mt-5 border-t pt-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-base font-semibold">Membership Summary</h3>
+                <label class="inline-flex items-center gap-2 text-sm text-slate-600">
+                  <span class="sr-only">Summary period</span>
+                  <select id="reportRange" class="rounded-xl border px-3 py-1.5 text-sm w-auto min-w-[10rem]">
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last 12 months</option>
+                    <option value="all">All time</option>
+                  </select>
+                </label>
               </div>
-            </div>
 
-            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Membership</div>
-                <div id="kpiMembership" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">True Seekers</div>
-                <div id="kpiTrueSeekers" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Active Members</div>
-                <div id="kpiActiveAttMembers" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Eligible</div>
-                <div id="kpiEligibleVoters" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Visiting Members</div>
-                <div id="kpiVisitingMembers" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Inactive</div>
-                <div id="kpiInactiveMembers" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-            </div>
-
-            <div class="mt-4 grid gap-4 md:grid-cols-2">
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Total Services</div>
-                <div id="kpiServices" class="mt-1 text-2xl font-semibold mono">0</div>
-              </div>
-              <div class="rounded-2xl border bg-white p-4">
-                <div class="text-sm text-slate-500">Avg Attendance</div>
-                <div id="kpiAvgAttendance" class="mt-1 text-2xl font-semibold mono" title="Average Members present per service (Membership Category Member only)">0</div>
+              <div class="membership-summary-grid mt-3">
+                <div class="kpi-card">
+                  <div class="kpi-label">Membership</div>
+                  <div id="kpiMembership" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">True Seekers</div>
+                  <div id="kpiTrueSeekers" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Active Members</div>
+                  <div id="kpiActiveAttMembers" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Eligible</div>
+                  <div id="kpiEligibleVoters" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Visiting Members</div>
+                  <div id="kpiVisitingMembers" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Inactive</div>
+                  <div id="kpiInactiveMembers" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Total Services</div>
+                  <div id="kpiServices" class="kpi-value mono">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Avg Attendance</div>
+                  <div id="kpiAvgAttendance" class="kpi-value mono" title="Average Members present per service (Membership Category Member only)">0</div>
+                </div>
               </div>
             </div>
             </section>
