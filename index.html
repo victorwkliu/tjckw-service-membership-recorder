@@ -9,6 +9,12 @@
   <title>Church Service & Membership Recorder</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if(typeof pdfjsLib !== 'undefined'){
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
   <style>
     :root{color-scheme: light;}
     html,body{max-width:100%;overflow-x:hidden;}
@@ -70,6 +76,190 @@
     #driveStatusText{min-width:0;overflow-wrap:anywhere;}
     #modalTitle{min-width:0;overflow-wrap:anywhere;}
     aside .rounded-2xl, #memberForm, #serviceForm{min-width:0;}
+    .member-side-by-side{
+      display:grid;
+      gap:1rem;
+      align-items:start;
+    }
+    .member-side-by-side > section{
+      min-width:0;
+      border:1px solid #e2e8f0;
+      border-radius:1rem;
+      padding:0.85rem;
+      background:#fff;
+    }
+    .member-side-by-side .section-title{
+      font-size:0.95rem;
+      font-weight:600;
+      color:#0f172a;
+      margin-bottom:0.65rem;
+    }
+    .family-tree{display:grid;gap:0.35rem;padding:0.5rem;}
+    .family-tree-family{
+      border:1px solid #e2e8f0;border-radius:0.75rem;background:#fff;overflow:hidden;
+    }
+    .family-tree-family > summary{
+      list-style:none;cursor:pointer;display:flex;align-items:center;gap:0.5rem;
+      padding:0.65rem 0.85rem;background:#f8fafc;font-weight:600;color:#0f172a;
+      user-select:none;
+    }
+    .family-tree-family > summary::-webkit-details-marker{display:none;}
+    .family-tree-family > summary .tree-twist{
+      width:1rem;text-align:center;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.75rem;
+    }
+    .family-tree-family[open] > summary .tree-twist::before{content:'▾';}
+    .family-tree-family:not([open]) > summary .tree-twist::before{content:'▸';}
+    .family-tree-family > summary .tree-folder{
+      width:1.1rem;height:1.1rem;border:1.5px solid #64748b;border-radius:0.2rem;position:relative;flex:0 0 auto;
+    }
+    .family-tree-family > summary .tree-folder::after{
+      content:'';position:absolute;left:0.15rem;right:0.15rem;top:-0.2rem;height:0.25rem;
+      border:1.5px solid #64748b;border-bottom:none;border-radius:0.15rem 0.15rem 0 0;background:#f8fafc;
+    }
+    .family-tree-family > summary .tree-count{
+      margin-left:auto;font-size:0.75rem;font-weight:500;color:#64748b;
+    }
+    .family-tree-children{border-top:1px solid #e2e8f0;}
+    .family-tree-member{
+      display:grid;grid-template-columns:1.5rem minmax(0,1fr);gap:0.35rem;align-items:stretch;
+      border-top:1px solid #f1f5f9;
+    }
+    .family-tree-member:first-child{border-top:none;}
+    .family-tree-rail{
+      position:relative;margin-left:1.15rem;border-left:1.5px solid #cbd5e1;
+    }
+    .family-tree-rail::before{
+      content:'';position:absolute;left:0;top:1.05rem;width:0.7rem;border-top:1.5px solid #cbd5e1;
+    }
+    .family-tree-member.is-last .family-tree-rail{border-left-color:transparent;}
+    .family-tree-member.is-last .family-tree-rail::after{
+      content:'';position:absolute;left:0;top:0;height:1.05rem;border-left:1.5px solid #cbd5e1;
+    }
+    .family-tree-member-body{padding:0.55rem 0.75rem 0.55rem 0;min-width:0;}
+    .family-dir-card{
+      padding:0.65rem 0.9rem 0.75rem 1.15rem;
+      border-top:1px solid #f1f5f9;
+    }
+    .family-dir-card:first-child{border-top:none;}
+    .family-dir-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:0.75rem 1.25rem;
+    }
+    .family-dir-names{min-width:0;flex:1 1 auto;}
+    .family-dir-line{
+      font-size:0.95rem;
+      line-height:1.45;
+      color:#0f172a;
+      font-weight:500;
+    }
+    .family-dir-line.is-child{padding-left:1.35rem;}
+    .family-dir-chinese{font-weight:400;color:#334155;margin-left:0.35rem;}
+    .family-dir-address{
+      margin-top:0.15rem;
+      font-size:0.75rem;
+      color:#64748b;
+      line-height:1.4;
+    }
+    .family-dir-side{
+      flex:0 1 18rem;
+      max-width:48%;
+      text-align:right;
+      font-size:0.75rem;
+      color:#64748b;
+      line-height:1.4;
+      padding-top:0.1rem;
+    }
+    .family-dir-side-line{margin-top:0.1rem;}
+    .family-dir-side .label{color:#94a3b8;margin-right:0.25rem;}
+    .family-dir-address .family-dir-side-line + div{
+      padding-left:0;
+      /* Keep province/postcode under the street line, roughly under the address text */
+    }
+    .family-dir-contact{
+      margin-top:0.35rem;
+      font-size:0.75rem;
+      color:#64748b;
+      display:flex;
+      flex-wrap:wrap;
+      gap:0.35rem 0.85rem;
+    }
+    .family-dir-contact .pill{display:inline-flex;align-items:center;gap:0.25rem;}
+    .family-tree-branch{
+      border-top:1px solid #f1f5f9;padding:0.35rem 0 0.35rem 0;
+    }
+    .family-tree-branch-label{
+      display:flex;align-items:center;gap:0.45rem;padding:0.35rem 0.85rem 0.2rem 1.15rem;
+      font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;
+    }
+    .family-tree-nested{margin-left:0.35rem;}
+    /* Legacy leaf styles kept for compatibility */
+    .family-tree-person{padding:0.45rem 0.75rem 0.55rem 0;}
+    .family-tree-person-row{display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem 1rem;flex-wrap:wrap;}
+    .family-tree-member-name{font-weight:500;color:#0f172a;min-width:0;flex:1 1 10rem;}
+    .family-tree-member-meta{
+      margin-top:0;margin-left:auto;font-size:0.75rem;color:#64748b;
+      display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:0.35rem 0.75rem;text-align:right;flex:1 1 14rem;max-width:100%;
+    }
+    .family-tree-member-meta .pill{display:inline-flex;align-items:center;gap:0.25rem;}
+
+    /* Attendance review calendar */
+    .att-cal{border:1px solid #e2e8f0;border-radius:1rem;background:#fff;padding:0.75rem 0.85rem 0.9rem;max-width:28rem;}
+    .att-cal-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem;}
+    .att-cal-title{font-size:0.95rem;font-weight:700;color:#0f172a;}
+    .att-cal-nav{display:inline-flex;gap:0.35rem;}
+    .att-cal-nav button{
+      border:1px solid #cbd5e1;border-radius:0.55rem;background:#fff;
+      padding:0.3rem 0.55rem;font-size:0.8rem;font-weight:600;color:#0f172a;
+    }
+    .att-cal-nav button:hover{background:#f1f5f9;}
+    .att-cal-legend{display:flex;flex-wrap:wrap;gap:0.65rem 0.85rem;font-size:0.78rem;font-weight:600;color:#334155;margin-bottom:0.5rem;}
+    .att-cal-legend span{display:inline-flex;align-items:center;gap:0.35rem;}
+    .att-cal-swatch{width:0.75rem;height:0.75rem;border-radius:0.25rem;display:inline-block;flex-shrink:0;}
+    .att-cal-swatch.is-recorded{background:#dc2626;}
+    .att-cal-swatch.is-open{background:#cbd5e1;}
+    .att-cal-swatch.is-empty{background:#f8fafc;border:1px solid #94a3b8;}
+    .att-cal-weekdays{
+      display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0.28rem;
+      margin-bottom:0.3rem;text-align:center;font-size:0.78rem;font-weight:700;color:#475569;
+    }
+    .att-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0.28rem;}
+    .att-cal-cell{
+      aspect-ratio:1;border-radius:0.5rem;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;
+      border:1px solid transparent;position:relative;min-height:2rem;line-height:1.1;
+    }
+    .att-cal-cell .att-cal-month-tag{
+      position:absolute;top:0.12rem;left:0.18rem;font-size:0.58rem;font-weight:800;
+      letter-spacing:0.03em;color:#334155;line-height:1;
+    }
+    .att-cal-cell.is-recorded{background:#dc2626;color:#fff;cursor:pointer;border-color:#b91c1c;}
+    .att-cal-cell.is-recorded:hover{background:#b91c1c;}
+    .att-cal-cell.is-recorded .att-cal-month-tag{color:#fecaca;}
+    .att-cal-cell.is-open{background:#e2e8f0;color:#0f172a;cursor:pointer;border-color:#cbd5e1;}
+    .att-cal-cell.is-open:hover{background:#cbd5e1;}
+    .att-cal-cell.is-empty{background:#f8fafc;color:#64748b;cursor:default;border-color:#e2e8f0;}
+    .att-cal-cell.is-outside{opacity:0.7;}
+    .att-cal-cell.is-outside.is-empty{color:#94a3b8;}
+    .att-cal-cell.is-today{box-shadow:inset 0 0 0 2px #0f172a;}
+    .att-cal-cell.is-recorded.is-today{box-shadow:inset 0 0 0 2px #fff;}
+    .att-cal-count{
+      font-size:0.62rem;font-weight:800;line-height:1;margin-top:0.12rem;opacity:1;
+    }
+    .att-cal-cell.is-open .att-cal-count{color:#334155;}
+    .att-cal-cell.is-recorded .att-cal-count{color:#fff;}
+    @media (min-width: 640px){
+      .att-cal{max-width:32rem;padding:0.85rem 1rem 1rem;}
+      .att-cal-cell{font-size:0.92rem;min-height:2.25rem;border-radius:0.55rem;}
+      .att-cal-count{font-size:0.68rem;}
+      .att-cal-month-tag{font-size:0.62rem !important;}
+    }
+    @media (min-width: 1100px){
+      .member-side-by-side{ grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+      body.members-layout #mainPanel{ grid-column: span 5 / span 5; }
+      body.members-layout #sidePanel{ grid-column: span 7 / span 7; }
+    }
     table{border-collapse:separate;border-spacing:0;}
     /* iPad portrait/landscape: avoid the narrow 8/4 desktop split and crowded header. */
     @media (min-width: 768px) and (max-width: 1099px){
@@ -170,7 +360,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-22.11</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-23.14</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -317,7 +507,7 @@
             <div class="flex flex-wrap items-end justify-between gap-3">
               <div class="min-w-0">
                 <h2 class="text-base font-semibold">Attendance Tracker</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Select a service, check who attended, then Save.</p>
+                <p class="text-xs text-slate-500 mt-0.5">Review the schedule below, or select a service to mark who attended.</p>
               </div>
               <div class="flex flex-wrap items-center gap-2 min-w-0 w-full lg:w-auto">
                 <select id="attendanceServiceSelect" class="min-w-0 flex-1 lg:flex-none lg:min-w-[18rem] max-w-full rounded-xl border px-3 py-2 text-sm">
@@ -325,6 +515,8 @@
                 </select>
               </div>
             </div>
+
+            <div id="attendanceReviewCalendar" class="mt-3"></div>
 
             <div id="attendanceContent" class="mt-3">
               <div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">
@@ -347,23 +539,28 @@
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="font-semibold text-base">Membership Report</h3>
-                  <p class="text-sm text-slate-500">Active status · Membership Category Member · ≥2 services from the most recent AGM up to today · 18+ by birth month (or group not RE(E/J/K) if birth date missing)</p>
+                  <p class="text-sm text-slate-500">Congregational membership filters and Voting Corporate Member eligibility (proposed TJCKW by-law). Active status and attendance do not by themselves determine legal voting eligibility.</p>
                 </div>
                 <div class="report-toolbar">
-                  <select id="voterFilterStatus" class="min-w-0 rounded-xl border px-3 py-2 text-sm">
+                  <select id="voterFilterStatus" class="min-w-0 rounded-xl border px-3 py-2 text-sm" aria-describedby="voterFilterHelp">
                     <option value="all">All</option>
-                    <option value="membership">Membership</option>
+                    <option value="membership">Members</option>
                     <option value="trueseekers">True Seekers</option>
                     <option value="activeatt">Active Members</option>
-                    <option value="eligible">Eligible</option>
+                    <option value="eligible">Eligible Voters</option>
                     <option value="visiting">Visiting Members</option>
                     <option value="inactive">Inactive</option>
+                    <option value="family">Family</option>
                   </select>
                   <button id="btnVoterColumnOptions" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Column Options</button>
                   <button id="btnExportEligibleExcel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export Eligible Excel</button>
+                  <button type="button" id="btnLegalRegisterTools" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Legal Register / Board Minutes</button>
                   <button type="button" id="btnPrintReport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" aria-label="Print Report for the currently selected report">Print Report</button>
+                  <input id="fileLegalRegisterExcel" type="file" accept=".xlsx,.xls,.csv,.txt,.text,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="hidden" />
+                  <input id="fileBoardMinutesExcel" type="file" accept=".xlsx,.xls,.csv,.txt,.text,.pdf,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="hidden" />
                 </div>
               </div>
+              <p id="voterFilterHelp" class="mt-2 text-xs text-slate-600"></p>
               <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
                 <div class="p-6 text-center text-slate-500">No data yet. Add AGM/EGM services and mark attendance first.</div>
               </div>
@@ -371,7 +568,7 @@
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="min-w-0">
                   <h3 class="text-base font-semibold">Actual Membership Summary</h3>
-                  <p class="text-xs text-slate-500 mt-0.5">Attendance check-ins in the selected period (by category)</p>
+                  <p class="text-xs text-slate-500 mt-0.5">How many unique people attended in the selected period (by category)</p>
                 </div>
                 <label class="inline-flex items-center gap-2 text-sm text-slate-600">
                   <span class="sr-only">Summary period</span>
@@ -387,27 +584,27 @@
 
               <div class="membership-summary-grid mt-3">
                 <div class="kpi-card">
-                  <div class="kpi-label">Membership Att.</div>
+                  <div class="kpi-label">Member:</div>
                   <div id="kpiMembership" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">True Seeker Att.</div>
+                  <div class="kpi-label">True Seeker:</div>
                   <div id="kpiTrueSeekers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Active Member Att.</div>
+                  <div class="kpi-label">Active Member:</div>
                   <div id="kpiActiveAttMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Eligible Att.</div>
+                  <div class="kpi-label">Eligible Voter:</div>
                   <div id="kpiEligibleVoters" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Visiting Att.</div>
+                  <div class="kpi-label">Visiting Member:</div>
                   <div id="kpiVisitingMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Inactive Att.</div>
+                  <div class="kpi-label">Inactive Members:</div>
                   <div id="kpiInactiveMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
@@ -592,8 +789,12 @@
             </div>
           </form>
 
-          <!-- MEMBER FORM -->
-          <form id="memberForm" class="mt-3 grid gap-3 hidden min-w-0">
+          <!-- MEMBER WORKSPACE: Edit Member + Family View side by side -->
+          <div id="memberWorkspace" class="mt-3 hidden min-w-0">
+            <div class="member-side-by-side">
+              <section aria-labelledby="memberFormHeading">
+                <h3 id="memberFormHeading" class="section-title">Add Member</h3>
+                <form id="memberForm" class="grid gap-3 min-w-0">
             <input type="hidden" id="memberId" />
             <div class="form-row">
               <div class="grid gap-2 min-w-0">
@@ -619,29 +820,10 @@
                 <input id="memberEmail" type="email" class="rounded-xl border px-3 py-2 text-sm" placeholder="name@example.com" />
               </div>
             </div>
-            <div class="form-row">
-              <div class="grid gap-2 min-w-0">
-                <label class="text-sm text-slate-600">Birth Month</label>
-                <select id="memberBirthMonth" class="rounded-xl border px-3 py-2 text-sm">
-                  <option value="">—</option>
-                  <option value="01">January</option>
-                  <option value="02">February</option>
-                  <option value="03">March</option>
-                  <option value="04">April</option>
-                  <option value="05">May</option>
-                  <option value="06">June</option>
-                  <option value="07">July</option>
-                  <option value="08">August</option>
-                  <option value="09">September</option>
-                  <option value="10">October</option>
-                  <option value="11">November</option>
-                  <option value="12">December</option>
-                </select>
-              </div>
-              <div class="grid gap-2 min-w-0">
-                <label class="text-sm text-slate-600">Birth Year</label>
-                <input id="memberBirthYear" type="number" min="1900" max="2030" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 1990" />
-              </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600" for="memberDateOfBirth">Date of Birth (DOB)</label>
+              <input id="memberDateOfBirth" type="date" class="rounded-xl border px-3 py-2 text-sm" />
+              <p class="text-xs text-slate-500">Required to confirm age 18+ for Eligible Voters. Leave blank if unknown (shows Needs Review).</p>
             </div>
             <div class="grid gap-2 min-w-0">
               <div class="flex items-center justify-between gap-2">
@@ -658,7 +840,6 @@
               <label class="text-sm text-slate-600">Group</label>
               <select id="memberGroup" class="rounded-xl border px-3 py-2 text-sm"></select>
             </div>
-            <div id="memberFamilyCard" class="rounded-xl border bg-slate-50 p-3"></div>
             <div class="form-row">
               <div class="grid gap-2 min-w-0">
                 <label class="text-sm text-slate-600">Baptism Date</label>
@@ -707,20 +888,138 @@
                 <input id="memberProvince" type="text" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., ON" />
               </div>
             </div>
-            <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Postcode</label>
-              <div class="flex gap-2 min-w-0">
-                <input id="memberPostcode" type="text" autocomplete="off" class="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., M5V 3A8" maxlength="7" />
-                <button id="btnLookupPostcode" type="button" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Lookup</button>
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Country</label>
+                <select id="memberCountry" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                  <option value="CA">Canada</option>
+                  <option value="US">United States</option>
+                </select>
               </div>
-              <p class="text-xs text-slate-500">Enter a Canadian postal code and click Lookup to auto-fill City/Province. Street is best-effort (often unavailable for postal-code centroids).</p>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Postcode / ZIP</label>
+                <div class="flex gap-2 min-w-0">
+                  <input id="memberPostcode" type="text" autocomplete="off" class="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., M5V 3A8 or 48084" maxlength="10" />
+                  <button id="btnLookupPostcode" type="button" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Lookup</button>
+                </div>
+              </div>
             </div>
+            <p class="text-xs text-slate-500">Canadian postal codes use Lookup for City/Province. US ZIP codes are accepted without Canadian formatting. These address fields belong to this person only — they do not change the household address on Family View or Family report unless this address is different from the primary contact.</p>
+            <details id="memberCorporateVotingPanel" class="rounded-xl border bg-slate-50 p-3">
+              <summary class="cursor-pointer text-sm font-semibold text-slate-800">Voting Corporate Membership (legal register)</summary>
+              <p class="mt-2 text-xs text-slate-600">Manual Church Council / Board / Secretary confirmations for proposed by-law voting rights. Leave blank until verified — blank fields produce Needs Review, never Eligible.</p>
+              <div class="mt-3 grid gap-3">
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Good standing certified (Church Council)</label>
+                  <select id="cvGoodStanding" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded</option>
+                    <option value="true">Yes — certified</option>
+                    <option value="false">No — not in good standing</option>
+                  </select>
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Good-standing certified date</label>
+                  <input id="cvGoodStandingAt" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Primary KW registration since</label>
+                  <input id="cvPrimaryRegistrationSince" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Residence in KW since</label>
+                  <input id="cvResidenceInKwSince" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Temporary absence approved</label>
+                  <select id="cvTemporaryAbsence" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded / not applicable</option>
+                    <option value="true">Yes — approved (study/work/health/ministry)</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Temporary absence note</label>
+                  <input id="cvTemporaryAbsenceNote" type="text" class="rounded-xl border px-3 py-2 text-sm bg-white" placeholder="e.g., Study abroad 2026" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Corporate application completed</label>
+                  <select id="cvApplication" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Legal-register consent completed</label>
+                  <select id="cvConsent" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Purposes / by-law acknowledgement</label>
+                  <select id="cvPurposes" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Board admitted as Voting Corporate Member</label>
+                  <select id="cvBoardAdmitted" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded</option>
+                    <option value="true">Yes — by resolution</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <div class="grid gap-2 min-w-0">
+                    <label class="text-sm text-slate-600">Board admission date</label>
+                    <input id="cvBoardAdmissionDate" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                  </div>
+                  <div class="grid gap-2 min-w-0">
+                    <label class="text-sm text-slate-600">Board resolution ref.</label>
+                    <input id="cvBoardResolutionRef" type="text" class="rounded-xl border px-3 py-2 text-sm bg-white" placeholder="e.g., BR-2026-04" />
+                  </div>
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Legal register entered on</label>
+                  <input id="cvLegalRegisterEnteredAt" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                </div>
+                <div class="grid gap-2 min-w-0">
+                  <label class="text-sm text-slate-600">Legal register current</label>
+                  <select id="cvLegalRegisterCurrent" class="rounded-xl border px-3 py-2 text-sm bg-white">
+                    <option value="">Not recorded</option>
+                    <option value="true">Yes — current</option>
+                    <option value="false">No — ended</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <div class="grid gap-2 min-w-0">
+                    <label class="text-sm text-slate-600">Register ended on</label>
+                    <input id="cvLegalRegisterEndedAt" type="date" class="rounded-xl border px-3 py-2 text-sm bg-white" />
+                  </div>
+                  <div class="grid gap-2 min-w-0">
+                    <label class="text-sm text-slate-600">End reason</label>
+                    <input id="cvLegalRegisterEndReason" type="text" class="rounded-xl border px-3 py-2 text-sm bg-white" placeholder="death / resignation / transfer / termination" />
+                  </div>
+                </div>
+              </div>
+            </details>
             <div class="flex flex-wrap gap-2 pt-1">
               <button class="flex-1 min-w-[8rem] rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" type="submit">Save Member</button>
               <button id="btnClearMemberForm" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" type="button">Clear</button>
               <button id="btnDeleteMember" type="button" class="hidden rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Delete</button>
             </div>
-          </form>
+                </form>
+              </section>
+              <section aria-labelledby="familyViewHeading" class="bg-slate-50">
+                <h3 id="familyViewHeading" class="section-title">Family View</h3>
+                <div id="memberFamilyCard" class="min-w-0"></div>
+              </section>
+            </div>
+          </div>
 
         </div>
       </aside>
@@ -739,6 +1038,18 @@
         <button id="modalClose" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Close</button>
       </div>
       <div id="modalBody" class="mt-3"></div>
+    </div>
+  </div>
+
+  <!-- MEMBER EDIT POPUP (hosts #memberWorkspace while editing) -->
+  <div id="memberEditOverlay" class="no-print fixed inset-0 z-50 hidden items-start justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="memberEditPopupTitle" hidden>
+    <div id="memberEditBackdrop" class="absolute inset-0 bg-slate-900/40" tabindex="-1" aria-hidden="true"></div>
+    <div class="relative mt-2 mb-4 flex w-full max-w-5xl max-h-[94vh] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl min-w-0">
+      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <h2 id="memberEditPopupTitle" class="min-w-0 text-base font-semibold text-slate-900">Edit Member</h2>
+        <button type="button" id="btnCloseMemberEditPopup" class="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Close</button>
+      </div>
+      <div id="memberEditPopupBody" class="min-h-0 flex-1 overflow-y-auto p-4"></div>
     </div>
   </div>
 
@@ -859,10 +1170,20 @@
   </div>
 
   <script src="family-domain.js"></script>
+  <script src="voter-eligibility.js"></script>
+  <script src="member-address-import.js"></script>
   <script>
     if(typeof FamilyDomain === 'undefined'){
       alert('family-domain.js failed to load. Keep family-domain.js in the same folder as index.html, then refresh.');
       throw new Error('FamilyDomain missing');
+    }
+    if(typeof VoterEligibility === 'undefined'){
+      alert('voter-eligibility.js failed to load. Keep voter-eligibility.js in the same folder as index.html, then refresh.');
+      throw new Error('VoterEligibility missing');
+    }
+    if(typeof MemberAddressImport === 'undefined'){
+      alert('member-address-import.js failed to load. Keep member-address-import.js in the same folder as index.html, then refresh.');
+      throw new Error('MemberAddressImport missing');
     }
     // Basic runtime error visibility (helps diagnose when buttons appear to do nothing)
     window.addEventListener('error', (e) => {
@@ -886,7 +1207,7 @@
 
     const defaults = () => ({
       version: 1,
-      serviceTypes: ['Sunday Service', 'Bible Study', 'Prayer Meeting', 'Special Service', 'AGM', 'EGM', 'ESSC'],
+      serviceTypes: [],
       memberStatuses: ['Active', 'Inactive', 'Lost'],
       membershipCategories: ['Member', 'True Seeker', 'Visiting Member'],
       categories: [],
@@ -895,6 +1216,7 @@
       familyMembers: [],
 
       meta: { lastSavedAt: '', lastOpenedAt: '', driveFileName: '', driveLocationHint: '', openedFileLastModified: 0, loadedDataSavedAt: '' },
+      boardMinutes: [],
       memberColumns: {
         name: true,
         phone: true,
@@ -1077,6 +1399,11 @@
       migrateStatusAndCategories(st);
       FamilyDomain.migrateFamilies(st, { uid, nowFn: () => new Date() });
 
+      // Nullable corporate voting / legal-register fields. Never auto-grant eligibility.
+      if(typeof VoterEligibility !== 'undefined'){
+        (st.members || []).forEach(m => VoterEligibility.migrateMemberCorporateVoting(m));
+      }
+
       // One-time requested cleanup: retain only "Ng — Brandon & 文通".
       // Family identity remains its stable ID; this only removes the unwanted
       // family entities and unlinks members assigned to those families.
@@ -1132,6 +1459,7 @@
           groups: Array.isArray(parsed.groups) ? parsed.groups : defaults().groups,
           families: Array.isArray(parsed.families) ? parsed.families : defaults().families,
           familyMembers: Array.isArray(parsed.familyMembers) ? parsed.familyMembers : [],
+          boardMinutes: Array.isArray(parsed.boardMinutes) ? parsed.boardMinutes : [],
           services: Array.isArray(parsed.services) ? parsed.services : [],
           members: Array.isArray(parsed.members) ? parsed.members : []
         };
@@ -1559,40 +1887,54 @@
     }
 
     function setActiveTab(tab){
+      if(tab !== 'members' && _memberEditInPopup){
+        closeMemberEditPopup({ reset: true });
+      }
+      document.body.classList.toggle('members-layout', tab === 'members');
       tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
       Object.entries(tabPanels).forEach(([k, el]) => el.classList.toggle('hidden', k !== tab));
+
+      const memberWorkspace = document.getElementById('memberWorkspace');
+      const memberFormHeading = document.getElementById('memberFormHeading');
 
       if(tab === 'services'){
         formTitle.textContent = isEditing.service ? 'Edit Service' : 'Add Service';
         serviceForm.classList.remove('hidden');
-        memberForm.classList.add('hidden');
+        if(memberWorkspace) memberWorkspace.classList.add('hidden');
       } else if(tab === 'members'){
-        formTitle.textContent = isEditing.member ? 'Edit Member' : 'Add Member';
-        memberForm.classList.remove('hidden');
+        formTitle.textContent = 'Members';
+        if(memberFormHeading) memberFormHeading.textContent = isEditing.member ? 'Edit Member' : 'Add Member';
+        // Directory uses full width; individual Edit opens in a popup.
+        if(memberWorkspace && !_memberEditInPopup) memberWorkspace.classList.add('hidden');
         serviceForm.classList.add('hidden');
       } else {
-        formTitle.textContent = 'Add Service';
+        formTitle.textContent = 'Details';
         serviceForm.classList.add('hidden');
-        memberForm.classList.add('hidden');
+        if(memberWorkspace && !_memberEditInPopup) memberWorkspace.classList.add('hidden');
       }
 
-      // Sidebar form only useful on Services / Members
+      // Sidebar form only useful on Services (Members edit is a popup)
       const asidePanel = document.getElementById('sidePanel');
       const mainPanel = document.getElementById('mainPanel');
-      const showSide = (tab === 'services' || tab === 'members');
+      const showSide = (tab === 'services');
       if(asidePanel) asidePanel.classList.toggle('hidden', !showSide);
       if(mainPanel){
         mainPanel.classList.toggle('md:col-span-8', showSide);
+        mainPanel.classList.toggle('md:col-span-5', false);
         mainPanel.classList.toggle('md:col-span-12', !showSide);
       }
-
-      // Quick Add only helps on Services / Members — hide on Attendance, Reports, Families, Settings
-      const btnQuickAdd = document.getElementById('btnQuickAdd');
-      if(btnQuickAdd){
-        btnQuickAdd.classList.toggle('hidden', !showSide);
+      if(asidePanel){
+        asidePanel.classList.toggle('md:col-span-4', showSide);
+        asidePanel.classList.toggle('md:col-span-7', false);
       }
 
-      btnCancelEdit.classList.toggle('hidden', !(isEditing.service || isEditing.member));
+      // Quick Add helps on Services / Members
+      const btnQuickAdd = document.getElementById('btnQuickAdd');
+      if(btnQuickAdd){
+        btnQuickAdd.classList.toggle('hidden', !(tab === 'services' || tab === 'members'));
+      }
+
+      btnCancelEdit.classList.toggle('hidden', !isEditing.service);
       document.getElementById('btnDeleteService')?.classList.toggle('hidden', !isEditing.service);
       document.getElementById('btnDeleteMember')?.classList.toggle('hidden', !isEditing.member);
       render();
@@ -1600,6 +1942,8 @@
 
     // Editing flags
     const isEditing = { service: false, member: false };
+    let _memberEditInPopup = false;
+    let _memberWorkspaceHome = null;
 
     // Local (not UTC) today's date as YYYY-MM-DD. Using toISOString() directly on `new Date()`
     // shifts the date across the UTC boundary for users west of UTC (e.g. can show "tomorrow"
@@ -1636,11 +1980,78 @@
       document.getElementById('memberId').value = '';
       document.getElementById('memberMembershipCategory').value = 'Member';
       document.getElementById('memberStatus').value = 'Active';
+      fillCorporateVotingForm(null);
       isEditing.member = false;
-      formTitle.textContent = activeTab() === 'members' ? 'Add Member' : formTitle.textContent;
+      formTitle.textContent = activeTab() === 'members' ? 'Members' : formTitle.textContent;
+      const memberFormHeading = document.getElementById('memberFormHeading');
+      if(memberFormHeading && activeTab() === 'members') memberFormHeading.textContent = 'Add Member';
       btnCancelEdit.classList.add('hidden');
       document.getElementById('btnDeleteMember')?.classList.add('hidden');
       renderMemberFamilyCard(null);
+    }
+
+    function triStateFromSelect(el){
+      if(!el) return null;
+      if(el.value === 'true') return true;
+      if(el.value === 'false') return false;
+      return null;
+    }
+
+    function setTriStateSelect(el, value){
+      if(!el) return;
+      el.value = value === true ? 'true' : value === false ? 'false' : '';
+    }
+
+    function fillCorporateVotingForm(person){
+      const cv = (typeof VoterEligibility !== 'undefined')
+        ? VoterEligibility.ensureCorporateVoting(person || {})
+        : {};
+      setTriStateSelect(document.getElementById('cvGoodStanding'), cv.goodStandingCertified);
+      const at = document.getElementById('cvGoodStandingAt');
+      if(at) at.value = cv.goodStandingCertifiedAt || '';
+      const reg = document.getElementById('cvPrimaryRegistrationSince');
+      if(reg) reg.value = cv.primaryRegistrationSince || '';
+      const res = document.getElementById('cvResidenceInKwSince');
+      if(res) res.value = cv.residenceInKwSince || '';
+      setTriStateSelect(document.getElementById('cvTemporaryAbsence'), cv.temporaryAbsenceApproved);
+      const note = document.getElementById('cvTemporaryAbsenceNote');
+      if(note) note.value = cv.temporaryAbsenceNote || '';
+      setTriStateSelect(document.getElementById('cvApplication'), cv.applicationCompleted);
+      setTriStateSelect(document.getElementById('cvConsent'), cv.consentCompleted);
+      setTriStateSelect(document.getElementById('cvPurposes'), cv.purposesAcknowledged);
+      setTriStateSelect(document.getElementById('cvBoardAdmitted'), cv.boardAdmitted);
+      const bad = document.getElementById('cvBoardAdmissionDate');
+      if(bad) bad.value = cv.boardAdmissionDate || '';
+      const bref = document.getElementById('cvBoardResolutionRef');
+      if(bref) bref.value = cv.boardResolutionRef || '';
+      const entered = document.getElementById('cvLegalRegisterEnteredAt');
+      if(entered) entered.value = cv.legalRegisterEnteredAt || '';
+      setTriStateSelect(document.getElementById('cvLegalRegisterCurrent'), cv.legalRegisterCurrent);
+      const ended = document.getElementById('cvLegalRegisterEndedAt');
+      if(ended) ended.value = cv.legalRegisterEndedAt || '';
+      const reason = document.getElementById('cvLegalRegisterEndReason');
+      if(reason) reason.value = cv.legalRegisterEndReason || '';
+    }
+
+    function readCorporateVotingFromForm(){
+      return {
+        goodStandingCertified: triStateFromSelect(document.getElementById('cvGoodStanding')),
+        goodStandingCertifiedAt: document.getElementById('cvGoodStandingAt')?.value || '',
+        primaryRegistrationSince: document.getElementById('cvPrimaryRegistrationSince')?.value || '',
+        residenceInKwSince: document.getElementById('cvResidenceInKwSince')?.value || '',
+        temporaryAbsenceApproved: triStateFromSelect(document.getElementById('cvTemporaryAbsence')),
+        temporaryAbsenceNote: document.getElementById('cvTemporaryAbsenceNote')?.value.trim() || '',
+        applicationCompleted: triStateFromSelect(document.getElementById('cvApplication')),
+        consentCompleted: triStateFromSelect(document.getElementById('cvConsent')),
+        purposesAcknowledged: triStateFromSelect(document.getElementById('cvPurposes')),
+        boardAdmitted: triStateFromSelect(document.getElementById('cvBoardAdmitted')),
+        boardAdmissionDate: document.getElementById('cvBoardAdmissionDate')?.value || '',
+        boardResolutionRef: document.getElementById('cvBoardResolutionRef')?.value.trim() || '',
+        legalRegisterEnteredAt: document.getElementById('cvLegalRegisterEnteredAt')?.value || '',
+        legalRegisterCurrent: triStateFromSelect(document.getElementById('cvLegalRegisterCurrent')),
+        legalRegisterEndedAt: document.getElementById('cvLegalRegisterEndedAt')?.value || '',
+        legalRegisterEndReason: document.getElementById('cvLegalRegisterEndReason')?.value.trim() || ''
+      };
     }
 
     // Phone number formatting
@@ -1660,13 +2071,17 @@
       });
     });
 
-    // Postal code auto-format on input
+    // Postal / ZIP auto-format on input (country-aware)
     document.getElementById('memberPostcode').addEventListener('input', (e) => {
       const oldValue = e.target.value;
-      const newValue = formatPostalCode(oldValue);
+      const newValue = formatPostalCode(oldValue, currentMemberCountry());
       e.target.value = newValue;
-      // Set cursor to end for simplicity (postal codes are short)
       e.target.setSelectionRange(newValue.length, newValue.length);
+    });
+    document.getElementById('memberCountry')?.addEventListener('change', () => {
+      const el = document.getElementById('memberPostcode');
+      if(!el) return;
+      el.value = formatPostalCode(el.value, currentMemberCountry());
     });
 
     function activeTab(){
@@ -1844,11 +2259,12 @@
       memberStatusSelect.innerHTML = options;
       if(prevFormValue && statuses.includes(prevFormValue)) memberStatusSelect.value = prevFormValue;
 
-      const voterFilters = ['__eligible_voter', '__ineligible_voter'];
+      const voterFilters = ['__eligible_voter', '__ineligible_voter', '__needs_review_voter'];
       const filterOpts = [
         '<option value="">All statuses</option>',
-        '<option value="__eligible_voter">Eligible Voter</option>',
-        '<option value="__ineligible_voter">Ineligible Voter</option>'
+        '<option value="__eligible_voter">Eligible Voters</option>',
+        '<option value="__needs_review_voter">Needs Review (voting)</option>',
+        '<option value="__ineligible_voter">Not Eligible (voting)</option>'
       ].concat(statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`));
       memberFilterStatus.innerHTML = filterOpts.join('');
       if(prevFilterValue && (statuses.includes(prevFilterValue) || voterFilters.includes(prevFilterValue))){
@@ -1995,38 +2411,48 @@
       const card = document.getElementById('memberFamilyCard');
       if(!card) return;
       if(!member){
-        card.innerHTML = `<div class="text-sm font-medium">Family</div><p class="mt-1 text-xs text-slate-500">Save this member first, then create or join a family.</p>`;
+        card.innerHTML = `<p class="text-xs text-slate-500">Save or select a member to see their family household here. Contact and address can still be overwritten in <strong>Edit Member</strong>.</p>`;
         return;
       }
       const family = FamilyDomain.getFamilyById(state, FamilyDomain.getMemberFamilyId(member));
       if(!family){
-        card.innerHTML = `<div class="text-sm font-medium">No family linked</div>
-          <div class="mt-2 flex flex-wrap gap-2">
+        card.innerHTML = `<div class="text-sm font-medium text-slate-800">No family linked</div>
+          <p class="mt-1 text-xs text-slate-500">Link this person to a household, or create one. Individual fields remain editable on the left.</p>
+          <div class="mt-3 flex flex-wrap gap-2">
             <button type="button" data-card-family="create" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white">Create a Family</button>
             <button type="button" data-card-family="join" class="rounded-lg border bg-white px-3 py-1.5 text-xs">Join Existing Family</button>
           </div>`;
       }else{
         const members = FamilyDomain.getFamilyMembers(state, family.id);
         const primary = state.members.find(m => m.id === family.primaryContactMemberId);
-        card.innerHTML = `<div class="flex items-start justify-between gap-2">
-            <div><div class="font-semibold">${esc(family.displayName)}</div>
-            <div class="mt-1 space-y-1 text-xs text-slate-500">${members.map(m => {
+        // Household line always from primary contact — individual Edit Member addresses do not change this.
+        const addrSrc = primary || null;
+        const address = addrSrc
+          ? (memberAddressText(addrSrc) || '—')
+          : '—';
+        card.innerHTML = `
+          <div class="font-semibold text-slate-900">${esc(family.displayName)}</div>
+          <div class="mt-2 text-xs text-slate-600"><span class="font-medium text-slate-700">Household address:</span> ${esc(address)}</div>
+          ${primary ? `<div class="mt-1 text-xs text-slate-600"><span class="font-medium text-slate-700">Primary contact:</span> ${memberNameHtml(primary)}${primary.phone ? ` · ${esc(primary.phone)}` : ''}</div>` : ''}
+          <div class="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">Members (${members.length})</div>
+          <ul class="mt-1 divide-y rounded-lg border bg-white">
+            ${members.map(m => {
               const role = FamilyDomain.getFamilyMembership(state, m.id)?.relationshipRole;
-              return `<div>${memberNameHtml(m)}${role ? `<span class="text-slate-400"> (${esc(role)})</span>` : ''}</div>`;
-            }).join('') || 'No members'}${primary ? `<div class="mt-2"><span class="font-medium">Primary:</span>${memberNameHtml(primary)}</div>` : ''}</div></div>
-          </div><div class="mt-2 flex flex-wrap gap-2">
-            <button type="button" data-view-family="${esc(family.id)}" class="rounded-lg border bg-white px-3 py-1.5 text-xs">View Family</button>
+              const isCurrent = m.id === member.id;
+              return `<li class="px-3 py-2 ${isCurrent ? 'bg-emerald-50' : ''}">
+                <div class="text-sm font-medium">${memberNameHtml(m)}${isCurrent ? ' <span class="text-[10px] font-semibold uppercase text-emerald-700">editing</span>' : ''}</div>
+                <div class="text-xs text-slate-500">${role ? esc(role) : 'No role'}${m.phone ? ` · ${esc(m.phone)}` : ''}</div>
+              </li>`;
+            }).join('') || '<li class="px-3 py-2 text-xs text-slate-500">No members</li>'}
+          </ul>
+          <p class="mt-3 text-xs text-slate-500">Address fields on the left belong to this person only. Leave them blank to keep the household address in Family report. A different individual address is shown separately in the report without changing this household line.</p>
+          <div class="mt-3 flex flex-wrap gap-2">
             <button type="button" data-manage-family="${esc(family.id)}" class="rounded-lg border bg-white px-3 py-1.5 text-xs">Manage Members</button>
             <button type="button" data-unlink-member="${esc(member.id)}" class="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs text-rose-700">Remove This Member</button>
           </div>`;
       }
       card.querySelector('[data-card-family="create"]')?.addEventListener('click', () => openFamilyBuilder({ mode:'create', memberIds:[member.id] }));
       card.querySelector('[data-card-family="join"]')?.addEventListener('click', () => openFamilyBuilder({ mode:'join', memberIds:[member.id] }));
-      card.querySelector('[data-view-family]')?.addEventListener('click', () => {
-        const search = document.getElementById('familySearch');
-        if(search) search.value = family?.displayName || '';
-        setActiveTab('families');
-      });
       card.querySelector('[data-manage-family]')?.addEventListener('click', e => openFamilyBuilder({ mode:'join', familyId:e.currentTarget.dataset.manageFamily, memberIds:[member.id] }));
       card.querySelector('[data-unlink-member]')?.addEventListener('click', e => {
         if(!confirm('Remove this member from the family?')) return;
@@ -2095,21 +2521,53 @@
         if(isVisitingPerson(m)) visiting++;
         if((m.status || '') === 'Inactive') inactive++;
         const v = getVoterStatus(m.id);
-        if(v.attCheck && v.attCheck.passed) activeMembers++;
-        if(v.eligible) eligible++;
+        if(
+          normalizeLabel(getMembershipCategory(m)) === 'member'
+          && (m.status || '') === 'Active'
+          && v.attCheck && v.attCheck.passed
+        ) activeMembers++;
+        if(v.result === 'Eligible' || v.eligible) eligible++;
       }
       return { membership, trueSeekers, activeMembers, eligible, visiting, inactive };
     }
 
     function memberMatchesVoterFilter(m, filter, voter){
       if(filter === 'all') return true;
-      if(filter === 'membership') return isMembershipPerson(m);
+      // Family: Member category only (exclude True Seekers / Visiting Members / others linked to a household).
+      if(filter === 'family') return normalizeLabel(getMembershipCategory(m)) === 'member';
+      // Members: Membership Category = Member (Active or Inactive). Not a voting category.
+      if(filter === 'membership') return normalizeLabel(getMembershipCategory(m)) === 'member';
       if(filter === 'trueseekers') return isTrueSeeker(m);
-      if(filter === 'activeatt') return !!(voter.attCheck && voter.attCheck.passed);
-      if(filter === 'eligible') return !!voter.eligible;
+      // Active Members: administrative activity — Member + Active + ≥2 services since latest AGM
+      if(filter === 'activeatt'){
+        return normalizeLabel(getMembershipCategory(m)) === 'member'
+          && (m.status || '') === 'Active'
+          && !!(voter.attCheck && voter.attCheck.passed);
+      }
+      if(filter === 'eligible') return voter.result === 'Eligible' || voter.eligible === true;
       if(filter === 'visiting') return isVisitingPerson(m);
       if(filter === 'inactive') return (m.status || '') === 'Inactive';
       return true;
+    }
+
+    function voterFilterHelpText(filter){
+      const help = {
+        all: 'Everyone in the church database.',
+        membership: 'All baptized members registered at TJCKW.',
+        trueseekers: 'People learning the faith who are not yet baptized members.',
+        activeatt: 'Registered members marked Active with at least two services since the latest AGM. This is an administrative activity category, not a corporate voting category.',
+        eligible: 'Voting Corporate Members confirmed on the legal register for the meeting record date.',
+        visiting: 'Baptized members registered with another TJC congregation.',
+        inactive: 'Registered members currently marked Inactive; membership is not automatically ended.',
+        family: 'Members only, by household. Household address comes from the primary contact. Blank or matching individual addresses stay with the household layout; only a different personal address is shown separately.'
+      };
+      return help[filter] || '';
+    }
+
+    function updateVoterFilterHelp(){
+      const el = document.getElementById('voterFilterHelp');
+      const filter = document.getElementById('voterFilterStatus')?.value || 'all';
+      if(el) el.textContent = voterFilterHelpText(filter);
     }
 
     function isEsscService(s){
@@ -2162,15 +2620,27 @@
 
     function voterFilterLabel(filter){
       const labels = {
-        all: 'All Members',
-        membership: 'Membership',
+        all: 'All',
+        membership: 'Members',
         trueseekers: 'True Seekers',
         activeatt: 'Active Members',
-        eligible: 'Eligible',
+        eligible: 'Eligible Voters',
         visiting: 'Visiting Members',
-        inactive: 'Inactive'
+        inactive: 'Inactive',
+        family: 'Family'
       };
-      return labels[filter] || filter || 'All Members';
+      return labels[filter] || filter || 'All';
+    }
+
+    function formatEligibilityDisplay(voter){
+      const result = voter?.result || (voter?.eligible ? 'Eligible' : 'Not Eligible');
+      const primary = (voter?.reasons || []).find(r => r.severity === 'fail')
+        || (voter?.reasons || []).find(r => r.severity === 'review')
+        || (voter?.reasons || [])[0];
+      const reason = primary?.message || voter?.detail || '';
+      if(result === 'Eligible') return 'Eligible';
+      if(result === 'Needs Review') return reason ? `Needs Review — ${reason}` : 'Needs Review';
+      return reason ? `Not Eligible — ${reason}` : 'Not Eligible';
     }
 
     function formatReportDate(isoDate){
@@ -2210,27 +2680,25 @@
       if(reportCols.status !== false) columns.push({ key: 'status', label: 'Status' });
       if(reportCols.membershipCategory !== false) columns.push({ key: 'membershipCategory', label: 'Membership Category' });
       if(reportCols.group !== false) columns.push({ key: 'group', label: 'Group' });
-      if(reportCols.attendance !== false) columns.push({ key: 'attendance', label: 'Attendance %' });
-      if(reportCols.checks !== false) columns.push({ key: 'checks', label: 'Age | Attendance' });
-      if(reportCols.eligibility !== false) columns.push({ key: 'eligibility', label: 'Eligible?' });
-      if(reportCols.period !== false) columns.push({ key: 'period', label: 'Period' });
+      // True Seekers: omit Age|Attendance, Voting Eligibility, Period (ineligible for corporate voting).
+      // Visiting Members: also omit Attendance % (not used for visiting membership).
+      const showAttendance = reportCols.attendance !== false && filter !== 'visiting';
+      const showChecks = reportCols.checks !== false && filter !== 'trueseekers' && filter !== 'visiting';
+      const showEligibility = reportCols.eligibility !== false && filter !== 'trueseekers' && filter !== 'visiting';
+      const showPeriod = reportCols.period !== false && filter !== 'trueseekers' && filter !== 'visiting';
+      if(showAttendance) columns.push({ key: 'attendance', label: 'Attendance %' });
+      if(showChecks) columns.push({ key: 'checks', label: 'Age | Attendance' });
+      if(showEligibility) columns.push({ key: 'eligibility', label: 'Voting Eligibility' });
+      if(showPeriod) columns.push({ key: 'period', label: 'Period' });
 
-      if(!anchorAGM){
-        return {
-          type: 'membership',
-          ok: false,
-          title: 'Membership Report',
-          churchName: 'TJCKW Service & Membership Record',
-          filterKey: filter,
-          filterLabel: voterFilterLabel(filter),
-          columns,
-          rows: [],
-          recordCount: 0,
-          generatedAt,
-          errorTitle: 'AGM Service Required',
-          errorDetail: 'To calculate eligibility, add an AGM service in the Services tab first. The voting period runs from the most recent AGM up to today.'
-        };
-      }
+      const recordDate = meetingRecordDateISO();
+      const periodFrom = anchorAGM?.date || '';
+      const periodLabel = anchorAGM
+        ? `${formatReportDate(anchorAGM.date)} (latest AGM) → ${formatReportDate(todayStr)}`
+        : `No AGM on file`;
+      const meetingRecordLabel = anchorAGM
+        ? `Meeting record date ${formatReportDate(recordDate)} (from AGM)`
+        : `Meeting record date ${formatReportDate(recordDate)}`;
 
       const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
       const rows = [];
@@ -2242,46 +2710,52 @@
         const memCat = getMembershipCategory(m);
         const ageDisplay = voter.ageCheck && voter.ageCheck.age !== null
           ? `${voter.ageCheck.age} yrs`
-          : (voter.ageCheck ? (voter.ageCheck.passed ? 'no DOB*' : 'no DOB') : 'N/A');
-        const ageStatus = voter.ageCheck ? (voter.ageCheck.passed ? 'Pass' : 'Fail') : '—';
-        const attDisplay = voter.attCheck ? `${voter.attCheck.count}/2` : (voter.ageCheck || voter.attCheck ? '0/2' : 'N/A');
+          : 'no DOB';
+        const ageStatus = !voter.ageCheck
+          ? '—'
+          : voter.ageCheck.passed
+            ? 'Pass'
+            : (voter.ageCheck.age === null ? 'Review' : 'Fail');
+        const attDisplay = voter.attCheck ? `${voter.attCheck.count}/2` : 'N/A';
         const attStatus = voter.attCheck ? (voter.attCheck.passed ? 'Pass' : 'Fail') : '—';
-        const eligibleText = voter.text === 'Yes' ? 'Yes' : (voter.text || 'No');
+        const eligibleText = formatEligibilityDisplay(voter);
+        const familyId = FamilyDomain.getMemberFamilyId(m) || '';
+        const familyName = getMemberFamily(m) || '';
+        const role = FamilyDomain.getFamilyMembership(state, m.id)?.relationshipRole || '';
 
         rows.push({
           id: m.id,
           member: m,
           voter,
           att,
+          familyId,
+          familyName,
+          relationshipRole: role,
           cells: {
             nameHtml: memberNameHtml(m),
             nameText: memberNameText(m),
             status: m.status || '',
             membershipCategory: memCat || '',
             group: m.group || '',
+            family: familyName || '',
+            role,
             attendance: att.text,
             attendanceTone: att.value == null ? '' : (att.value >= 75 ? 'high' : att.value >= 50 ? 'mid' : 'low'),
             checks: `${ageDisplay} ${ageStatus} | ${attDisplay} ${attStatus}`,
-            checksTitle: voter.ageCheck || voter.attCheck
-              ? `Age check: ${voter.ageCheck?.reason || 'N/A'}, Attendance: ${voter.attCheck?.reason || 'N/A'}`
-              : (voter.detail || ''),
+            checksTitle: [
+              `Legal age: ${voter.ageCheck?.reason || (voter.ageCheck?.passed ? '18+' : 'N/A')}`,
+              `Admin attendance (Active Members filter): ${voter.attCheck?.reason || (voter.attCheck?.passed ? '2+ since AGM' : 'N/A')}`,
+              voter.detail || ''
+            ].filter(Boolean).join(' · '),
             eligibility: eligibleText,
             eligibilityDetail: voter.detail || '',
-            period: `${anchorAGM.date} to ${todayStr}`
+            period: periodFrom ? `${periodFrom} to ${todayStr}` : `Record date ${recordDate}`
           }
         });
       }
 
-      const criteria = [
-        'Status must be Active and Membership Category Member',
-        'Attended at least 2 services from the most recent AGM up to today',
-        '18+ by birth month as of today — or, if birth month/year is not recorded yet, Group/Ministry must not be RE(E), RE(J), or RE(K)'
-      ];
-      if(filter === 'activeatt') criteria.push('Active Members filter: only ≥2 services from the most recent AGM up to today.');
-      if(filter === 'membership') criteria.push('Membership filter: Membership Category = Member and Status not Inactive/Lost.');
-      if(filter === 'trueseekers') criteria.push('True Seekers filter: Membership Category = True Seeker.');
-      if(filter === 'visiting') criteria.push('Visiting Members filter: Membership Category = Visiting Member.');
-      if(filter === 'inactive') criteria.push('Inactive filter: Status = Inactive.');
+      const familyGroups = groupMembershipRowsByFamily(rows);
+      const useFamilyTree = filter === 'family';
 
       return {
         type: 'membership',
@@ -2290,16 +2764,373 @@
         churchName: 'TJCKW Service & Membership Record',
         filterKey: filter,
         filterLabel: voterFilterLabel(filter),
-        periodFrom: anchorAGM.date,
+        periodFrom,
         periodTo: todayStr,
-        periodLabel: `${formatReportDate(anchorAGM.date)} to ${formatReportDate(todayStr)}`,
+        periodLabel: `${meetingRecordLabel} · ${periodLabel}`,
+        meetingRecordDate: recordDate,
         columns,
         rows,
-        criteria,
+        familyGroups,
+        layout: useFamilyTree ? 'family-tree' : 'table',
+        criteria: [],
+        criteriaNote: '',
+        criteriaTitle: '',
         recordCount: rows.length,
+        familyCount: familyGroups.filter(g => !g.isUngrouped).length,
         generatedAt,
         wide: columns.length >= 5
       };
+    }
+
+    function familyRoleKind(role){
+      const n = normalizeLabel(role);
+      if(n === 'child' || n === 'son' || n === 'daughter') return 'child';
+      if(n === 'primary contact' || n === 'spouse' || n === 'parent' || n === 'husband' || n === 'wife' || n === 'father' || n === 'mother'){
+        return 'parent';
+      }
+      return 'other';
+    }
+
+    function memberContactLines(m){
+      const phone = (m?.phone || '').toString().trim();
+      const email = (m?.email || '').toString().trim();
+      return { phone, email };
+    }
+
+    function memberAddressText(m){
+      if(!m) return '';
+      const parts = [m.street, m.city, m.province, m.postcode].map(x => (x || '').toString().trim()).filter(Boolean);
+      if(parts.length) return parts.join(', ');
+      return (m.address || '').toString().trim();
+    }
+
+    function normalizeAddressKey(text){
+      return (text || '').toString().trim().toLowerCase()
+        .replace(/[.,#]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    /** Stable compare key from structured fields when present. */
+    function memberAddressKey(m){
+      if(!m) return '';
+      const street = normalizeAddressKey(m.street);
+      const city = normalizeAddressKey(m.city);
+      const province = normalizeAddressKey(m.province);
+      const postcode = (m.postcode || '').toString().replace(/\s+/g, '').toUpperCase();
+      if(street || city || province || postcode){
+        return [street, city, province, postcode].join('|');
+      }
+      return normalizeAddressKey(m.address);
+    }
+
+    function addressesEquivalent(a, b){
+      const ka = memberAddressKey(a);
+      const kb = memberAddressKey(b);
+      if(ka && kb) return ka === kb;
+      const ta = memberAddressText(a);
+      const tb = memberAddressText(b);
+      if(!ta && !tb) return true;
+      if(!ta || !tb) return false;
+      return normalizeAddressKey(ta) === normalizeAddressKey(tb);
+    }
+
+    function primaryRowForGroup(group){
+      return group.rows.find(r => r.id === group.primaryContactMemberId)
+        || group.rows.find(r => normalizeLabel(r.relationshipRole) === 'primary contact')
+        || group.rows.find(r => familyRoleKind(r.relationshipRole) === 'parent')
+        || group.rows[0]
+        || null;
+    }
+
+    function householdAddressForGroup(group){
+      return memberAddressText(primaryRowForGroup(group)?.member);
+    }
+
+    /**
+     * Family report / directory display rules:
+     * - Household address always comes from the primary contact.
+     * - Blank individual address → treated as household (no separate display).
+     * - Individual address same as primary → still household (report/family layout unchanged).
+     * - Only a different nonblank individual address gets its own address block.
+     */
+    function familyTreeContactDisplay(row, group){
+      const primaryRow = primaryRowForGroup(group);
+      const primary = primaryRow?.member || null;
+      const member = row.member || {};
+      const isPrimary = !!(primary && member.id && primary.id === member.id)
+        || (!!primaryRow && row.id === primaryRow.id);
+
+      const primaryAddress = memberAddressText(primary);
+      const ownAddress = memberAddressText(member);
+      const ownBlank = !ownAddress;
+      const sameAsPrimary = isPrimary || ownBlank || (!!primary && addressesEquivalent(member, primary));
+
+      const primaryContact = memberContactLines(primary);
+      const ownContact = memberContactLines(member);
+
+      let showAddress = false;
+      let address = '';
+      let showPhoneEmail = false;
+      let phone = '';
+      let email = '';
+
+      if(isPrimary){
+        showAddress = !!primaryAddress;
+        address = primaryAddress;
+        showPhoneEmail = true;
+        phone = primaryContact.phone;
+        email = primaryContact.email;
+      } else if(sameAsPrimary){
+        // Household member: keep report/family layout on the primary address only.
+        showAddress = false;
+        showPhoneEmail = false;
+      } else {
+        // Explicit different individual address.
+        showAddress = !!ownAddress;
+        address = ownAddress;
+        showPhoneEmail = true;
+        phone = ownContact.phone;
+        email = ownContact.email;
+      }
+
+      return {
+        isPrimary,
+        sameAsPrimary,
+        showAddress,
+        address,
+        showPhoneEmail,
+        phone,
+        email
+      };
+    }
+
+    function splitFamilyRowsForTree(group){
+      const parents = [];
+      const children = [];
+      const others = [];
+      for(const row of group.rows){
+        const kind = familyRoleKind(row.relationshipRole);
+        if(kind === 'child') children.push(row);
+        else if(kind === 'parent') parents.push(row);
+        else others.push(row);
+      }
+      // If nobody was marked Parent/Spouse/Primary, treat non-children as parents.
+      if(!parents.length && others.length){
+        parents.push(...others.splice(0, others.length));
+      }
+      const parentOrder = (role) => {
+        const n = normalizeLabel(role);
+        if(n === 'primary contact') return 0;
+        if(n === 'spouse' || n === 'husband' || n === 'wife') return 1;
+        if(n === 'parent' || n === 'father' || n === 'mother') return 2;
+        return 3;
+      };
+      parents.sort((a, b) => {
+        const ao = parentOrder(a.relationshipRole);
+        const bo = parentOrder(b.relationshipRole);
+        if(ao !== bo) return ao - bo;
+        return (a.member?.name || '').localeCompare(b.member?.name || '');
+      });
+      children.sort((a, b) => (a.member?.name || '').localeCompare(b.member?.name || ''));
+      others.sort((a, b) => (a.member?.name || '').localeCompare(b.member?.name || ''));
+      return { parents, children, others };
+    }
+
+    function memberNameParts(m){
+      let first = (m?.firstName || '').toString().trim();
+      let last = (m?.lastName || '').toString().trim();
+      if(!first && !last){
+        const full = (m?.name || '').toString().trim();
+        if(full){
+          const parts = full.split(/\s+/);
+          if(parts.length >= 2){
+            last = parts[parts.length - 1];
+            first = parts.slice(0, -1).join(' ');
+          } else {
+            first = full;
+          }
+        }
+      }
+      return { first, last };
+    }
+
+    function memberDirectoryNameHtml(m){
+      const { first, last } = memberNameParts(m);
+      const english = (last && first)
+        ? `${esc(last)}, ${esc(first)}`
+        : esc(last || first || m?.name || '—');
+      const chinese = (m?.chineseName || '').toString().trim();
+      return chinese
+        ? `<span class="family-dir-english">${english}</span><span class="family-dir-chinese">${esc(chinese)}</span>`
+        : `<span class="family-dir-english">${english}</span>`;
+    }
+
+    function memberDirectoryNameText(m){
+      const { first, last } = memberNameParts(m);
+      const english = (last && first)
+        ? `${last}, ${first}`
+        : (last || first || m?.name || '—');
+      const chinese = (m?.chineseName || '').toString().trim();
+      return chinese ? `${english} ${chinese}` : english;
+    }
+
+    /** Street + city on line 1; province + postcode on line 2. */
+    function formatDirectoryAddressLines(member, fallbackAddress){
+      const street = (member?.street || '').toString().trim();
+      const city = (member?.city || '').toString().trim();
+      const province = (member?.province || '').toString().trim();
+      const postcode = (member?.postcode || '').toString().trim();
+      if(street || city || province || postcode){
+        return {
+          line1: [street, city].filter(Boolean).join(', '),
+          line2: [province, postcode].filter(Boolean).join(' ')
+        };
+      }
+      const parts = (fallbackAddress || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+      if(parts.length >= 3){
+        return {
+          line1: parts.slice(0, -2).join(', '),
+          line2: parts.slice(-2).join(' ')
+        };
+      }
+      return { line1: (fallbackAddress || '').toString().trim(), line2: '' };
+    }
+
+    function renderFamilyDirSideHtml(disp, member){
+      if(!disp) return '';
+      const blocks = [];
+      if(disp.showPhoneEmail){
+        if(disp.phone){
+          blocks.push(`<div class="family-dir-side-line"><span class="label">Phone</span>${esc(disp.phone)}</div>`);
+        }
+        if(disp.email){
+          blocks.push(`<div class="family-dir-side-line"><span class="label">Email</span>${esc(disp.email)}</div>`);
+        }
+      }
+      if(disp.showAddress){
+        const { line1, line2 } = formatDirectoryAddressLines(member, disp.address);
+        const first = line1 || (!line2 ? (disp.address || '—') : '');
+        blocks.push(`<div class="family-dir-address">
+          <div class="family-dir-side-line"><span class="label">Address</span>${first ? esc(first) : ''}</div>
+          ${line2 ? `<div>${esc(line2)}</div>` : ''}
+        </div>`);
+      }
+      if(!blocks.length) return '';
+      return `<div class="family-dir-side">${blocks.join('')}</div>`;
+    }
+
+    function renderFamilyDirSidePrintHtml(disp, member){
+      if(!disp) return '';
+      const lines = [];
+      if(disp.showPhoneEmail){
+        if(disp.phone) lines.push(`Phone: ${esc(disp.phone)}`);
+        if(disp.email) lines.push(`Email: ${esc(disp.email)}`);
+      }
+      if(disp.showAddress){
+        const { line1, line2 } = formatDirectoryAddressLines(member, disp.address);
+        const first = line1 || (!line2 ? (disp.address || '—') : '');
+        if(first) lines.push(`Address: ${esc(first)}`);
+        else lines.push('Address:');
+        if(line2) lines.push(esc(line2));
+      }
+      if(!lines.length) return '';
+      return `<div style="font-size:10px;color:#555;text-align:right;max-width:48%;line-height:1.4;">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
+    }
+
+    function renderFamilyDirectoryCard(group){
+      const { parents, children, others } = splitFamilyRowsForTree(group);
+      const primaryRow = primaryRowForGroup(group);
+      const primaryDisp = primaryRow ? familyTreeContactDisplay(primaryRow, group) : null;
+
+      const householdParents = parents.filter(r => {
+        const d = familyTreeContactDisplay(r, group);
+        return d.isPrimary || d.sameAsPrimary;
+      });
+      const householdChildren = children.filter(r => {
+        const d = familyTreeContactDisplay(r, group);
+        return d.isPrimary || d.sameAsPrimary;
+      });
+      const householdOthers = others.filter(r => {
+        const d = familyTreeContactDisplay(r, group);
+        return d.isPrimary || d.sameAsPrimary;
+      });
+      const differentRows = [...parents, ...children, ...others].filter(r => {
+        const d = familyTreeContactDisplay(r, group);
+        return !d.isPrimary && !d.sameAsPrimary;
+      });
+
+      const nameLines = [
+        ...householdParents.map(r => ({ row: r, child: false })),
+        ...householdOthers.map(r => ({ row: r, child: false })),
+        ...householdChildren.map(r => ({ row: r, child: true }))
+      ];
+
+      const namesHtml = nameLines.map(({ row, child }) => `
+        <div class="family-dir-line${child ? ' is-child' : ''}">${memberDirectoryNameHtml(row.member)}</div>
+      `).join('');
+
+      const sideHtml = renderFamilyDirSideHtml(primaryDisp, primaryRow?.member);
+
+      const householdCard = (nameLines.length || sideHtml) ? `
+        <div class="family-dir-card">
+          <div class="family-dir-top">
+            <div class="family-dir-names">${namesHtml || '<div class="family-dir-line text-slate-400">—</div>'}</div>
+            ${sideHtml}
+          </div>
+        </div>` : '';
+
+      const differentCards = differentRows.map(row => {
+        const disp = familyTreeContactDisplay(row, group);
+        return `
+          <div class="family-dir-card">
+            <div class="family-dir-top">
+              <div class="family-dir-names"><div class="family-dir-line">${memberDirectoryNameHtml(row.member)}</div></div>
+              ${renderFamilyDirSideHtml(disp, row.member)}
+            </div>
+          </div>`;
+      }).join('');
+
+      return `${householdCard}${differentCards}`;
+    }
+
+    function renderFamilyPersonCard(row, group){
+      // Kept for any legacy call sites; Family report uses renderFamilyDirectoryCard.
+      const m = row.member || {};
+      const disp = familyTreeContactDisplay(row, group);
+      return `<div class="family-tree-person"><div class="family-tree-member-name">${memberDirectoryNameHtml(m)}</div>${disp.showAddress ? `<div class="family-tree-member-meta">${esc(disp.address)}</div>` : ''}</div>`;
+    }
+
+    function groupMembershipRowsByFamily(rows){
+      const map = new Map();
+      for(const row of rows){
+        const famId = row.familyId || '';
+        const famName = (row.familyName || '').trim();
+        const key = famId || '__ungrouped__';
+        if(!map.has(key)){
+          const family = famId ? FamilyDomain.getFamilyById(state, famId) : null;
+          map.set(key, {
+            id: key,
+            familyId: famId,
+            name: famId ? (family?.displayName || famName || 'Family') : 'No family',
+            isUngrouped: !famId,
+            primaryContactMemberId: family?.primaryContactMemberId || '',
+            rows: []
+          });
+        }
+        map.get(key).rows.push(row);
+      }
+
+      const groups = [...map.values()];
+      for(const g of groups){
+        // Keep a stable default order; Family view re-splits into Parent/Child branches.
+        g.rows.sort((a, b) => (a.member?.name || '').localeCompare(b.member?.name || ''));
+      }
+      groups.sort((a, b) => {
+        if(a.isUngrouped !== b.isUngrouped) return a.isUngrouped ? 1 : -1;
+        return a.name.localeCompare(b.name);
+      });
+      return groups;
     }
 
     function buildEsscReportModel(){
@@ -2381,6 +3212,7 @@
     }
 
     function renderVoterReport(){
+      updateVoterFilterHelp();
       const model = buildMembershipReportModel();
       const container = document.getElementById('voterReportContent');
       if(!container) return;
@@ -2405,6 +3237,31 @@
       }
 
       const reportCols = Object.fromEntries(model.columns.map(c => [c.key, true]));
+      const footer = `
+        <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
+          Meeting record date: ${esc(formatReportDate(model.meetingRecordDate || meetingRecordDateISO()))}
+          · ${esc(model.periodLabel)} · Records: ${model.recordCount}
+          ${model.layout === 'family-tree' ? ` · Families: ${model.familyCount ?? 0}` : ''}
+        </div>`;
+
+      if(model.layout === 'family-tree'){
+        const groups = model.familyGroups || groupMembershipRowsByFamily(model.rows);
+        const treeHtml = groups.map(group => {
+          return `
+            <details class="family-tree-family" open>
+              <summary>
+                <span class="tree-twist" aria-hidden="true"></span>
+                <span class="tree-folder" aria-hidden="true"></span>
+                <span class="min-w-0 truncate">${esc(group.name)}</span>
+                <span class="tree-count">${group.rows.length} member${group.rows.length === 1 ? '' : 's'}</span>
+              </summary>
+              <div class="family-tree-children">${renderFamilyDirectoryCard(group)}</div>
+            </details>`;
+        }).join('');
+        container.innerHTML = `<div class="family-tree">${treeHtml}</div>${footer}`;
+        return;
+      }
+
       const rowsHtml = model.rows.map(row => `
           <tr class="hover:bg-slate-50">
             <td class="px-3 py-2 font-medium">${row.cells.nameHtml}</td>
@@ -2418,22 +3275,11 @@
                 ${esc(row.cells.eligibility)}
               </span>
             </td>` : ''}
-            ${reportCols.period ? `<td class="px-3 py-2 text-sm text-slate-600" title="From ${esc(model.periodFrom)} up to ${esc(model.periodTo)}">${esc(row.cells.period)}</td>` : ''}
+            ${reportCols.period ? `<td class="px-3 py-2 text-sm text-slate-600" title="${esc(model.periodLabel)}">${esc(row.cells.period)}</td>` : ''}
           </tr>
         `).join('');
 
       container.innerHTML = `
-        <div class="mb-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600">
-          <strong>Eligibility Criteria:</strong><br/>
-          1. Status must be <strong>Active</strong> and Membership Category <strong>Member</strong><br/>
-          2. Attended at least <strong>2 services</strong> from the most recent AGM up to today<br/>
-          3. <strong>18+</strong> by birth month as of today — <em>or</em>, if birth month/year is not recorded yet, Group/Ministry must <strong>not</strong> be RE(E), RE(J), or RE(K)
-          ${model.filterKey === 'activeatt' ? '<br/><br/><strong>Active Members filter:</strong> only ≥2 services from the most recent AGM up to today.' : ''}
-          ${model.filterKey === 'membership' ? '<br/><br/><strong>Membership filter:</strong> Membership Category = Member and Status not Inactive/Lost.' : ''}
-          ${model.filterKey === 'trueseekers' ? '<br/><br/><strong>True Seekers filter:</strong> Membership Category = True Seeker.' : ''}
-          ${model.filterKey === 'visiting' ? '<br/><br/><strong>Visiting Members filter:</strong> Membership Category = Visiting Member.' : ''}
-          ${model.filterKey === 'inactive' ? '<br/><br/><strong>Inactive filter:</strong> Status = Inactive.' : ''}
-        </div>
         <table class="min-w-full text-sm">
           <thead class="bg-slate-100 text-slate-700">
             <tr>
@@ -2447,9 +3293,7 @@
             ${rowsHtml}
           </tbody>
         </table>
-        <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
-          Period: ${esc(model.periodFrom)} (Most recent AGM) → ${esc(model.periodTo)} (Today) · Records: ${model.recordCount}
-        </div>
+        ${footer}
       `;
     }
 
@@ -2460,6 +3304,7 @@
           <div style="font-size:14px;font-weight:700;">${esc(model.churchName || 'TJCKW Service & Membership Record')}</div>
           <div style="font-size:18px;font-weight:700;margin-top:4px;">${esc(model.title)}</div>
           <div style="margin-top:10px;font-size:12px;line-height:1.5;">
+            ${model.meetingRecordDate ? `<div><strong>Meeting record date:</strong> ${esc(formatReportDate(model.meetingRecordDate))}</div>` : ''}
             ${model.periodLabel ? `<div><strong>Period:</strong> ${esc(model.periodLabel)}</div>` : ''}
             <div><strong>Filter:</strong> ${esc(model.filterLabel || '—')}</div>
             <div><strong>Records:</strong> ${model.recordCount}</div>
@@ -2473,7 +3318,70 @@
       }
 
       if(model.type === 'membership'){
-        const criteria = (model.criteria || []).map((c,i) => `<div>${i+1}. ${esc(c)}</div>`).join('');
+        if(model.layout === 'family-tree'){
+          const groups = model.familyGroups || groupMembershipRowsByFamily(model.rows);
+          const body = groups.map(group => {
+            const { parents, children, others } = splitFamilyRowsForTree(group);
+            const primaryRow = primaryRowForGroup(group);
+            const primaryDisp = primaryRow ? familyTreeContactDisplay(primaryRow, group) : null;
+            const householdParents = parents.filter(r => {
+              const d = familyTreeContactDisplay(r, group);
+              return d.isPrimary || d.sameAsPrimary;
+            });
+            const householdChildren = children.filter(r => {
+              const d = familyTreeContactDisplay(r, group);
+              return d.isPrimary || d.sameAsPrimary;
+            });
+            const householdOthers = others.filter(r => {
+              const d = familyTreeContactDisplay(r, group);
+              return d.isPrimary || d.sameAsPrimary;
+            });
+            const differentRows = [...parents, ...children, ...others].filter(r => {
+              const d = familyTreeContactDisplay(r, group);
+              return !d.isPrimary && !d.sameAsPrimary;
+            });
+
+            const nameLines = [
+              ...householdParents.map(r => ({ row: r, child: false })),
+              ...householdOthers.map(r => ({ row: r, child: false })),
+              ...householdChildren.map(r => ({ row: r, child: true }))
+            ].map(({ row, child }) => {
+              const pad = child ? '&nbsp;&nbsp;&nbsp;&nbsp;' : '';
+              return `<div style="font-size:12px;line-height:1.45;${child ? 'padding-left:16px;' : ''}">${pad}${esc(memberDirectoryNameText(row.member))}</div>`;
+            }).join('');
+
+            const householdBlock = `
+              <div style="margin:6px 0 10px 8px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                  <div style="min-width:0;flex:1;">${nameLines}</div>
+                  ${renderFamilyDirSidePrintHtml(primaryDisp, primaryRow?.member)}
+                </div>
+              </div>`;
+
+            const differentBlocks = differentRows.map(row => {
+              const disp = familyTreeContactDisplay(row, group);
+              return `<div style="margin:6px 0 10px 8px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                  <div style="font-size:12px;line-height:1.45;">${esc(memberDirectoryNameText(row.member))}</div>
+                  ${renderFamilyDirSidePrintHtml(disp, row.member)}
+                </div>
+              </div>`;
+            }).join('');
+
+            return `<section style="margin:0 0 12px;page-break-inside:avoid;">
+              <div style="font-weight:700;font-size:13px;">▸ ${esc(group.name)} <span style="font-weight:500;color:#555;">(${group.rows.length})</span></div>
+              ${householdBlock}${differentBlocks}
+            </section>`;
+          }).join('');
+
+          return `
+            ${heading}
+            <div style="font-size:11px;margin-bottom:8px;">Family directory · shared household contact · Families: ${model.familyCount ?? groups.filter(g => !g.isUngrouped).length}</div>
+            ${body || '<p>No matching records.</p>'}
+            <div style="margin-top:10px;font-size:11px;">Total records: ${model.recordCount}</div>
+          `;
+        }
+
         const thead = model.columns.map(c => `<th>${esc(c.label)}</th>`).join('');
         const tbody = model.rows.map(row => {
           const tds = model.columns.map(c => {
@@ -2483,8 +3391,7 @@
               return `<td><div style="font-weight:600;">${english}</div>${chinese}</td>`;
             }
             if(c.key === 'eligibility'){
-              const mark = row.cells.eligibility === 'Yes' ? 'Yes (Eligible)' : `${esc(row.cells.eligibility || 'No')} (Not Eligible)`;
-              return `<td>${mark}</td>`;
+              return `<td>${esc(row.cells.eligibility || '—')}<div style="font-size:10px;margin-top:2px;">${esc(row.cells.eligibilityDetail || '')}</div></td>`;
             }
             if(c.key === 'attendance'){
               const tone = row.cells.attendanceTone === 'high' ? 'High' : row.cells.attendanceTone === 'mid' ? 'Medium' : row.cells.attendanceTone === 'low' ? 'Low' : '';
@@ -2497,10 +3404,6 @@
 
         return `
           ${heading}
-          <section class="print-criteria" style="margin-bottom:12px;font-size:11px;line-height:1.45;border:1px solid #333;padding:8px;">
-            <div style="font-weight:700;margin-bottom:4px;">Eligibility criteria</div>
-            ${criteria}
-          </section>
           <table>
             <thead><tr>${thead}</tr></thead>
             <tbody>${tbody || `<tr><td colspan="${model.columns.length}">No matching records.</td></tr>`}</tbody>
@@ -2578,8 +3481,7 @@
     }
 
     function isREYouthGroup(group){
-      // Religious Education child/youth classes: RE(E), RE(J), RE(K)
-      // (and common variants like "RE (E)", "RE(E,J,K)", etc.)
+      // Kept for historical data display only — NEVER used for corporate voting eligibility.
       const g = (group || '').toUpperCase().replace(/\s+/g, '');
       if(!g) return false;
       if(/RE\([EJK]\)/.test(g)) return true;
@@ -2587,114 +3489,88 @@
       return false;
     }
 
+    function meetingRecordDateISO(){
+      // Same corporate meeting already used for Period: latest AGM in Services.
+      const agm = getMostRecentAgm();
+      if(agm?.date) return agm.date;
+      const egm = state.services
+        .filter(s => {
+          const t = (s.type||'').toUpperCase();
+          const ti = (s.title||'').toUpperCase();
+          return t === 'EGM' || ti.includes('EGM');
+        })
+        .slice()
+        .sort((a,b) => (b.date||'').localeCompare(a.date||''))[0];
+      return egm?.date || todayLocalISO();
+    }
+
     function getVoterStatus(memberId) {
-      // Voter Eligibility Criteria (TJCKW):
-      // 1. Status Active + Membership Category Member (no visitor category)
-      // 2. Attended ≥2 services from the most recent AGM up to today
-      //    ("Active Members" filter uses THIS criterion only)
-      // 3. Age 18+ by birth month as of today,
-      //    OR (if birth month/year is missing) Group/Ministry is NOT RE(E), RE(J), or RE(K)
-      
+      // Administrative attendance window (Active Members filter only) — NOT corporate voting.
       const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
-      
       const isAGM = (s) => {
         const t = (s.type||'').toUpperCase();
         const ti = (s.title||'').toUpperCase();
         return t === 'AGM' || ti.includes('AGM');
       };
-
-      // Anchor on the most recent AGM (e.g. February this year). The voting period
-      // runs from that AGM up to today.
       const anchorIdx = services.findIndex(isAGM);
-      if(anchorIdx === -1) return { eligible: false, text: 'No AGM', detail: 'No AGM found', ageCheck: null, attCheck: null };
-
-      const anchorAGM = services[anchorIdx];
       const todayStr = todayLocalISO();
       const member = state.members.find(m => m.id === memberId);
 
-      // Attendance (≥2 from the previous AGM up to now) — always computed so the
-      // "Active Members" filter can use it alone.
-      const rangeServices = services.filter(s => s.date > anchorAGM.date && s.date <= todayStr);
-      const attendedCount = rangeServices.reduce((acc, s) => acc + ((s.attendedBy||[]).includes(memberId) ? 1 : 0), 0);
-      const voterPeriod = `${anchorAGM.date} to ${todayStr}`;
-      const attCheck = {
-        passed: attendedCount >= 2,
-        count: attendedCount,
-        totalServices: rangeServices.length,
-        from: anchorAGM.date,
-        to: todayStr,
-        reason: attendedCount >= 2
-          ? ''
-          : `Attended ${attendedCount} services since the ${anchorAGM.date} AGM (need 2+)`
-      };
+      let attCheck = null;
+      if(anchorIdx >= 0){
+        const anchorAGM = services[anchorIdx];
+        const rangeServices = services.filter(s => s.date > anchorAGM.date && s.date <= todayStr);
+        const attendedCount = rangeServices.reduce((acc, s) => acc + ((s.attendedBy||[]).includes(memberId) ? 1 : 0), 0);
+        attCheck = {
+          passed: attendedCount >= 2,
+          count: attendedCount,
+          totalServices: rangeServices.length,
+          from: anchorAGM.date,
+          to: todayStr,
+          reason: attendedCount >= 2
+            ? ''
+            : `Attended ${attendedCount} services since the ${anchorAGM.date} AGM (need 2+)`
+        };
+      } else {
+        attCheck = { passed: false, count: 0, totalServices: 0, from: '', to: todayStr, reason: 'No AGM found' };
+      }
 
       if(!member){
         return {
           eligible: false,
-          text: 'No',
+          result: 'Not Eligible',
+          text: 'Not Eligible',
           detail: 'Member not found',
           color: 'bg-rose-50 text-rose-700',
+          reasons: [{ code: 'NO_PERSON', message: 'Member not found', severity: 'fail' }],
           ageCheck: null,
           attCheck
         };
       }
 
-      const memCat = getMembershipCategory(member);
-      const status = member.status || '';
-      const statusOk = status === 'Active'
-        && normalizeLabel(memCat) === 'member';
+      // Legal Voting Corporate Member evaluation (proposed by-law). Attendance/RE never grant votes.
+      VoterEligibility.migrateMemberCorporateVoting(member);
+      const legal = VoterEligibility.evaluateVoterEligibility(member, meetingRecordDateISO());
+      const ageEval = VoterEligibility.ageAsOfRecordDate(member, VoterEligibility.parseISODate(meetingRecordDateISO()) || new Date());
+      const ageCheck = ageEval.ok
+        ? { passed: true, age: ageEval.age, reason: '' }
+        : ageEval.reason === 'under18'
+          ? { passed: false, age: ageEval.age, reason: `Under 18 (age ${ageEval.age})` }
+          : { passed: false, age: null, reason: 'Date of birth missing or unverified' };
 
-      // Age 18+ by birth month as of today — or RE(E/J/K) workaround when birth date is missing
-      let ageCheck = { passed: false, age: null, reason: '' };
-      const hasBirthYear = !!(member.birthYear && String(member.birthYear).trim());
-      if(hasBirthYear){
-        const latestYear = parseInt(todayStr.split('-')[0]);
-        const birthMonth = member.birthMonth ? parseInt(member.birthMonth) : 12;
-        const birthYear = parseInt(member.birthYear);
-        const age = latestYear - birthYear;
-        
-        if(age > 18){
-          ageCheck = { passed: true, age: age, reason: '' };
-        } else if(age === 18){
-          const latestMonth = parseInt(todayStr.split('-')[1]) || 1;
-          if(birthMonth <= latestMonth){
-            ageCheck = { passed: true, age: 18, reason: '' };
-          } else {
-            ageCheck = { passed: false, age: 17, reason: `Turns 18 in ${monthNames[birthMonth-1]}` };
-          }
-        } else {
-          ageCheck = { passed: false, age: age, reason: `Must be 18+ (currently ${age})` };
-        }
-      } else if(isREYouthGroup(member.group)){
-        ageCheck = {
-          passed: false,
-          age: null,
-          reason: `No birth date; group "${member.group||''}" is RE(E/J/K)`
-        };
-      } else {
-        ageCheck = {
-          passed: true,
-          age: null,
-          reason: 'No birth date; group not RE(E/J/K)'
-        };
-      }
+      const reasonSuffix = legal.reasons.length
+        ? legal.reasons.map(r => r.message).join('; ')
+        : legal.detail;
 
-      const eligible = statusOk && ageCheck.passed && attCheck.passed;
-      let detail = [];
-      if(!statusOk){
-        if(status !== 'Active') detail.push(`Status is "${status||'—'}" (must be Active)`);
-        if(normalizeLabel(memCat) !== 'member') detail.push(`Membership Category is "${memCat||'—'}" (must be Member)`);
-      }
-      if(!ageCheck.passed) detail.push(ageCheck.reason);
-      if(!attCheck.passed) detail.push(attCheck.reason);
-      
-      return { 
-        eligible: eligible, 
-        text: eligible ? 'Yes' : 'No',
-        detail: detail.length > 0 ? detail.join('; ') : (ageCheck.age != null ? `Age ${ageCheck.age}, Attended ${attendedCount}` : `Attended ${attendedCount}`),
-        color: eligible ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-50 text-rose-700',
-        ageCheck: ageCheck,
-        attCheck: attCheck
+      return {
+        eligible: legal.eligible,
+        result: legal.result,
+        text: legal.result,
+        detail: reasonSuffix,
+        color: legal.color,
+        reasons: legal.reasons,
+        ageCheck,
+        attCheck
       };
     }
 
@@ -2703,7 +3579,7 @@
     function renderMembers(){
       const q = '';
       const statusFilter = memberFilterStatus.value;
-      const voterFilter = statusFilter === '__eligible_voter' || statusFilter === '__ineligible_voter';
+      const voterFilter = statusFilter === '__eligible_voter' || statusFilter === '__ineligible_voter' || statusFilter === '__needs_review_voter';
       const memCat = memberFilterMembershipCategory ? memberFilterMembershipCategory.value : '';
       const group = memberFilterGroup.value;
       const family = memberFilterFamily ? memberFilterFamily.value : '';
@@ -2712,8 +3588,9 @@
       rows = rows.filter(m => {
         const voter = voterFilter ? getVoterStatus(m.id) : null;
         const statusMatches = !statusFilter
-          || (statusFilter === '__eligible_voter' && voter?.eligible)
-          || (statusFilter === '__ineligible_voter' && !voter?.eligible)
+          || (statusFilter === '__eligible_voter' && (voter?.result === 'Eligible' || voter?.eligible))
+          || (statusFilter === '__needs_review_voter' && voter?.result === 'Needs Review')
+          || (statusFilter === '__ineligible_voter' && voter?.result === 'Not Eligible')
           || (!voterFilter && m.status === statusFilter);
         return statusMatches
           && (!voterFilter || normalizeLabel(getMembershipCategory(m)) === 'member')
@@ -2833,14 +3710,190 @@
       if(action) action.disabled = count < 2;
     }
 
+    let _attendanceCalCursor = null; // { year, monthIndex 0-11 }
+
+    function serviceHasAttendanceRecord(s){
+      if(!s) return false;
+      if(s.attendanceRecordedAt) return true;
+      return Array.isArray(s.attendedBy) && s.attendedBy.length > 0;
+    }
+
+    function servicesOnDate(dateISO){
+      return (state.services || []).filter(s => (s.date || '') === dateISO);
+    }
+
+    function ensureAttendanceCalCursor(){
+      if(_attendanceCalCursor) return _attendanceCalCursor;
+      const today = new Date();
+      _attendanceCalCursor = { year: today.getFullYear(), monthIndex: today.getMonth() };
+      return _attendanceCalCursor;
+    }
+
+    function shiftAttendanceCalMonth(delta){
+      const cur = ensureAttendanceCalCursor();
+      const d = new Date(cur.year, cur.monthIndex + delta, 1);
+      _attendanceCalCursor = { year: d.getFullYear(), monthIndex: d.getMonth() };
+      renderAttendanceCalendar();
+    }
+
+    function openAttendanceForDate(dateISO){
+      const dayServices = servicesOnDate(dateISO);
+      if(!dayServices.length){
+        toast('No service on this date');
+        return;
+      }
+      if(dayServices.length === 1){
+        const select = document.getElementById('attendanceServiceSelect');
+        if(select){
+          // Ensure option exists even if service already has attendance recorded
+          if(![...select.options].some(o => o.value === dayServices[0].id)){
+            const s = dayServices[0];
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = `${s.date || ''} - ${s.type || ''}${s.title ? ` (${s.title})` : ''} (review)`;
+            select.appendChild(opt);
+          }
+          select.value = dayServices[0].id;
+        }
+        showAttendanceForService(dayServices[0].id);
+        document.getElementById('attendanceContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      openModal('Services on ' + dateISO, `
+        <div class="grid gap-2 text-sm">
+          <p class="text-slate-600">Choose a service to review or update attendance.</p>
+          ${dayServices.map(s => {
+            const recorded = serviceHasAttendanceRecord(s);
+            return `<button type="button" class="rounded-xl border px-3 py-2 text-left hover:bg-slate-50" data-open-att-svc="${esc(s.id)}">
+              <div class="font-medium">${esc(s.type || 'Service')}${s.title ? ` · ${esc(s.title)}` : ''}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${recorded ? `Attendance recorded · ${Array.isArray(s.attendedBy) ? s.attendedBy.length : 0} present` : 'Attendance not recorded yet'}</div>
+            </button>`;
+          }).join('')}
+        </div>
+      `, 'max-w-lg');
+      modalBody.querySelectorAll('[data-open-att-svc]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-open-att-svc');
+          closeModal();
+          const select = document.getElementById('attendanceServiceSelect');
+          if(select && id){
+            if(![...select.options].some(o => o.value === id)){
+              const s = state.services.find(x => x.id === id);
+              if(s){
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = `${s.date || ''} - ${s.type || ''}${s.title ? ` (${s.title})` : ''} (review)`;
+                select.appendChild(opt);
+              }
+            }
+            select.value = id;
+          }
+          showAttendanceForService(id);
+          document.getElementById('attendanceContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    }
+
+    function renderAttendanceCalendar(){
+      const host = document.getElementById('attendanceReviewCalendar');
+      if(!host) return;
+
+      if(!(state.services || []).length){
+        host.innerHTML = '';
+        return;
+      }
+
+      const cur = ensureAttendanceCalCursor();
+      const year = cur.year;
+      const monthIndex = cur.monthIndex;
+      const monthStart = new Date(year, monthIndex, 1);
+      const monthName = monthStart.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+      const todayISO = todayLocalISO();
+
+      // Sunday-start grid covering the visible month
+      const startPad = monthStart.getDay(); // 0=Sun
+      const gridStart = new Date(year, monthIndex, 1 - startPad);
+      const cells = [];
+      for(let i = 0; i < 42; i++){
+        const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        const day = d.getDate();
+        const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const inMonth = m === monthIndex;
+        const dayServices = servicesOnDate(iso);
+        const recordedServices = dayServices.filter(serviceHasAttendanceRecord);
+        const hasRecorded = recordedServices.length > 0;
+        const hasOpen = dayServices.length > 0 && !hasRecorded;
+        let cls = 'att-cal-cell';
+        if(hasRecorded) cls += ' is-recorded';
+        else if(hasOpen) cls += ' is-open';
+        else cls += ' is-empty';
+        if(!inMonth) cls += ' is-outside';
+        if(iso === todayISO) cls += ' is-today';
+
+        const showMonthTag = day === 1 || (i === 0);
+        const tag = showMonthTag
+          ? `<span class="att-cal-month-tag">${d.toLocaleString(undefined, { month: 'short' }).toUpperCase()}</span>`
+          : '';
+        const count = hasRecorded
+          ? `<span class="att-cal-count">${recordedServices.reduce((n, s) => n + (Array.isArray(s.attendedBy) ? s.attendedBy.length : 0), 0) || '•'}</span>`
+          : (hasOpen ? `<span class="att-cal-count">…</span>` : '');
+
+        cells.push(`
+          <button type="button" class="${cls}" data-att-cal-day="${esc(iso)}" ${dayServices.length ? '' : 'disabled'} title="${esc(iso)}${hasRecorded ? ' · attendance recorded' : hasOpen ? ' · needs attendance' : ''}">
+            ${tag}
+            <span>${day}</span>
+            ${count}
+          </button>
+        `);
+      }
+
+      host.innerHTML = `
+        <div class="att-cal">
+          <div class="att-cal-header">
+            <div class="att-cal-title">Attendance schedule · ${esc(monthName)}</div>
+            <div class="att-cal-nav">
+              <button type="button" id="btnAttCalPrev" aria-label="Previous month">‹</button>
+              <button type="button" id="btnAttCalToday">Today</button>
+              <button type="button" id="btnAttCalNext" aria-label="Next month">›</button>
+            </div>
+          </div>
+          <div class="att-cal-legend">
+            <span><i class="att-cal-swatch is-recorded"></i> Attendance recorded</span>
+            <span><i class="att-cal-swatch is-open"></i> Service, not recorded</span>
+            <span><i class="att-cal-swatch is-empty"></i> No service</span>
+          </div>
+          <div class="att-cal-weekdays">
+            <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+          </div>
+          <div class="att-cal-grid">${cells.join('')}</div>
+        </div>
+      `;
+
+      document.getElementById('btnAttCalPrev')?.addEventListener('click', () => shiftAttendanceCalMonth(-1));
+      document.getElementById('btnAttCalNext')?.addEventListener('click', () => shiftAttendanceCalMonth(1));
+      document.getElementById('btnAttCalToday')?.addEventListener('click', () => {
+        const t = new Date();
+        _attendanceCalCursor = { year: t.getFullYear(), monthIndex: t.getMonth() };
+        renderAttendanceCalendar();
+      });
+      host.querySelectorAll('[data-att-cal-day]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if(btn.disabled) return;
+          openAttendanceForDate(btn.getAttribute('data-att-cal-day'));
+        });
+      });
+    }
+
     function renderAttendance(){
       const select = document.getElementById('attendanceServiceSelect');
       const previouslySelected = select.value;
       const allServices = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
       // Older records predate attendanceRecordedAt, so a non-empty roster also means complete.
-      const services = allServices.filter(s =>
-        !s.attendanceRecordedAt && !(Array.isArray(s.attendedBy) && s.attendedBy.length > 0)
-      );
+      const services = allServices.filter(s => !serviceHasAttendanceRecord(s));
+
+      renderAttendanceCalendar();
 
       if(allServices.length === 0){
         select.innerHTML = '<option value="">No services yet - add a service first</option>';
@@ -2853,9 +3906,13 @@
         `;
         document.getElementById('btnGoToServices')?.addEventListener('click', () => setActiveTab('services'));
       } else if(services.length === 0){
-        select.innerHTML = '<option value="">All service attendance has been recorded</option>';
-        document.getElementById('attendanceContent').innerHTML =
-          '<div class="rounded-xl border bg-emerald-50 border-emerald-200 p-6 text-center text-emerald-800">Attendance has been recorded for all services.</div>';
+        select.innerHTML = '<option value="">All service attendance has been recorded — use the schedule above to review</option>';
+        if(!previouslySelected || !allServices.some(s => s.id === previouslySelected)){
+          document.getElementById('attendanceContent').innerHTML =
+            '<div class="rounded-xl border bg-emerald-50 border-emerald-200 p-6 text-center text-emerald-800">Attendance has been recorded for all services. Tap a <strong>red</strong> day on the schedule to review.</div>';
+        } else {
+          showAttendanceForService(previouslySelected);
+        }
       } else {
         select.innerHTML = '<option value="">Select a service...</option>' + 
           services.map(s => `<option value="${esc(s.id)}">${esc(s.date||'')} - ${esc(s.type||'')} ${s.title ? '(' + esc(s.title) + ')' : ''}</option>`).join('');
@@ -2863,9 +3920,18 @@
         if(previouslySelected && services.some(s => s.id === previouslySelected)){
           select.value = previouslySelected;
           showAttendanceForService(previouslySelected);
+        } else if(previouslySelected && allServices.some(s => s.id === previouslySelected)){
+          // Keep reviewing a just-saved / already-recorded service
+          const s = allServices.find(x => x.id === previouslySelected);
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = `${s.date || ''} - ${s.type || ''}${s.title ? ` (${s.title})` : ''} (review)`;
+          select.appendChild(opt);
+          select.value = previouslySelected;
+          showAttendanceForService(previouslySelected);
         } else {
           document.getElementById('attendanceContent').innerHTML =
-            '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance</div>';
+            '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance, or tap a day on the schedule.</div>';
         }
       }
     }
@@ -3005,7 +4071,7 @@
 
       document.getElementById('btnCancelAttendance').addEventListener('click', () => {
         document.getElementById('attendanceServiceSelect').value = '';
-        content.innerHTML = '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance</div>';
+        renderAttendance();
       });
     }
 
@@ -3042,17 +4108,18 @@
       }).length;
     }
 
-    // Sum of attendance check-ins in the given services for members matching predicate.
-    function countAttendanceInServices(services, predicate){
-      let total = 0;
+    // Unique people who attended at least once in the given services (not total check-ins).
+    function countUniqueAttendeesInServices(services, predicate){
+      const seen = new Set();
       for(const s of services){
         const ids = Array.isArray(s?.attendedBy) ? s.attendedBy : [];
         for(const id of ids){
+          if(seen.has(id)) continue;
           const m = state.members.find(x => x.id === id);
-          if(m && predicate(m)) total++;
+          if(m && predicate(m)) seen.add(id);
         }
       }
-      return total;
+      return seen.size;
     }
 
     function renderReports(){
@@ -3066,7 +4133,7 @@
       kpiServices.textContent = String(totalServices);
       kpiAvgAttendance.textContent = avgAttendance.toFixed(1);
 
-      // Cache voter status once per member for Active / Eligible attendance totals
+      // Cache voter status once per member for Active / Eligible counts
       const voterById = new Map();
       const voterOf = (id) => {
         if(!voterById.has(id)) voterById.set(id, getVoterStatus(id));
@@ -3074,15 +4141,20 @@
       };
 
       const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = String(val); };
-      setTxt('kpiMembership', countAttendanceInServices(services, m => normalizeLabel(getMembershipCategory(m)) === 'member'));
-      setTxt('kpiTrueSeekers', countAttendanceInServices(services, isTrueSeeker));
-      setTxt('kpiActiveAttMembers', countAttendanceInServices(services, m => {
+      setTxt('kpiMembership', countUniqueAttendeesInServices(services, m => normalizeLabel(getMembershipCategory(m)) === 'member'));
+      setTxt('kpiTrueSeekers', countUniqueAttendeesInServices(services, isTrueSeeker));
+      setTxt('kpiActiveAttMembers', countUniqueAttendeesInServices(services, m => {
         const v = voterOf(m.id);
-        return !!(v.attCheck && v.attCheck.passed);
+        return normalizeLabel(getMembershipCategory(m)) === 'member'
+          && (m.status || '') === 'Active'
+          && !!(v.attCheck && v.attCheck.passed);
       }));
-      setTxt('kpiEligibleVoters', countAttendanceInServices(services, m => !!voterOf(m.id).eligible));
-      setTxt('kpiVisitingMembers', countAttendanceInServices(services, isVisitingPerson));
-      setTxt('kpiInactiveMembers', countAttendanceInServices(services, m => (m.status || '') === 'Inactive'));
+      setTxt('kpiEligibleVoters', countUniqueAttendeesInServices(services, m => {
+        const v = voterOf(m.id);
+        return v.result === 'Eligible' || !!v.eligible;
+      }));
+      setTxt('kpiVisitingMembers', countUniqueAttendeesInServices(services, isVisitingPerson));
+      setTxt('kpiInactiveMembers', countUniqueAttendeesInServices(services, m => (m.status || '') === 'Inactive'));
     }
 
 
@@ -3451,17 +4523,30 @@
       return out.trim();
     }
 
-    // Postal code auto-formatting (A1A 1A1)
-    function formatPostalCode(value){
+    // Postal / ZIP formatting (country-aware; US ZIP must not use Canadian rules)
+    function formatPostalCode(value, country){
+      const code = (typeof MemberAddressImport !== 'undefined')
+        ? (MemberAddressImport.countryCode(country) || MemberAddressImport.inferCountry('', value))
+        : 'CA';
+      if(typeof MemberAddressImport !== 'undefined'){
+        return MemberAddressImport.formatPostcode(value, code);
+      }
       const cleaned = (value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
       if(cleaned.length === 0) return '';
       if(cleaned.length <= 3) return cleaned;
       return cleaned.slice(0,3) + ' ' + cleaned.slice(3,6);
     }
 
-    // Canadian Postal Code Lookup (CORS-friendly)
+    function currentMemberCountry(){
+      return document.getElementById('memberCountry')?.value || 'CA';
+    }
+
+    // Canadian Postal Code Lookup (CORS-friendly) — skipped for US ZIP
     // Primary: Zippopotam.us (reliable for City/Province). Secondary: best-effort OSM Nominatim (sometimes provides a road).
     async function lookupPostalCode(postcode){
+      if(currentMemberCountry() === 'US'){
+        return { error: 'Postal lookup is for Canadian codes only. Enter US city/state manually.' };
+      }
       const cleaned = (postcode || '').replace(/\s+/g, '').toUpperCase();
       if(!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(cleaned)){
         return { error: 'Invalid postal code format. Use A1A 1A1.' };
@@ -3551,15 +4636,80 @@
       }
     }
 
+    function memberDobToInputValue(m){
+      if(!m) return '';
+      const dob = (m.dateOfBirth || '').toString().trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(dob)) return dob;
+      const y = (m.birthYear || '').toString().trim();
+      const mo = (m.birthMonth || '').toString().trim().padStart(2, '0');
+      const d = (m.birthDay || '').toString().trim().padStart(2, '0');
+      if(y && mo && d && Number(d) >= 1 && Number(d) <= 31) return `${y}-${mo}-${d}`;
+      // Month/year only (legacy): leave date blank so the user can enter a full DOB.
+      return '';
+    }
+
+    function dobPartsFromInput(isoDate){
+      const s = (isoDate || '').toString().trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m) return { dateOfBirth: '', birthYear: '', birthMonth: '', birthDay: '' };
+      return {
+        dateOfBirth: `${m[1]}-${m[2]}-${m[3]}`,
+        birthYear: m[1],
+        birthMonth: m[2],
+        birthDay: m[3]
+      };
+    }
+
     // CRUD: Members
+    function openMemberEditPopup(title){
+      const ws = document.getElementById('memberWorkspace');
+      const overlay = document.getElementById('memberEditOverlay');
+      const body = document.getElementById('memberEditPopupBody');
+      const titleEl = document.getElementById('memberEditPopupTitle');
+      if(!ws || !overlay || !body) return;
+      if(!_memberWorkspaceHome) _memberWorkspaceHome = ws.parentElement;
+      if(titleEl) titleEl.textContent = title || 'Edit Member';
+      const heading = document.getElementById('memberFormHeading');
+      if(heading) heading.classList.add('hidden');
+      body.appendChild(ws);
+      ws.classList.remove('hidden');
+      overlay.hidden = false;
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      _memberEditInPopup = true;
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeMemberEditPopup({ reset = true } = {}){
+      const ws = document.getElementById('memberWorkspace');
+      const overlay = document.getElementById('memberEditOverlay');
+      if(!_memberEditInPopup && overlay?.classList.contains('hidden')) {
+        if(reset) resetMemberForm();
+        return;
+      }
+      if(ws && _memberWorkspaceHome) _memberWorkspaceHome.appendChild(ws);
+      ws?.classList.add('hidden');
+      const heading = document.getElementById('memberFormHeading');
+      if(heading) heading.classList.remove('hidden');
+      if(overlay){
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        overlay.hidden = true;
+      }
+      _memberEditInPopup = false;
+      document.body.classList.remove('overflow-hidden');
+      if(reset) resetMemberForm();
+    }
+
     function startEditMember(id){
       const m = state.members.find(x => x.id === id);
       if(!m) return;
       setActiveTab('members');
       isEditing.member = true;
-      btnCancelEdit.classList.remove('hidden');
       document.getElementById('btnDeleteMember')?.classList.remove('hidden');
-      formTitle.textContent = 'Edit Member';
+      formTitle.textContent = 'Members';
+      const memberFormHeading = document.getElementById('memberFormHeading');
+      if(memberFormHeading) memberFormHeading.textContent = 'Edit Member';
 
       // Back-compat: allow older saved data that only had name/joined/address
       let firstName = m.firstName || '';
@@ -3590,8 +4740,7 @@
       document.getElementById('memberChineseName').value = m.chineseName || '';
       document.getElementById('memberPhone').value = m.phone || '';
       document.getElementById('memberEmail').value = m.email || '';
-      document.getElementById('memberBirthMonth').value = m.birthMonth || '';
-      document.getElementById('memberBirthYear').value = m.birthYear || '';
+      document.getElementById('memberDateOfBirth').value = memberDobToInputValue(m);
       document.getElementById('memberStatus').value = m.status || 'Active';
       document.getElementById('memberMembershipCategory').value = getMembershipCategory(m);
       document.getElementById('memberGroup').value = m.group || '';
@@ -3602,12 +4751,18 @@
       document.getElementById('memberStreet').value = m.street || '';
       document.getElementById('memberCity').value = m.city || '';
       document.getElementById('memberProvince').value = m.province || '';
-      document.getElementById('memberPostcode').value = m.postcode || '';
+      const countryEl = document.getElementById('memberCountry');
+      if(countryEl){
+        const inferred = MemberAddressImport.countryCode(m.country)
+          || MemberAddressImport.inferCountry(m.province, m.postcode)
+          || 'CA';
+        countryEl.value = inferred === 'US' ? 'US' : 'CA';
+      }
+      document.getElementById('memberPostcode').value = formatPostalCode(m.postcode || '', currentMemberCountry());
+      fillCorporateVotingForm(m);
       renderFamilies();
       renderMemberFamilyCard(m);
-      
-      // Scroll to form so user sees it
-      memberForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      openMemberEditPopup('Edit Member');
     }
 
     function deleteMember(id){
@@ -3629,7 +4784,7 @@
       const ok = saveState();
       if(ok){
         toast('Member deleted');
-        if(document.getElementById('memberId').value === id) resetMemberForm();
+        closeMemberEditPopup({ reset: true });
         render();
       } else {
         toast('Delete failed (storage blocked)');
@@ -3663,12 +4818,25 @@
       const street = document.getElementById('memberStreet').value.trim();
       const city = document.getElementById('memberCity').value.trim();
       const province = document.getElementById('memberProvince').value.trim();
-      const postcode = document.getElementById('memberPostcode').value.trim();
+      const country = currentMemberCountry();
+      const postcode = formatPostalCode(document.getElementById('memberPostcode').value.trim(), country);
 
       const joined = (joinYear && joinMonth) ? `${joinYear}-${joinMonth}` : (joinYear ? String(joinYear) : '');
       const address = [street, city, province, postcode].filter(Boolean).join(', ');
 
       const existing = state.members.find(x => x.id === document.getElementById('memberId').value);
+
+      const dobInput = (document.getElementById('memberDateOfBirth')?.value || '').trim();
+      let dobParts = dobPartsFromInput(dobInput);
+      // Preserve legacy month/year-only records when the DOB date field is still blank.
+      if(!dobInput && existing && !existing.dateOfBirth){
+        dobParts = {
+          dateOfBirth: '',
+          birthYear: existing.birthYear || '',
+          birthMonth: existing.birthMonth || '',
+          birthDay: existing.birthDay || ''
+        };
+      }
 
       const record = {
         id: document.getElementById('memberId').value || uid(),
@@ -3678,8 +4846,10 @@
         name: firstName + ' ' + lastName,
         phone: formatPhone(document.getElementById('memberPhone').value),
         email: document.getElementById('memberEmail').value.trim(),
-        birthMonth: document.getElementById('memberBirthMonth').value,
-        birthYear: document.getElementById('memberBirthYear').value,
+        dateOfBirth: dobParts.dateOfBirth,
+        birthDay: dobParts.birthDay,
+        birthMonth: dobParts.birthMonth,
+        birthYear: dobParts.birthYear,
         status: document.getElementById('memberStatus').value,
         membershipCategory: document.getElementById('memberMembershipCategory').value || 'Member',
         group: document.getElementById('memberGroup').value,
@@ -3695,7 +4865,9 @@
         city,
         province,
         postcode,
-        address
+        country,
+        address,
+        corporateVoting: readCorporateVotingFromForm()
       };
 
       const idx = state.members.findIndex(x => x.id === record.id);
@@ -3703,8 +4875,7 @@
       const ok = saveState();
       if(ok){
         toast('Member saved');
-        // Keep the record open so the Family card can be used immediately.
-        startEditMember(record.id);
+        closeMemberEditPopup({ reset: true });
         render();
       } else {
         toast('Save failed (storage blocked)');
@@ -3766,9 +4937,21 @@
       if(id) deleteMember(id);
     });
 
+    document.getElementById('btnCloseMemberEditPopup')?.addEventListener('click', () => {
+      closeMemberEditPopup({ reset: true });
+    });
+    document.getElementById('memberEditBackdrop')?.addEventListener('click', () => {
+      closeMemberEditPopup({ reset: true });
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && _memberEditInPopup){
+        closeMemberEditPopup({ reset: true });
+      }
+    });
+
     btnCancelEdit.addEventListener('click', () => {
       if(isEditing.service) resetServiceForm();
-      if(isEditing.member) resetMemberForm();
+      if(isEditing.member) closeMemberEditPopup({ reset: true });
       render();
     });
 
@@ -3792,6 +4975,7 @@
     });
 
     document.getElementById('btnManageStatuses').addEventListener('click', () => {
+      if(_memberEditInPopup) closeMemberEditPopup({ reset: true });
       setActiveTab('settings');
     });
 
@@ -3977,9 +5161,453 @@
     document.getElementById('reportRange').addEventListener('change', renderReports);
 
     // Membership Report
-    document.getElementById('voterFilterStatus').addEventListener('change', renderVoterReport);
+    document.getElementById('voterFilterStatus').addEventListener('change', () => {
+      updateVoterFilterHelp();
+      renderVoterReport();
+    });
     document.getElementById('btnVoterColumnOptions').addEventListener('click', openVoterColumnOptions);
     document.getElementById('btnExportEligibleExcel').addEventListener('click', exportEligibleVotersExcel);
+    document.getElementById('btnLegalRegisterTools')?.addEventListener('click', openLegalRegisterTools);
+    document.getElementById('fileLegalRegisterExcel')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if(file) await importLegalRegisterExcelFile(file);
+    });
+    document.getElementById('fileBoardMinutesExcel')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if(file) await importBoardMinutesExcelFile(file);
+    });
+
+    function parseTriFlag(v){
+      const s = (v ?? '').toString().trim().toLowerCase();
+      if(!s) return null;
+      if(['y','yes','true','1','certified','current','admitted','completed'].includes(s)) return true;
+      if(['n','no','false','0','ended','denied'].includes(s)) return false;
+      return null;
+    }
+
+    function findMemberForLegalImport({ memberId, firstName, lastName, fullName }){
+      if(memberId){
+        const byId = state.members.find(m => m.id === memberId);
+        if(byId) return byId;
+      }
+      const name = (fullName || `${firstName||''} ${lastName||''}`).trim().toLowerCase();
+      if(!name) return null;
+      const matches = state.members.filter(m => (m.name || '').trim().toLowerCase() === name);
+      return matches.length === 1 ? matches[0] : null;
+    }
+
+    function legalRegisterTemplateRows(){
+      const rows = state.members.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(m => {
+        const cv = VoterEligibility.ensureCorporateVoting(m);
+        return {
+          'Member ID': m.id || '',
+          'Full Name': m.name || '',
+          'First Name': m.firstName || '',
+          'Last Name': m.lastName || '',
+          'Good Standing Certified': cv.goodStandingCertified === true ? 'Yes' : cv.goodStandingCertified === false ? 'No' : '',
+          'Good Standing Date': cv.goodStandingCertifiedAt || '',
+          'Primary Registration Since': cv.primaryRegistrationSince || '',
+          'Residence In KW Since': cv.residenceInKwSince || '',
+          'Temporary Absence Approved': cv.temporaryAbsenceApproved === true ? 'Yes' : cv.temporaryAbsenceApproved === false ? 'No' : '',
+          'Temporary Absence Note': cv.temporaryAbsenceNote || '',
+          'Application Completed': cv.applicationCompleted === true ? 'Yes' : cv.applicationCompleted === false ? 'No' : '',
+          'Consent Completed': cv.consentCompleted === true ? 'Yes' : cv.consentCompleted === false ? 'No' : '',
+          'Purposes Acknowledged': cv.purposesAcknowledged === true ? 'Yes' : cv.purposesAcknowledged === false ? 'No' : '',
+          'Board Admitted': cv.boardAdmitted === true ? 'Yes' : cv.boardAdmitted === false ? 'No' : '',
+          'Board Admission Date': cv.boardAdmissionDate || '',
+          'Board Resolution Ref': cv.boardResolutionRef || '',
+          'Legal Register Entered At': cv.legalRegisterEnteredAt || '',
+          'Legal Register Current': cv.legalRegisterCurrent === true ? 'Yes' : cv.legalRegisterCurrent === false ? 'No' : '',
+          'Legal Register Ended At': cv.legalRegisterEndedAt || '',
+          'End Reason': cv.legalRegisterEndReason || ''
+        };
+      });
+      if(!rows.length){
+        rows.push({
+          'Member ID': '', 'Full Name': '', 'First Name': '', 'Last Name': '',
+          'Good Standing Certified': '', 'Good Standing Date': '',
+          'Primary Registration Since': '', 'Residence In KW Since': '',
+          'Temporary Absence Approved': '', 'Temporary Absence Note': '',
+          'Application Completed': '', 'Consent Completed': '', 'Purposes Acknowledged': '',
+          'Board Admitted': '', 'Board Admission Date': '', 'Board Resolution Ref': '',
+          'Legal Register Entered At': '', 'Legal Register Current': '',
+          'Legal Register Ended At': '', 'End Reason': ''
+        });
+      }
+      return rows;
+    }
+
+    function boardMinutesTemplateRows(){
+      const fromMinutes = (state.boardMinutes || []).flatMap(bm => {
+        const ids = Array.isArray(bm.admittedMemberIds) ? bm.admittedMemberIds : [];
+        if(!ids.length){
+          return [{
+            'Resolution Ref': bm.resolutionRef || '',
+            'Meeting Date': bm.date || '',
+            'Title': bm.title || '',
+            'Notes': bm.notes || '',
+            'Member ID': '',
+            'Full Name': '',
+            'Action': 'admit',
+            'Admission Date': bm.date || ''
+          }];
+        }
+        return ids.map(id => {
+          const m = state.members.find(x => x.id === id);
+          return {
+            'Resolution Ref': bm.resolutionRef || '',
+            'Meeting Date': bm.date || '',
+            'Title': bm.title || '',
+            'Notes': bm.notes || '',
+            'Member ID': id,
+            'Full Name': m?.name || '',
+            'Action': 'admit',
+            'Admission Date': bm.date || ''
+          };
+        });
+      });
+      if(fromMinutes.length) return fromMinutes;
+      return [{
+        'Resolution Ref': 'BR-2026-02-14',
+        'Meeting Date': '2026-02-14',
+        'Title': 'AGM Board admissions',
+        'Notes': '',
+        'Member ID': '',
+        'Full Name': '',
+        'Action': 'admit',
+        'Admission Date': '2026-02-14'
+      }];
+    }
+
+    function openLegalRegisterTools(){
+      const minutes = (state.boardMinutes || []).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      openModal('Legal Register / Board Minutes', `
+        <div class="grid gap-4 text-sm">
+          <p class="text-slate-600">Import updates only the legal-register fields on matched members. Blank cells leave existing values unchanged. Nobody is auto-granted Eligible without completed fields.</p>
+          <p class="text-xs text-slate-500">Accepted import formats: Excel (<code class="rounded bg-slate-100 px-1">.xlsx/.xls/.csv</code>), PDF (<code class="rounded bg-slate-100 px-1">.pdf</code>), and text (<code class="rounded bg-slate-100 px-1">.txt</code>). Text/PDF can use a header row (CSV/TSV) or <code class="rounded bg-slate-100 px-1">Field: value</code> blocks separated by blank lines.</p>
+          <div class="rounded-xl border p-3 grid gap-2">
+            <div class="font-semibold">Legal corporate membership register</div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="btnExportLegalRegisterTemplate" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Download template / current register</button>
+              <button type="button" id="btnImportLegalRegister" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Import legal register (Excel / PDF / Text)</button>
+            </div>
+          </div>
+          <div class="rounded-xl border p-3 grid gap-2">
+            <div class="font-semibold">Board minutes (admissions)</div>
+            <p class="text-xs text-slate-500">Use Action = admit or end. Matching Member ID (preferred) or exact Full Name.</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="btnExportBoardMinutesTemplate" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Download board minutes template</button>
+              <button type="button" id="btnImportBoardMinutes" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Import board minutes (Excel / PDF / Text)</button>
+            </div>
+            <div class="mt-2 max-h-40 overflow-auto text-xs text-slate-600">
+              ${minutes.length
+                ? minutes.map(bm => `<div class="border-b py-1"><span class="mono">${esc(bm.date||'')}</span> · ${esc(bm.resolutionRef||'—')} · ${esc(bm.title||'Board minutes')} · ${(bm.admittedMemberIds||[]).length} member(s)</div>`).join('')
+                : '<div class="text-slate-400">No board minutes imported yet.</div>'}
+            </div>
+          </div>
+        </div>
+      `);
+      document.getElementById('btnExportLegalRegisterTemplate')?.addEventListener('click', exportLegalRegisterTemplate);
+      document.getElementById('btnImportLegalRegister')?.addEventListener('click', () => document.getElementById('fileLegalRegisterExcel')?.click());
+      document.getElementById('btnExportBoardMinutesTemplate')?.addEventListener('click', exportBoardMinutesTemplate);
+      document.getElementById('btnImportBoardMinutes')?.addEventListener('click', () => document.getElementById('fileBoardMinutesExcel')?.click());
+    }
+
+    function exportLegalRegisterTemplate(){
+      try{
+        if(typeof XLSX === 'undefined'){ alert('Excel export is unavailable (SheetJS failed to load).'); return; }
+        const ws = XLSX.utils.json_to_sheet(legalRegisterTemplateRows());
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Legal Register');
+        XLSX.writeFile(wb, `legal-register-${todayLocalISO()}.xlsx`);
+        toast('Legal register template downloaded');
+      }catch(e){
+        console.error(e);
+        alert('Export failed.');
+      }
+    }
+
+    function exportBoardMinutesTemplate(){
+      try{
+        if(typeof XLSX === 'undefined'){ alert('Excel export is unavailable (SheetJS failed to load).'); return; }
+        const ws = XLSX.utils.json_to_sheet(boardMinutesTemplateRows());
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Board Minutes');
+        XLSX.writeFile(wb, `board-minutes-${todayLocalISO()}.xlsx`);
+        toast('Board minutes template downloaded');
+      }catch(e){
+        console.error(e);
+        alert('Export failed.');
+      }
+    }
+
+    async function readExcelRows(file){
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    }
+
+    function splitDelimitedLine(line, delimiter){
+      if(delimiter === ','){
+        // Simple CSV split that respects double quotes.
+        const out = [];
+        let cur = '';
+        let inQuotes = false;
+        for(let i = 0; i < line.length; i++){
+          const ch = line[i];
+          if(ch === '"'){
+            if(inQuotes && line[i+1] === '"'){ cur += '"'; i++; }
+            else inQuotes = !inQuotes;
+          } else if(ch === ',' && !inQuotes){
+            out.push(cur.trim());
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+        out.push(cur.trim());
+        return out;
+      }
+      return line.split(delimiter).map(s => s.trim());
+    }
+
+    function detectDelimiter(headerLine){
+      const counts = {
+        '\t': (headerLine.match(/\t/g) || []).length,
+        ',': (headerLine.match(/,/g) || []).length,
+        '|': (headerLine.match(/\|/g) || []).length,
+        ';': (headerLine.match(/;/g) || []).length
+      };
+      return Object.entries(counts).sort((a,b) => b[1] - a[1])[0][1] > 0
+        ? Object.entries(counts).sort((a,b) => b[1] - a[1])[0][0]
+        : ',';
+    }
+
+    function parseDelimitedTextToRows(text){
+      const lines = String(text || '')
+        .replace(/^\uFEFF/, '')
+        .split(/\r?\n/)
+        .map(l => l.trimEnd())
+        .filter((l, idx, arr) => !(idx === arr.length - 1 && l === ''));
+      if(!lines.length) return [];
+      const nonEmpty = lines.filter(l => l.trim());
+      if(!nonEmpty.length) return [];
+
+      // Key: value record blocks separated by blank lines
+      const looksLikeKv = nonEmpty.filter(l => /^[^:]{2,40}:\s*.+$/.test(l.trim())).length >= Math.max(2, Math.floor(nonEmpty.length * 0.5));
+      if(looksLikeKv){
+        const blocks = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n\s*\r?\n/);
+        const rows = [];
+        for(const block of blocks){
+          const row = {};
+          let has = false;
+          for(const line of block.split(/\r?\n/)){
+            const m = line.trim().match(/^([^:]{2,60}):\s*(.*)$/);
+            if(!m) continue;
+            row[m[1].trim()] = m[2].trim();
+            has = true;
+          }
+          if(has) rows.push(row);
+        }
+        if(rows.length) return rows;
+      }
+
+      const headerLine = nonEmpty[0];
+      const delimiter = detectDelimiter(headerLine);
+      const headers = splitDelimitedLine(headerLine, delimiter).filter(Boolean);
+      if(headers.length < 2) return [];
+      const rows = [];
+      for(const line of nonEmpty.slice(1)){
+        if(!line.trim()) continue;
+        const cells = splitDelimitedLine(line, delimiter);
+        const row = {};
+        headers.forEach((h, i) => { row[h] = (cells[i] ?? '').toString().trim(); });
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    async function extractPdfText(file){
+      if(typeof pdfjsLib === 'undefined'){
+        throw new Error('PDF support failed to load (pdf.js). Check internet/CDN access.');
+      }
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const parts = [];
+      for(let pageNo = 1; pageNo <= pdf.numPages; pageNo++){
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        let line = '';
+        let lastY = null;
+        for(const item of content.items){
+          const y = item.transform ? item.transform[5] : null;
+          if(lastY != null && y != null && Math.abs(lastY - y) > 2){
+            parts.push(line.trim());
+            line = '';
+          }
+          line += (item.str || '') + ' ';
+          lastY = y;
+        }
+        if(line.trim()) parts.push(line.trim());
+        parts.push('');
+      }
+      return parts.join('\n');
+    }
+
+    async function readLegalImportRows(file){
+      const name = (file?.name || '').toLowerCase();
+      const type = (file?.type || '').toLowerCase();
+      const isPdf = name.endsWith('.pdf') || type.includes('pdf');
+      const isText = name.endsWith('.txt') || name.endsWith('.text') || type.startsWith('text/');
+      const isCsv = name.endsWith('.csv');
+      const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls') || type.includes('sheet') || type.includes('excel');
+
+      if(isPdf){
+        const text = await extractPdfText(file);
+        const rows = parseDelimitedTextToRows(text);
+        if(!rows.length) throw new Error('No usable rows found in PDF text. Use a header table or Field: value blocks.');
+        return rows;
+      }
+      if(isText || isCsv){
+        const text = await file.text();
+        // Prefer SheetJS for CSV when available (handles quotes/encoding better).
+        if(isCsv && typeof XLSX !== 'undefined'){
+          try{
+            const wb = XLSX.read(text, { type: 'string' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+            if(rows.length) return rows;
+          }catch(_){ /* fall through to text parser */ }
+        }
+        const rows = parseDelimitedTextToRows(text);
+        if(!rows.length) throw new Error('No usable rows found in text file. Use CSV/TSV headers or Field: value blocks.');
+        return rows;
+      }
+      if(isExcel || typeof XLSX !== 'undefined'){
+        if(typeof XLSX === 'undefined') throw new Error('Excel import is unavailable (SheetJS failed to load).');
+        return readExcelRows(file);
+      }
+      // Last resort: try as text
+      const text = await file.text();
+      return parseDelimitedTextToRows(text);
+    }
+
+    async function importLegalRegisterExcelFile(file){
+      try{
+        const rawRows = await readLegalImportRows(file);
+        let updated = 0, unmatched = 0, skipped = 0;
+        for(const r of rawRows){
+          const norm = {};
+          for(const [k,v] of Object.entries(r||{})) norm[normalizeHeader(k)] = v;
+          const memberId = (valFromRow(norm, ['memberid','id']) ?? '').toString().trim();
+          const firstName = (valFromRow(norm, ['firstname']) ?? '').toString().trim();
+          const lastName = (valFromRow(norm, ['lastname']) ?? '').toString().trim();
+          const fullName = (valFromRow(norm, ['fullname','name']) ?? '').toString().trim();
+          const member = findMemberForLegalImport({ memberId, firstName, lastName, fullName });
+          if(!member){ unmatched++; continue; }
+          VoterEligibility.migrateMemberCorporateVoting(member);
+          const cv = member.corporateVoting;
+          const setIfPresent = (keys, apply) => {
+            const raw = valFromRow(norm, keys);
+            if(raw === '' || raw == null) return false;
+            apply(raw);
+            return true;
+          };
+          let changed = false;
+          changed = setIfPresent(['goodstandingcertified','goodstanding'], v => { cv.goodStandingCertified = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['goodstandingdate','goodstandingcertifiedat'], v => { cv.goodStandingCertifiedAt = excelToISODate(v) || String(v).trim(); }) || changed;
+          changed = setIfPresent(['primaryregistrationsince','registrationince','registrationdate'], v => { cv.primaryRegistrationSince = excelToISODate(v) || String(v).trim(); }) || changed;
+          changed = setIfPresent(['residenceinkwsince','residencesince','residencedate'], v => { cv.residenceInKwSince = excelToISODate(v) || String(v).trim(); }) || changed;
+          changed = setIfPresent(['temporaryabsenceapproved','tempabsence'], v => { cv.temporaryAbsenceApproved = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['temporaryabsencenote','tempabsencenote'], v => { cv.temporaryAbsenceNote = String(v).trim(); }) || changed;
+          changed = setIfPresent(['applicationcompleted','application'], v => { cv.applicationCompleted = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['consentcompleted','consent'], v => { cv.consentCompleted = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['purposesacknowledged','purposes'], v => { cv.purposesAcknowledged = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['boardadmitted','boardadmission'], v => { cv.boardAdmitted = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['boardadmissiondate','admissiondate'], v => { cv.boardAdmissionDate = excelToISODate(v) || String(v).trim(); }) || changed;
+          changed = setIfPresent(['boardresolutionref','resolutionref','resolution'], v => { cv.boardResolutionRef = String(v).trim(); }) || changed;
+          changed = setIfPresent(['legalregisterentereda','legalregisterenteredat','registerentered','enteredat'], v => { cv.legalRegisterEnteredAt = excelToISODate(v) || String(v).trim(); }) || changed;
+          changed = setIfPresent(['legalregistercurrent','registercurrent','current'], v => { cv.legalRegisterCurrent = parseTriFlag(v); }) || changed;
+          changed = setIfPresent(['legalregisterendedat','registerended','endedat'], v => { cv.legalRegisterEndedAt = excelToISODate(v) || String(v).trim(); }) || changed;
+          changed = setIfPresent(['endreason','legalregisterendreason','reason'], v => { cv.legalRegisterEndReason = String(v).trim(); }) || changed;
+          if(changed) updated++; else skipped++;
+        }
+        if(saveState()){
+          closeModal();
+          render();
+          toast(`Legal register import: ${updated} updated, ${skipped} unchanged, ${unmatched} unmatched`);
+        }
+      }catch(e){
+        console.error(e);
+        alert('Legal register import failed' + (e?.message ? `: ${e.message}` : '.'));
+      }
+    }
+
+    async function importBoardMinutesExcelFile(file){
+      try{
+        const rawRows = await readLegalImportRows(file);
+        let updated = 0, unmatched = 0;
+        const grouped = new Map();
+        for(const r of rawRows){
+          const norm = {};
+          for(const [k,v] of Object.entries(r||{})) norm[normalizeHeader(k)] = v;
+          const resolutionRef = (valFromRow(norm, ['resolutionref','boardresolutionref','resolution']) ?? '').toString().trim();
+          const meetingDate = excelToISODate(valFromRow(norm, ['meetingdate','date','boarddate'])) || '';
+          const title = (valFromRow(norm, ['title','subject','minutes']) ?? '').toString().trim();
+          const notes = (valFromRow(norm, ['notes','comments']) ?? '').toString().trim();
+          const action = ((valFromRow(norm, ['action','type']) ?? 'admit').toString().trim().toLowerCase()) || 'admit';
+          const admissionDate = excelToISODate(valFromRow(norm, ['admissiondate','boardadmissiondate'])) || meetingDate;
+          const memberId = (valFromRow(norm, ['memberid','id']) ?? '').toString().trim();
+          const fullName = (valFromRow(norm, ['fullname','name']) ?? '').toString().trim();
+          const member = findMemberForLegalImport({ memberId, fullName });
+          if(!member){ unmatched++; continue; }
+
+          VoterEligibility.migrateMemberCorporateVoting(member);
+          const cv = member.corporateVoting;
+          if(action === 'end' || action === 'terminate' || action === 'resign'){
+            cv.legalRegisterCurrent = false;
+            cv.legalRegisterEndedAt = admissionDate || todayLocalISO();
+            cv.legalRegisterEndReason = cv.legalRegisterEndReason || action;
+            if(resolutionRef) cv.boardResolutionRef = resolutionRef;
+          } else {
+            cv.boardAdmitted = true;
+            cv.boardAdmissionDate = admissionDate || '';
+            if(resolutionRef) cv.boardResolutionRef = resolutionRef;
+            if(!cv.legalRegisterEnteredAt && admissionDate) cv.legalRegisterEnteredAt = admissionDate;
+            if(cv.legalRegisterCurrent == null) cv.legalRegisterCurrent = true;
+          }
+          updated++;
+
+          const key = `${meetingDate}|${resolutionRef}|${title}`;
+          if(!grouped.has(key)){
+            grouped.set(key, {
+              id: uid(),
+              date: meetingDate,
+              resolutionRef,
+              title: title || 'Board minutes',
+              notes,
+              admittedMemberIds: [],
+              importedAt: new Date().toISOString()
+            });
+          }
+          const bm = grouped.get(key);
+          if(!bm.admittedMemberIds.includes(member.id)) bm.admittedMemberIds.push(member.id);
+          if(notes && !bm.notes) bm.notes = notes;
+        }
+        state.boardMinutes = (state.boardMinutes || []).concat([...grouped.values()]);
+        if(saveState()){
+          closeModal();
+          render();
+          toast(`Board minutes import: ${updated} member updates, ${unmatched} unmatched, ${grouped.size} minute set(s)`);
+        }
+      }catch(e){
+        console.error(e);
+        alert('Board minutes import failed' + (e?.message ? `: ${e.message}` : '.'));
+      }
+    }
 
     function renderSelectedReport(){
       const selected = document.getElementById('reportTypeSelect').value;
@@ -4002,7 +5630,7 @@
         ['Group', 'group'],
         ['Attendance %', 'attendance'],
         ['Age | Attendance', 'checks'],
-        ['Eligible?', 'eligibility'],
+        ['Voting Eligibility', 'eligibility'],
         ['Period', 'period']
       ];
       openModal('Membership Report Columns', `
@@ -4048,30 +5676,48 @@
           alert('Excel export is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
           return;
         }
-        const eligibleMembers = state.members.filter(m => getVoterStatus(m.id).eligible);
-        if(eligibleMembers.length === 0){
-          toast('No eligible voters to export');
-          return;
-        }
-        const rows = eligibleMembers
+        const evaluated = state.members
           .slice()
           .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-          .map(m => ({
-            'First Name': m.firstName || '',
-            'Last Name': m.lastName || '',
-            'Chinese Name': m.chineseName || '',
-            'Full Name': m.name || '',
-            'Status': m.status || '',
-            'Membership Category': getMembershipCategory(m),
-            'Group': m.group || '',
-            'Attendance %': (() => { const p = calculateAttendancePercentage(m.id); return p === null ? '' : p; })()
-          }));
-        const ws = XLSX.utils.json_to_sheet(rows);
+          .map(m => ({ member: m, voter: getVoterStatus(m.id) }));
+
+        const eligibleMembers = evaluated.filter(x => x.voter.result === 'Eligible' || x.voter.eligible === true);
+        const needsReview = evaluated.filter(x => x.voter.result === 'Needs Review');
+
+        if(eligibleMembers.length === 0 && needsReview.length === 0){
+          toast('No Eligible or Needs Review records to export');
+          return;
+        }
+
+        const toRow = (m, voter) => ({
+          'First Name': m.firstName || '',
+          'Last Name': m.lastName || '',
+          'Chinese Name': m.chineseName || '',
+          'Full Name': m.name || '',
+          'Status': m.status || '',
+          'Membership Category': getMembershipCategory(m),
+          'Group': m.group || '',
+          'Family': getMemberFamily(m) || '',
+          'Voting Eligibility': voter.result || '',
+          'Reasons': voter.detail || '',
+          'Attendance %': (() => { const p = calculateAttendancePercentage(m.id); return p === null ? '' : p; })()
+        });
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Eligible Voters');
+        if(eligibleMembers.length){
+          const ws = XLSX.utils.json_to_sheet(eligibleMembers.map(x => toRow(x.member, x.voter)));
+          XLSX.utils.book_append_sheet(wb, ws, 'Eligible Voters');
+        } else {
+          const ws = XLSX.utils.json_to_sheet([{ Note: 'No records evaluated as Eligible. Complete legal-register fields for Voting Corporate Members.' }]);
+          XLSX.utils.book_append_sheet(wb, ws, 'Eligible Voters');
+        }
+        if(needsReview.length){
+          const wsReview = XLSX.utils.json_to_sheet(needsReview.map(x => toRow(x.member, x.voter)));
+          XLSX.utils.book_append_sheet(wb, wsReview, 'Needs Review');
+        }
         const filename = `eligible-voters-${todayLocalISO()}.xlsx`;
         XLSX.writeFile(wb, filename);
-        toast(`${rows.length} eligible voters exported`);
+        toast(`Exported ${eligibleMembers.length} Eligible` + (needsReview.length ? ` + ${needsReview.length} Needs Review` : ''));
       }catch(e){
         console.error('Export Eligible Voters Excel failed:', e);
         alert('Export failed in this browser. Try Chrome/Edge or disable strict download blockers.');
@@ -4100,6 +5746,7 @@
           state.meta = state.meta || {};
           state.meta.lastSavedAt = new Date().toISOString();
           state.meta.dirty = false;
+          clearAddressImportUndo();
         }
         saveState();
         _suppressDirtyFlag = false;
@@ -4515,7 +6162,9 @@
             street: '',
             city: '',
             province: '',
-            postcode: ''
+            postcode: '',
+            country: 'CA',
+            address: ''
           };
           state.members.push(record);
           const ok = saveState();
@@ -4603,6 +6252,8 @@
           'Holy Spirit Date': m.holySpiritDate || '',
           'Birth Month': m.birthMonth || '',
           'Birth Year': m.birthYear || '',
+          'Birth Day': m.birthDay || '',
+          'Date of Birth': m.dateOfBirth || memberDobToInputValue(m) || '',
           'Join Month': m.joinMonth || '',
           'Join Year': m.joinYear || '',
           'Joined': joined,
@@ -4616,33 +6267,86 @@
       });
     }
 
-    function membersToCollectionRows(){
-      const rows = state.members.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(m => ({
-        'Member ID': m.id || '',
-        'First Name': m.firstName || '',
-        'Last Name': m.lastName || '',
-        'Chinese Name': m.chineseName || '',
-        'Phone': m.phone || '',
-        'Email': m.email || '',
-        'Birth Month': m.birthMonth || '',
-        'Birth Year': m.birthYear || '',
-        'Baptism Date': m.baptismDate || '',
-        'Holy Spirit Date': m.holySpiritDate || '',
-        'Join Month': m.joinMonth || '',
-        'Join Year': m.joinYear || '',
-        'Street': m.street || '',
-        'City': m.city || '',
-        'Province': m.province || '',
-        'Postcode': m.postcode || '',
-        'Family': getMemberFamily(m) || '',
-        'Notes': ''
-      }));
+    function familiesToCollectionRows(){
+      const families = (state.families || [])
+        .filter(FamilyDomain.isFamilyEntity)
+        .slice()
+        .sort((a,b) => (a.displayName||'').localeCompare(b.displayName||''));
+      const rows = [];
+      const linked = new Set();
+      for(const family of families){
+        const members = FamilyDomain.getFamilyMembers(state, family.id)
+          .slice()
+          .sort(compareMembersForList);
+        if(!members.length){
+          rows.push({
+            'Family ID': family.id || '',
+            'Family Name': family.displayName || '',
+            'Member ID': '',
+            'First Name': '',
+            'Last Name': '',
+            'Chinese Name': '',
+            'Relationship Role': '',
+            'Phone': '',
+            'Email': '',
+            'Street': '',
+            'City': '',
+            'Province': '',
+            'Postcode': '',
+            'Notes': ''
+          });
+          continue;
+        }
+        for(const m of members){
+          linked.add(m.id);
+          const role = FamilyDomain.getFamilyMembership(state, m.id)?.relationshipRole || '';
+          rows.push({
+            'Family ID': family.id || '',
+            'Family Name': family.displayName || '',
+            'Member ID': m.id || '',
+            'First Name': m.firstName || '',
+            'Last Name': m.lastName || '',
+            'Chinese Name': m.chineseName || '',
+            'Relationship Role': role,
+            'Phone': m.phone || '',
+            'Email': m.email || '',
+            'Street': m.street || '',
+            'City': m.city || '',
+            'Province': m.province || '',
+            'Postcode': m.postcode || '',
+            'Notes': ''
+          });
+        }
+      }
+      // Unlinked members — still collectable / assignable to a family via Family Name
+      state.members
+        .filter(m => !linked.has(m.id))
+        .slice()
+        .sort(compareMembersForList)
+        .forEach(m => {
+          rows.push({
+            'Family ID': '',
+            'Family Name': getMemberFamily(m) || '',
+            'Member ID': m.id || '',
+            'First Name': m.firstName || '',
+            'Last Name': m.lastName || '',
+            'Chinese Name': m.chineseName || '',
+            'Relationship Role': '',
+            'Phone': m.phone || '',
+            'Email': m.email || '',
+            'Street': m.street || '',
+            'City': m.city || '',
+            'Province': m.province || '',
+            'Postcode': m.postcode || '',
+            'Notes': ''
+          });
+        });
       if(!rows.length){
         rows.push({
-          'Member ID': '', 'First Name': '', 'Last Name': '', 'Chinese Name': '',
-          'Phone': '', 'Email': '', 'Birth Month': '', 'Birth Year': '',
-          'Baptism Date': '', 'Holy Spirit Date': '', 'Join Month': '', 'Join Year': '',
-          'Street': '', 'City': '', 'Province': '', 'Postcode': '', 'Family': '', 'Notes': ''
+          'Family ID': '', 'Family Name': '', 'Member ID': '',
+          'First Name': '', 'Last Name': '', 'Chinese Name': '',
+          'Relationship Role': '', 'Phone': '', 'Email': '',
+          'Street': '', 'City': '', 'Province': '', 'Postcode': '', 'Notes': ''
         });
       }
       return rows;
@@ -4670,41 +6374,41 @@
       }
     }
 
-    function exportMemberCollectionTemplate(){
+    function exportFamilyCollectionTemplate(){
       try{
         if(typeof XLSX === 'undefined'){
           alert('Excel export is unavailable (SheetJS failed to load). Please check internet access or CDN blocking.');
           return;
         }
-        const rows = membersToCollectionRows();
+        const rows = familiesToCollectionRows();
         const ws = XLSX.utils.json_to_sheet(rows);
         const instructions = XLSX.utils.aoa_to_sheet([
-          ['TJCKW Member Information Collection'],
+          ['TJCKW Family Information Collection'],
           [''],
           ['How to use'],
-          ['1. Keep the Member ID column unchanged when updating existing members.'],
-          ['2. Ask members to fill blank cells only (Chinese name, phone, birth month/year, address, baptism/HS dates, etc.).'],
-          ['3. You can also share member-info-form.html so individuals fill a form and send back a JSON file.'],
-          ['4. In the app, use Import Updates and choose Fill missing only.'],
+          ['1. Keep Family ID and Member ID unchanged when updating existing records.'],
+          ['2. Fill shared household contact/address fields per family member row (Street, City, Province, Postcode, Phone, Email).'],
+          ['3. Relationship Role examples: Husband, Wife, Son, Daughter, Father, Mother (optional).'],
+          ['4. Import with Import Updates. Use Fill missing only, or Overwrite provided fields for household updates.'],
+          ['5. After import, any field can still be overwritten in Edit Member on that person.'],
           [''],
-          ['Birth Month tip: use 01-12 (January = 01).'],
-          ['Date tip: use YYYY-MM-DD for Baptism Date and Holy Spirit Date.']
+          ['Tip: Prefer Member ID matching. Family Name links/creates households when Family ID is blank.']
         ]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, instructions, 'Instructions');
-        XLSX.utils.book_append_sheet(wb, ws, 'Member Info');
-        XLSX.writeFile(wb, `member-info-collection-${todayLocalISO()}.xlsx`);
-        toast('Collection Excel downloaded');
+        XLSX.utils.book_append_sheet(wb, ws, 'Family Info');
+        XLSX.writeFile(wb, `family-info-collection-${todayLocalISO()}.xlsx`);
+        toast('Family collection Excel downloaded');
       }catch(e){
-        console.error('Export collection template failed:', e);
-        alert('Could not create the collection Excel file.');
+        console.error('Export family collection template failed:', e);
+        alert('Could not create the family collection Excel file.');
       }
     }
 
     function openCollectMemberInfoHelp(){
       openModal('Collect Member Information', `
         <div class="grid gap-4 text-sm text-slate-700">
-          <p>Use either method below. Both can be imported back into this app to fill missing member fields.</p>
+          <p>Use either method below. Imported values can still be overwritten later in <strong>Edit Member</strong>.</p>
           <div class="rounded-xl border p-3">
             <div class="font-semibold">Option A — Shareable form (best for individuals)</div>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-slate-600">
@@ -4717,20 +6421,22 @@
             </div>
           </div>
           <div class="rounded-xl border p-3">
-            <div class="font-semibold">Option B — Excel collection sheet (best for many members)</div>
+            <div class="font-semibold">Option B — Family info &amp; addresses (best for households)</div>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-slate-600">
-              <li>Download the Excel template (includes Member ID for matching).</li>
-              <li>Send the sheet for members to complete blank cells.</li>
-              <li>Import the completed Excel with <strong>Fill missing only</strong>.</li>
+              <li>Download the family Excel template (Family ID + Member ID for matching).</li>
+              <li>Enter phone, email, street, city, province, and postcode on each family member row that should receive them.</li>
+              <li>Import the filled Excel with <strong>Import Updates</strong> (Fill missing only, or Overwrite provided fields).</li>
+              <li>Open anyone in <strong>Edit Member</strong> to adjust individual fields afterward.</li>
             </ol>
-            <div class="mt-3">
-              <button id="btnDownloadCollectionExcel" type="button" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Download Collection Excel</button>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button id="btnDownloadCollectionExcel" type="button" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Download Family Collection Excel</button>
             </div>
+            <p class="mt-2 text-xs text-slate-500">Addresses are updated through this Excel + Import Updates flow. Use Member ID matching so the correct person receives each address.</p>
           </div>
           <p class="text-xs text-slate-500">Tip: Prefer Member ID matching. If Member ID is blank, matching falls back to name + phone.</p>
         </div>
       `, 'max-w-2xl');
-      document.getElementById('btnDownloadCollectionExcel')?.addEventListener('click', exportMemberCollectionTemplate);
+      document.getElementById('btnDownloadCollectionExcel')?.addEventListener('click', exportFamilyCollectionTemplate);
     }
 
     function normalizeHeader(h){
@@ -4788,9 +6494,10 @@
         const email = (valFromRow(norm, ['email','emailaddress']) ?? '').toString().trim();
         const status = (valFromRow(norm, ['status']) ?? '').toString().trim();
         const group = (valFromRow(norm, ['group','ministry','department']) ?? '').toString().trim();
-        const family = (valFromRow(norm, ['family','household','familytree']) ?? '').toString().trim();
+        const family = (valFromRow(norm, ['family','household','familytree','familyname']) ?? '').toString().trim();
         const familyId = (valFromRow(norm, ['familyid','householdid']) ?? '').toString().trim();
         const notes = (valFromRow(norm, ['notes','adminnotes','comments']) ?? '').toString().trim();
+        const relationshipRole = (valFromRow(norm, ['relationshiprole','role','familyrole']) ?? '').toString().trim();
 
         let membershipCategory = (valFromRow(norm, ['membershipcategory','membership','visitorcategory','category']) ?? '').toString().trim();
         let statusVal = status;
@@ -4824,10 +6531,28 @@
 
         const baptismDate = excelToISODate(valFromRow(norm, ['baptismdate','baptism','dateofbaptism']));
         const holySpiritDate = excelToISODate(valFromRow(norm, ['holyspiritdate','holyspirit','dateofholyspirit','receivedholyspiritdate']));
+        let dateOfBirth = excelToISODate(valFromRow(norm, ['dateofbirth','dob','birthdate']));
         let birthMonth = (valFromRow(norm, ['birthmonth','bmonth','dobmonth']) ?? '').toString().trim();
         let birthYear = (valFromRow(norm, ['birthyear','byear','dobyear']) ?? '').toString().trim();
+        let birthDay = (valFromRow(norm, ['birthday','bday','dobday','dayofbirth']) ?? '').toString().trim();
+        // If "Birth Day" came through as a full date, treat it as dateOfBirth instead.
+        const birthDayAsDate = excelToISODate(birthDay);
+        if(birthDayAsDate){
+          dateOfBirth = dateOfBirth || birthDayAsDate;
+          birthDay = '';
+        }
         const bmNum = Number(birthMonth);
         if(birthMonth && isFinite(bmNum) && bmNum >= 1 && bmNum <= 12) birthMonth = String(bmNum).padStart(2,'0');
+        const bdNum = Number(birthDay);
+        if(birthDay && isFinite(bdNum) && bdNum >= 1 && bdNum <= 31) birthDay = String(bdNum).padStart(2,'0');
+        if(dateOfBirth){
+          const parts = dobPartsFromInput(dateOfBirth);
+          birthYear = parts.birthYear || birthYear;
+          birthMonth = parts.birthMonth || birthMonth;
+          birthDay = parts.birthDay || birthDay;
+        } else if(birthYear && birthMonth && birthDay){
+          dateOfBirth = `${String(birthYear).padStart(4,'0')}-${birthMonth}-${birthDay}`;
+        }
         let joinMonth = (valFromRow(norm, ['joinmonth','jmonth','membermonth']) ?? '').toString().trim();
         let joinYear = (valFromRow(norm, ['joinyear','jyear','memberyear']) ?? '').toString().trim();
         const jmNum = Number(joinMonth);
@@ -4842,10 +6567,10 @@
         mapped.push({
           memberId, firstName: fn, lastName: ln, chineseName,
           name: (fn + ' ' + ln).trim(),
-          phone: formatPhone(phoneRaw), email, birthMonth, birthYear,
+          phone: formatPhone(phoneRaw), email, dateOfBirth, birthDay, birthMonth, birthYear,
           status: statusVal, membershipCategory, group, family, familyId,
           category: '', baptismDate, holySpiritDate, joinMonth, joinYear, joined,
-          street, city, province, postcode, address, notes
+          street, city, province, postcode, address, notes, relationshipRole
         });
       }
       return mapped;
@@ -4866,14 +6591,21 @@
       const city = String(obj.city || '').trim();
       const province = String(obj.province || '').trim();
       const postcode = formatPostalCode(String(obj.postcode || ''));
+      const dateOfBirth = excelToISODate(obj.dateOfBirth || obj.dob || '') || '';
+      const dobParts = dateOfBirth ? (() => {
+        const m = dateOfBirth.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        return m ? { birthYear: m[1], birthMonth: m[2], birthDay: m[3] } : null;
+      })() : null;
       return {
         memberId, firstName, lastName,
         chineseName: String(obj.chineseName || '').trim(),
         name: String(obj.name || `${firstName} ${lastName}`).trim(),
         phone: formatPhone(String(obj.phone || '')),
         email: String(obj.email || '').trim(),
-        birthMonth: String(obj.birthMonth || '').trim(),
-        birthYear: String(obj.birthYear || '').trim(),
+        birthMonth: dobParts?.birthMonth || String(obj.birthMonth || '').trim(),
+        birthYear: dobParts?.birthYear || String(obj.birthYear || '').trim(),
+        birthDay: dobParts?.birthDay || String(obj.birthDay || '').trim(),
+        dateOfBirth,
         status: String(obj.status || '').trim(),
         membershipCategory: String(obj.membershipCategory || '').trim(),
         group: String(obj.group || '').trim(),
@@ -4909,7 +6641,7 @@
       const out = { ...(existing || {}) };
       const fields = [
         'firstName','lastName','chineseName','phone','email',
-        'birthMonth','birthYear','baptismDate','holySpiritDate',
+        'birthMonth','birthYear','birthDay','dateOfBirth','baptismDate','holySpiritDate',
         'joinMonth','joinYear','street','city','province','postcode',
         'status','membershipCategory','group'
       ];
@@ -4971,7 +6703,12 @@
         }
         if(targetFamily){
           working.familyMembers = (working.familyMembers||[]).filter(fm => fm.memberId !== existingId);
-          working.familyMembers.push(FamilyDomain.createMembership({ familyId:targetFamily.id, memberId:existingId, nowFn:() => new Date() }));
+          working.familyMembers.push(FamilyDomain.createMembership({
+            familyId: targetFamily.id,
+            memberId: existingId,
+            relationshipRole: imported.relationshipRole || '',
+            nowFn:() => new Date()
+          }));
         }
       }
       FamilyDomain.migrateFamilies(working, { uid, nowFn:() => new Date() });
@@ -4994,7 +6731,9 @@
         }
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: 'array' });
-        const preferred = wb.SheetNames.find(n => /member/i.test(n)) || wb.SheetNames[0];
+        const preferred = wb.SheetNames.find(n => /family/i.test(n))
+          || wb.SheetNames.find(n => /member/i.test(n))
+          || wb.SheetNames[0];
         const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[preferred], { defval: '' });
         parsed = parseExcelMembers(rawRows);
       }
@@ -5123,6 +6862,227 @@
       } finally {
         e.target.value = '';
       }
+    });
+
+    // --- Import Member Addresses (location CSV, local-only) ---
+    let _addressImportUndo = null;
+    let _addressImportConflictChoices = {};
+
+    function updateAddressImportUndoButton(){
+      const btn = document.getElementById('btnUndoAddressImport');
+      if(!btn) return;
+      btn.classList.toggle('hidden', !_addressImportUndo);
+    }
+
+    function clearAddressImportUndo(){
+      _addressImportUndo = null;
+      updateAddressImportUndoButton();
+    }
+
+    async function startMemberAddressImportPicker(){
+      if(!requireSharedRecordForAddressImport()) return;
+      const freshOk = await ensureFreshDriveBeforeNewEntry();
+      if(!freshOk) return;
+      document.getElementById('fileMemberAddresses')?.click();
+    }
+
+    function undoLastAddressImport(){
+      if(!_addressImportUndo){
+        toast('Nothing to undo');
+        return;
+      }
+      if(!confirm('Undo the last address import and restore the previous member addresses?')) return;
+      const restored = MemberAddressImport.restoreAddressImport(_addressImportUndo, {
+        cloneState: (s) => FamilyDomain.cloneState(s)
+      });
+      if(!restored) return;
+      state = restored;
+      clearAddressImportUndo();
+      const ok = saveState();
+      if(ok){
+        toast('Address import undone');
+        render();
+      } else {
+        toast('Undo restored in memory but saving is blocked');
+      }
+    }
+
+    function requireSharedRecordForAddressImport(){
+      if(didOpenFromDriveThisSession()) return true;
+      openModal('Open shared record first', `
+        <div class="text-sm text-slate-700 space-y-3">
+          <p>The CSV only supplies <strong>addresses</strong>. Member names and IDs come from the shared church record on Google Drive.</p>
+          <p>Click <strong>Import from Drive</strong> in the header, open your latest <span class="mono text-xs">church-recorder-data-….json</span>, confirm the preview, then open <strong>Collect Info → Import Member Addresses</strong> and pick the CSV.</p>
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950 text-xs">
+            Having the CSV on your PC is not enough — addresses must be applied to the members already in the Drive JSON.
+          </div>
+        </div>
+        <div class="mt-4 modal-footer">
+          <button type="button" id="btnAddressImportOpenDrive" class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Import from Drive</button>
+          <button type="button" id="btnAddressImportGateCancel" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
+        </div>
+      `, 'max-w-lg');
+      document.getElementById('btnAddressImportGateCancel')?.addEventListener('click', closeModal);
+      document.getElementById('btnAddressImportOpenDrive')?.addEventListener('click', () => {
+        closeModal();
+        triggerImportFromDrive();
+      });
+      return false;
+    }
+
+    function openAddressImportPreview(fileName, parsed, preview){
+      const c = preview.counts;
+      const rowsHtml = preview.rows.map((row, idx) => {
+        const conflictControls = row.result === MemberAddressImport.RESULT.CONFLICT
+          || row.conflictChoice
+          ? `<div class="mt-1 flex flex-wrap gap-2 text-xs">
+              <label class="inline-flex items-center gap-1"><input type="radio" name="addrConflict_${esc(row.memberId)}" value="keep" data-member-id="${esc(row.memberId)}" ${row.conflictChoice === 'keep' ? 'checked' : ''} /> Keep existing</label>
+              <label class="inline-flex items-center gap-1"><input type="radio" name="addrConflict_${esc(row.memberId)}" value="replace" data-member-id="${esc(row.memberId)}" ${row.conflictChoice === 'replace' ? 'checked' : ''} /> Replace</label>
+            </div>`
+          : '';
+        return `<tr data-row-idx="${idx}">
+          <td class="px-2 py-2 align-top text-xs">${esc(row.googleLabel)}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.memberName || row.targetName || '—')}${row.memberId ? `<div class="mono text-[10px] text-slate-500">${esc(row.memberId)}</div>` : ''}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.existingAddress || '—')}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.proposedAddress || '—')}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.city || '')}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.province || '')}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.postcode || '')}</td>
+          <td class="px-2 py-2 align-top text-xs">${esc(row.country || '')}</td>
+          <td class="px-2 py-2 align-top text-xs font-semibold">${esc(row.result)}${conflictControls}${row.detail ? `<div class="font-normal text-slate-500 mt-0.5">${esc(row.detail)}</div>` : ''}</td>
+        </tr>`;
+      }).join('');
+
+      openModal('Import Member Addresses', `
+        <div class="text-sm text-slate-600 space-y-1">
+          <div>File: <span class="font-semibold">${esc(fileName)}</span></div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mt-2">
+            <div class="rounded-lg border p-2">Locations: <strong>${c.sourceLocations}</strong></div>
+            <div class="rounded-lg border p-2">Matches: <strong>${c.memberMatches}</strong></div>
+            <div class="rounded-lg border p-2">New members: <strong>0</strong></div>
+            <div class="rounded-lg border p-2">Ready: <strong>${c.ready}</strong></div>
+            <div class="rounded-lg border p-2">Unchanged: <strong>${c.unchanged}</strong></div>
+            <div class="rounded-lg border p-2">Conflict: <strong>${c.conflict}</strong></div>
+            <div class="rounded-lg border p-2">Review: <strong>${c.reviewRequired}</strong></div>
+            <div class="rounded-lg border p-2">Invalid/Skipped: <strong>${c.invalid + c.skipped}</strong></div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">Only reviewed named members are updated. Family members who were not named in the Google source are left unchanged. Nothing is written to Drive until you use Save Updated Record.</p>
+        </div>
+        <div class="mt-3 overflow-auto rounded-xl border max-h-[50vh]">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-slate-700 sticky top-0">
+              <tr>
+                <th class="px-2 py-2 text-left text-xs">Google label</th>
+                <th class="px-2 py-2 text-left text-xs">Matched member</th>
+                <th class="px-2 py-2 text-left text-xs">Existing</th>
+                <th class="px-2 py-2 text-left text-xs">Proposed</th>
+                <th class="px-2 py-2 text-left text-xs">City</th>
+                <th class="px-2 py-2 text-left text-xs">Prov/State</th>
+                <th class="px-2 py-2 text-left text-xs">Postal/ZIP</th>
+                <th class="px-2 py-2 text-left text-xs">Country</th>
+                <th class="px-2 py-2 text-left text-xs">Result</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">${rowsHtml || '<tr><td class="px-3 py-3" colspan="9">No rows</td></tr>'}</tbody>
+          </table>
+        </div>
+        <div class="mt-4 modal-footer">
+          <button id="btnConfirmAddressImport" class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Confirm Address Import</button>
+          <button id="btnCancelAddressImport" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Cancel</button>
+        </div>
+      `, 'max-w-6xl');
+
+      const refreshPreviewFromChoices = () => {
+        _addressImportConflictChoices = {};
+        modalBody.querySelectorAll('input[type="radio"][data-member-id]:checked').forEach((el) => {
+          _addressImportConflictChoices[el.getAttribute('data-member-id')] = el.value;
+        });
+        const next = MemberAddressImport.buildAddressImportPreview(parsed.locations, state.members, {
+          conflictChoices: _addressImportConflictChoices
+        });
+        openAddressImportPreview(fileName, parsed, next);
+      };
+
+      modalBody.querySelectorAll('input[type="radio"][data-member-id]').forEach((el) => {
+        el.addEventListener('change', refreshPreviewFromChoices);
+      });
+
+      document.getElementById('btnCancelAddressImport')?.addEventListener('click', () => {
+        _addressImportConflictChoices = {};
+        closeModal();
+      });
+
+      document.getElementById('btnConfirmAddressImport')?.addEventListener('click', () => {
+        const unresolved = preview.rows.some((r) => r.result === MemberAddressImport.RESULT.CONFLICT);
+        if(unresolved){
+          alert('Resolve all Conflict rows with Keep existing or Replace before confirming.');
+          return;
+        }
+        const memberCountBefore = state.members.length;
+        let result;
+        try{
+          result = MemberAddressImport.applyAddressImport(state, preview.rows, {
+            cloneState: (s) => FamilyDomain.cloneState(s)
+          });
+        }catch(err){
+          alert('Address import failed: ' + (err?.message || err));
+          return;
+        }
+        if(result.working.members.length !== memberCountBefore){
+          alert('Import aborted: member count would change.');
+          return;
+        }
+        const before = state;
+        state = result.working;
+        const ok = saveState();
+        if(!ok){
+          state = before;
+          toast('Address import blocked (storage)');
+          return;
+        }
+        _addressImportUndo = result.undoSnapshot;
+        _addressImportConflictChoices = {};
+        updateAddressImportUndoButton();
+        toast(`Addresses updated: ${result.updated} · unchanged ${result.unchanged} · skipped ${result.skipped} · rejected ${result.rejected}`);
+        closeModal();
+        render();
+      });
+    }
+
+    async function importMemberAddressesFile(file){
+      if(!file) return;
+      if(!requireSharedRecordForAddressImport()) return;
+      const freshOk = await ensureFreshDriveBeforeNewEntry();
+      if(!freshOk) return;
+
+      const text = await file.text();
+      const parsed = MemberAddressImport.parseGoogleMyMapsCsv(text);
+      if(!parsed.locations.length){
+        alert('No address locations found in this CSV. Expected columns like WKT, label/name, and street/city/province/postal.');
+        return;
+      }
+      _addressImportConflictChoices = {};
+      const preview = MemberAddressImport.buildAddressImportPreview(parsed.locations, state.members, {
+        conflictChoices: _addressImportConflictChoices
+      });
+      openAddressImportPreview(file.name, parsed, preview);
+    }
+
+    document.getElementById('fileMemberAddresses')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      try{
+        if(file) await importMemberAddressesFile(file);
+      }catch(err){
+        alert('Could not import addresses from this CSV.');
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('btnUndoAddressImport')?.addEventListener('click', undoLastAddressImport);
+
+    window.addEventListener('beforeunload', () => {
+      // Undo is session-only until Save to Drive; clearing reference on unload is implicit.
     });
 
     if(document.readyState === 'loading'){

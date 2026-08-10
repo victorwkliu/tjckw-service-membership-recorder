@@ -67,29 +67,10 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="grid gap-2">
-            <label class="text-sm text-slate-600">Birth Month</label>
-            <select id="birthMonth" name="birthMonth" class="rounded-xl border px-3 py-2 text-sm">
-              <option value="">—</option>
-              <option value="01">January</option>
-              <option value="02">February</option>
-              <option value="03">March</option>
-              <option value="04">April</option>
-              <option value="05">May</option>
-              <option value="06">June</option>
-              <option value="07">July</option>
-              <option value="08">August</option>
-              <option value="09">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
-            </select>
-          </div>
-          <div class="grid gap-2">
-            <label class="text-sm text-slate-600">Birth Year</label>
-            <input id="birthYear" name="birthYear" type="number" min="1900" max="2030" class="rounded-xl border px-3 py-2 text-sm" placeholder="e.g., 1990" />
-          </div>
+        <div class="grid gap-2">
+          <label class="text-sm text-slate-600" for="dateOfBirth">Date of Birth (DOB)</label>
+          <input id="dateOfBirth" name="dateOfBirth" type="date" class="rounded-xl border px-3 py-2 text-sm" />
+          <p class="text-xs text-slate-500">Full date is preferred for age verification.</p>
         </div>
 
         <div class="form-row">
@@ -234,6 +215,8 @@
       const province = String(fd.get('province') || '').trim();
       const postcode = formatPostalCode(String(fd.get('postcode') || ''));
 
+      const dateOfBirth = String(fd.get('dateOfBirth') || '').trim();
+      const dobMatch = dateOfBirth.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       const payload = {
         type: 'church.member.update.v1',
         submittedAt: new Date().toISOString(),
@@ -244,8 +227,10 @@
         name: (firstName + ' ' + lastName).trim(),
         phone,
         email: String(fd.get('email') || '').trim(),
-        birthMonth: String(fd.get('birthMonth') || '').trim(),
-        birthYear: String(fd.get('birthYear') || '').trim(),
+        dateOfBirth,
+        birthYear: dobMatch ? dobMatch[1] : '',
+        birthMonth: dobMatch ? dobMatch[2] : '',
+        birthDay: dobMatch ? dobMatch[3] : '',
         baptismDate: String(fd.get('baptismDate') || '').trim(),
         holySpiritDate: String(fd.get('holySpiritDate') || '').trim(),
         joinMonth,

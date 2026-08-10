@@ -1,0 +1,30 @@
+# Open on iPad
+
+## Your app link (turn on GitHub Pages first — see below)
+
+https://victorwkliu.github.io/tjckw-service-membership-recorder/
+
+Direct file:
+
+https://victorwkliu.github.io/tjckw-service-membership-recorder/index.html
+
+## Turn on the link (one-time, on your PC)
+
+1. Open: https://github.com/victorwkliu/tjckw-service-membership-recorder/settings/pages
+2. Under **Build and deployment** → **Source**, choose **Deploy from a branch**
+3. Branch: **main** / folder: **/ (root)** → Save
+4. Wait 1–2 minutes, then open the link above on your iPad in **Safari**
+
+If GitHub says Pages needs a public repo or a paid plan:
+- Repo Settings → Danger Zone → **Change visibility** → Public
+  (Safe for privacy: the website is only the empty app. Member data stays in your Drive JSON.)
+
+## On your iPad
+
+1. Open the link in **Safari**
+2. Share → **Add to Home Screen** (optional one-tap icon)
+3. Each session: **Open from Drive** → work → **Save to Drive**
+
+## Note
+
+Opening index.html from the Google Drive app on iPad usually will NOT run the app. Use the web link above instead.
