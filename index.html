@@ -54,19 +54,38 @@
     .responsive-actions,.control-pair,.modal-footer,.chip-list{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;min-width:0;max-width:100%;}
     .responsive-actions > *,.control-pair > *,.modal-footer > *{min-width:0;max-width:100%;}
     .responsive-actions > input,.responsive-actions > select,.control-pair > input,.control-pair > select{flex:1 1 10rem;}
-    .report-toolbar{display:flex;flex-wrap:nowrap;align-items:center;gap:0.5rem;width:100%;min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-    .report-toolbar > *{flex:0 0 auto;width:auto !important;max-width:none;white-space:nowrap;}
-    .report-toolbar > select{flex:0 1 9rem;min-width:7rem;}
+    .report-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;width:100%;min-width:0;max-width:100%;}
+    .report-toolbar > *{flex:0 1 auto;width:auto;max-width:100%;}
+    .report-toolbar > select{flex:1 1 9rem;min-width:7rem;}
+    .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;border:1px solid #e2e8f0;border-radius:0.75rem;}
+    .table-scroll > table{min-width:100%;}
+    .break-anywhere{overflow-wrap:anywhere;word-break:break-word;}
+    .data-files-card{min-width:0;}
+    .data-files-card .df-block{border-top:1px solid #e2e8f0;padding-top:0.85rem;margin-top:0.85rem;min-width:0;}
+    .data-files-card .df-block:first-of-type{border-top:none;padding-top:0;margin-top:0;}
+    .data-files-card a,.data-files-card .mono,.data-files-card p{overflow-wrap:anywhere;word-break:break-word;min-width:0;}
+    .status-pill{display:inline-flex;align-items:center;gap:0.35rem;border-radius:999px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:600;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;}
+    .status-pill.is-linked{border-color:#6ee7b7;background:#ecfdf5;color:#065f46;}
+    .status-pill.is-permission{border-color:#fcd34d;background:#fffbeb;color:#92400e;}
+    .status-pill.is-unlinked{border-color:#e2e8f0;background:#f8fafc;color:#64748b;}
     .membership-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.5rem;}
     @media (min-width:640px){
       .membership-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
     }
     .membership-summary-grid .kpi-card{
-      display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;
+      display:flex;align-items:baseline;justify-content:flex-start;gap:0.35rem;
       min-width:0;padding:0.65rem 0.85rem;border:1px solid #e2e8f0;border-radius:0.75rem;background:#fff;
     }
-    .membership-summary-grid .kpi-label{font-size:0.75rem;line-height:1.2;color:#64748b;min-width:0;}
+    /* Fixed-width, right-aligned labels so colons line up; value sits immediately after */
+    .membership-summary-grid .kpi-label{
+      flex:0 0 9.75rem;width:9.75rem;max-width:9.75rem;
+      font-size:0.75rem;line-height:1.2;color:#64748b;text-align:right;white-space:nowrap;
+    }
     .membership-summary-grid .kpi-value{font-size:1.25rem;line-height:1.1;font-weight:600;color:#0f172a;flex:0 0 auto;}
+    @media (max-width: 900px){
+      .membership-summary-grid .kpi-label{flex:0 1 auto;width:auto;max-width:70%;text-align:left;white-space:normal;}
+      .report-toolbar{flex-wrap:wrap;}
+    }
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
     .modal-footer > button[type="submit"],.modal-footer > .btn-primary{flex:1 1 8rem;}
     .chip-list > span{min-width:0;max-width:100%;white-space:normal;}
@@ -360,7 +379,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-07-23.14</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.2</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -371,9 +390,8 @@
         <div id="storageWarning" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900" title="If storage is blocked (private mode / policy), saves may not persist.">
           Storage blocked: changes may not save
         </div>
-        <button id="btnSaveToDrive" class="header-btn rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Save to Drive</button>
-        <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Import from Drive</button>
-        <input id="fileOpenFromDrive" type="file" accept="application/json,.json" class="hidden" />
+        <button id="btnSaveToDrive" class="header-btn rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700" title="Save to the linked official records file">Save to linked file</button>
+        <button type="button" id="btnOpenFromDrive" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" title="Load the linked official records file">Load official file</button>
         <button type="button" id="btnHelp" class="header-btn rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 inline-flex items-center justify-center gap-1.5" aria-haspopup="dialog" aria-controls="helpModal">
           <span aria-hidden="true" class="text-base leading-none font-semibold">?</span>
           <span>Help</span>
@@ -390,7 +408,7 @@
         <button type="button" id="btnBannerNeedHelp" class="mt-1 text-xs font-medium text-amber-900 underline hover:no-underline">Need Help?</button>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button type="button" id="btnBannerOpenFromDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Import from Drive</button>
+        <button type="button" id="btnBannerOpenFromDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Load official file</button>
         <button type="button" id="btnBannerDismissDrive" class="rounded-xl border border-amber-400 bg-white px-3 py-2 text-sm hover:bg-amber-100">Dismiss for now</button>
       </div>
     </div>
@@ -426,7 +444,7 @@
               </div>
             </div>
 
-            <div class="mt-3 overflow-auto rounded-xl border">
+            <div class="mt-3 table-scroll">
               <table class="min-w-full text-sm">
                 <thead class="bg-slate-100 text-slate-700">
                   <tr>
@@ -482,7 +500,7 @@
               </div>
             </div>
 
-            <div class="mt-3 overflow-auto rounded-xl border">
+            <div class="mt-3 table-scroll">
               <table class="min-w-full text-sm">
                 <thead class="bg-slate-100 text-slate-700">
                   <tr>
@@ -561,7 +579,7 @@
                 </div>
               </div>
               <p id="voterFilterHelp" class="mt-2 text-xs text-slate-600"></p>
-              <div id="voterReportContent" class="mt-4 overflow-auto rounded-xl border">
+              <div id="voterReportContent" class="mt-4 table-scroll">
                 <div class="p-6 text-center text-slate-500">No data yet. Add AGM/EGM services and mark attendance first.</div>
               </div>
             <div class="mt-5 border-t pt-4">
@@ -608,11 +626,11 @@
                   <div id="kpiInactiveMembers" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Total Services</div>
+                  <div class="kpi-label">Total Services:</div>
                   <div id="kpiServices" class="kpi-value mono">0</div>
                 </div>
                 <div class="kpi-card">
-                  <div class="kpi-label">Avg Attendance</div>
+                  <div class="kpi-label">Avg Attendance:</div>
                   <div id="kpiAvgAttendance" class="kpi-value mono" title="Average Members present per service (Membership Category Member only)">0</div>
                 </div>
               </div>
@@ -628,7 +646,7 @@
                 </div>
                 <button type="button" id="btnPrintReportEssc" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" aria-label="Print ESSC Report">Print Report</button>
               </div>
-              <div id="esscReportContent" class="mt-4 grid gap-3">
+              <div id="esscReportContent" class="mt-4 grid gap-3 min-w-0">
                 <div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet. Fill ESSC Details counts on an ESSC service and Save.</div>
               </div>
             </div>
@@ -653,8 +671,91 @@
 
           <!-- SETTINGS TAB -->
           <div id="tab-settings" class="mt-4 hidden">
-            <div class="grid gap-4 md:grid-cols-2">
-              <div class="rounded-2xl border bg-white p-4">
+            <div class="grid gap-4 md:grid-cols-2 min-w-0">
+              <div class="rounded-2xl border bg-white p-4 md:col-span-2 data-files-card min-w-0">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <h3 class="font-semibold">Data &amp; App Files</h3>
+                    <p class="text-sm text-slate-500 mt-1">For the designated recorder: keep membership data in the church Google Drive folder. The published site and source repository do not store member records.</p>
+                  </div>
+                  <div id="appBuildBadge" class="text-xs text-slate-500 mono shrink-0">Build —</div>
+                </div>
+
+                <div class="df-block">
+                  <h4 class="text-sm font-semibold text-slate-900">Church Google Drive folder</h4>
+                  <p class="mt-1 text-xs text-slate-500">Readable path and optional folder URL (shared across devices via the official JSON).</p>
+                  <label class="mt-3 block text-sm text-slate-600" for="driveFolderLabel">Folder path label</label>
+                  <input id="driveFolderLabel" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="Google Drive → My Drive → Service&amp;Membership Record" />
+                  <label class="mt-3 block text-sm text-slate-600" for="driveFolderUrl">Folder URL (optional)</label>
+                  <input id="driveFolderUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="https://drive.google.com/drive/folders/…" />
+                  <p id="driveFolderDisplay" class="mt-2 text-sm text-slate-700 break-anywhere"></p>
+                  <div class="control-pair mt-3">
+                    <button type="button" id="btnSaveDataLocations" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Save location settings</button>
+                    <button type="button" id="btnOpenDriveFolder" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open Drive folder</button>
+                  </div>
+                </div>
+
+                <div class="df-block">
+                  <h4 class="text-sm font-semibold text-slate-900">Official records file</h4>
+                  <p class="mt-1 text-xs text-slate-500">Desktop Chrome/Edge can link one official JSON and save back to it. File link and permissions stay on this browser only.</p>
+                  <label class="mt-3 block text-sm text-slate-600" for="expectedOfficialFilename">Expected official filename</label>
+                  <input id="expectedOfficialFilename" class="mt-1 rounded-xl border px-3 py-2 text-sm mono" placeholder="church-recorder-data.json" />
+                  <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <span id="officialLinkStatusPill" class="status-pill is-unlinked">Not linked</span>
+                    <span id="officialLinkDetail" class="text-xs text-slate-600 break-anywhere"></span>
+                  </div>
+                  <div class="mt-2 grid gap-1 text-xs text-slate-600">
+                    <div>Expected file: <span id="officialExpectedName" class="mono font-medium text-slate-800">church-recorder-data.json</span></div>
+                    <div>Linked in this browser: <span id="officialLinkedName" class="mono font-medium text-slate-800">—</span></div>
+                    <div>Last successful load: <span id="officialLastLoad" class="mono">—</span></div>
+                    <div>Last successful save: <span id="officialLastSave" class="mono">—</span></div>
+                  </div>
+                  <div id="desktopOfficialActions" class="control-pair mt-3">
+                    <button type="button" id="btnLinkOfficialFile" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Link official file</button>
+                    <button type="button" id="btnLoadOfficialFile" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Load official file</button>
+                    <button type="button" id="btnSaveLinkedFile" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Save to linked file</button>
+                    <button type="button" id="btnChangeLinkedDriveFile" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Change linked file</button>
+                    <button type="button" id="btnClearLinkedDriveFile" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Unlink file</button>
+                    <button type="button" id="btnCheckLinkedFile" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Check linked file</button>
+                    <button type="button" id="btnExportDatedBackup" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export dated backup</button>
+                    <button type="button" id="btnExportUnsavedChanges" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export unsaved changes</button>
+                  </div>
+                  <div id="ipadOfficialActions" class="hidden mt-3 space-y-2">
+                    <p class="text-xs text-slate-600">iPad Safari exports a separate JSON copy. After download, use Files → move/copy into the church Drive folder. Existing JSON exports remain importable.</p>
+                    <div class="control-pair">
+                      <button type="button" id="btnIpadImportJson" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Import JSON</button>
+                      <button type="button" id="btnIpadExportJson" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Export JSON</button>
+                    </div>
+                  </div>
+                  <input id="fileOpenFromDrive" type="file" accept="application/json,.json" class="hidden" />
+                  <input id="fileIpadImportJson" type="file" accept="application/json,.json" class="hidden" />
+                </div>
+
+                <div class="df-block">
+                  <h4 class="text-sm font-semibold text-slate-900">App and source</h4>
+                  <p class="mt-1 text-xs text-slate-500">Live app and optional source locations. Membership data stays out of the published site and repository.</p>
+                  <label class="mt-3 block text-sm text-slate-600" for="liveAppUrl">Live app URL</label>
+                  <input id="liveAppUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" />
+                  <label class="mt-3 block text-sm text-slate-600" for="appSourceFolderLabel">App source folder label (optional)</label>
+                  <input id="appSourceFolderLabel" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., My Drive → TJCKW → Church Service Membership Recorder" />
+                  <label class="mt-3 block text-sm text-slate-600" for="appSourceFolderUrl">App source folder URL (optional)</label>
+                  <input id="appSourceFolderUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="https://drive.google.com/drive/folders/…" />
+                  <label class="mt-3 block text-sm text-slate-600" for="sourceRepoUrl">Source repository URL (optional)</label>
+                  <input id="sourceRepoUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" />
+                  <div class="mt-3 grid gap-1 text-sm text-slate-700">
+                    <div>Current build: <span id="settingsBuildNumber" class="mono font-medium">—</span></div>
+                    <div class="break-anywhere">Live app: <a id="linkOpenLiveApp" class="text-emerald-700 underline" href="#" target="_blank" rel="noopener">Open live app</a></div>
+                    <div id="rowOpenAppSource" class="hidden break-anywhere">App source folder: <a id="linkOpenAppSource" class="text-emerald-700 underline" href="#" target="_blank" rel="noopener">Open app source folder</a> <span id="appSourceFolderDisplay" class="text-xs text-slate-500"></span></div>
+                    <div id="rowOpenSourceRepo" class="hidden break-anywhere">Source repository: <a id="linkOpenSourceRepo" class="text-emerald-700 underline" href="#" target="_blank" rel="noopener">Open source repository</a></div>
+                  </div>
+                  <div class="control-pair mt-3">
+                    <button type="button" id="btnSaveLiveSiteToDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Save live site link to Drive</button>
+                    <button type="button" id="btnCopyLiveSiteLink" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy live app link</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4 min-w-0">
                 <h3 class="font-semibold">Default Service Types</h3>
                 <p class="text-sm text-slate-500 mt-1">Used for the service type dropdown and filters.</p>
                 <div class="control-pair mt-3">
@@ -664,7 +765,7 @@
                 <div id="serviceTypeChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
 
-              <div class="rounded-2xl border bg-white p-4">
+              <div class="rounded-2xl border bg-white p-4 min-w-0">
                 <h3 class="font-semibold">Groups / Ministries</h3>
                 <p class="text-sm text-slate-500 mt-1">Used for member grouping and filters.</p>
                 <div class="control-pair mt-3">
@@ -674,7 +775,7 @@
                 <div id="groupChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
 
-              <div class="rounded-2xl border bg-white p-4">
+              <div class="rounded-2xl border bg-white p-4 min-w-0">
                 <h3 class="font-semibold">Member Statuses</h3>
                 <p class="text-sm text-slate-500 mt-1">Manage the available statuses for members.</p>
                 <div class="control-pair mt-3">
@@ -684,7 +785,7 @@
                 <div id="memberStatusChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
 
-              <div class="rounded-2xl border bg-white p-4">
+              <div class="rounded-2xl border bg-white p-4 min-w-0">
                 <h3 class="font-semibold">Membership Categories</h3>
                 <p class="text-sm text-slate-500 mt-1">e.g. Member, True Seeker, Visiting Member.</p>
                 <div class="control-pair mt-3">
@@ -693,31 +794,7 @@
                 </div>
                 <div id="membershipCategoryChips" class="chip-list mt-3 flex flex-wrap gap-2"></div>
               </div>
-
-              <div class="rounded-2xl border bg-white p-4 md:col-span-2">
-                <h3 class="font-semibold">Drive data location</h3>
-                <p class="text-sm text-slate-500 mt-1">Shown when the app advises you to open the latest JSON from Google Drive before adding new records.</p>
-                <label class="mt-3 block text-sm text-slate-600">Folder / path hint</label>
-                <input id="driveLocationHint" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., My Drive → TJCKW → church-recorder-data-….json" />
-                <p id="driveLastFileLabel" class="mt-2 text-xs text-slate-500"></p>
-                <div class="control-pair mt-3">
-                  <button type="button" id="btnSaveDriveLocation" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Save location hint</button>
-                  <button type="button" id="btnCheckDriveNow" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Check Drive now</button>
-                </div>
-              </div>
-
-              <div class="rounded-2xl border bg-white p-4 md:col-span-2">
-                <h3 class="font-semibold">Live site link</h3>
-                <p class="text-sm text-slate-500 mt-1">Download a shortcut file, then save it to Google Drive (same as Save to Drive). Open that file anytime to launch the live app.</p>
-                <p class="mt-2 text-sm mono break-all text-slate-700" id="liveSiteUrlText">https://victorwkliu.github.io/tjckw-service-membership-recorder/</p>
-                <div class="control-pair mt-3">
-                  <button type="button" id="btnSaveLiveSiteToDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Save live site link to Drive</button>
-                  <button type="button" id="btnCopyLiveSiteLink" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy link</button>
-                </div>
-              </div>
             </div>
-
-
           </div>
         </div>
       </div>
@@ -1076,7 +1153,8 @@
 
         <section class="mt-5">
           <h3 class="text-base font-semibold text-slate-900">2. Open the shared church record</h3>
-          <p class="mt-2">Click <strong>Import from Drive</strong> (Open Shared Record) and go to:</p>
+          <p class="mt-2">Click <strong>Import from Drive</strong> (Open Shared Record) and go to the shared folder. On Chrome/Edge, the app remembers that file so later Import/Save use the <strong>same location</strong>.</p>
+          <p class="mt-2">Choose:</p>
           <div class="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
             <div class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Google Drive folder</div>
             <div class="mt-1 font-semibold">Google Drive → My Drive → Service&amp;Membership Record</div>
@@ -1109,8 +1187,8 @@
 
         <section class="mt-5">
           <h3 class="text-base font-semibold text-slate-900">5. Save your work</h3>
-          <p class="mt-2">When finished, click <strong>Save to Drive</strong> (Save Updated Record).</p>
-          <p class="mt-2">Save the file back to:</p>
+          <p class="mt-2">When finished, click <strong>Save to Drive</strong> (Save Updated Record). After the file is linked, Save writes back to that <strong>same JSON file</strong> (Chrome/Edge + Google Drive for desktop).</p>
+          <p class="mt-2">Shared folder:</p>
           <div class="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
             <div class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Google Drive folder</div>
             <div class="mt-1 font-semibold">Google Drive → My Drive → Service&amp;Membership Record</div>
@@ -1215,7 +1293,21 @@
       families: [],
       familyMembers: [],
 
-      meta: { lastSavedAt: '', lastOpenedAt: '', driveFileName: '', driveLocationHint: '', openedFileLastModified: 0, loadedDataSavedAt: '' },
+      meta: {
+        lastSavedAt: '',
+        lastOpenedAt: '',
+        driveFileName: '',
+        driveLocationHint: '',
+        driveFolderLabel: 'Google Drive → My Drive → Service&Membership Record',
+        driveFolderUrl: '',
+        expectedOfficialFilename: 'church-recorder-data.json',
+        liveAppUrl: 'https://victorwkliu.github.io/tjckw-service-membership-recorder/',
+        appSourceFolderLabel: '',
+        appSourceFolderUrl: '',
+        sourceRepoUrl: 'https://github.com/victorwkliu/tjckw-service-membership-recorder',
+        openedFileLastModified: 0,
+        loadedDataSavedAt: ''
+      },
       boardMinutes: [],
       memberColumns: {
         name: true,
@@ -1395,7 +1487,25 @@
       return st;
     }
 
+    function ensureSharedLocationsMeta(st){
+      st.meta = st.meta || {};
+      const d = defaults().meta;
+      if(!st.meta.driveFolderLabel){
+        st.meta.driveFolderLabel = st.meta.driveLocationHint || d.driveFolderLabel;
+      }
+      if(st.meta.driveFolderUrl == null) st.meta.driveFolderUrl = d.driveFolderUrl;
+      if(!st.meta.expectedOfficialFilename) st.meta.expectedOfficialFilename = d.expectedOfficialFilename;
+      if(!st.meta.liveAppUrl) st.meta.liveAppUrl = d.liveAppUrl;
+      if(st.meta.appSourceFolderLabel == null) st.meta.appSourceFolderLabel = d.appSourceFolderLabel;
+      if(st.meta.appSourceFolderUrl == null) st.meta.appSourceFolderUrl = d.appSourceFolderUrl;
+      if(st.meta.sourceRepoUrl == null) st.meta.sourceRepoUrl = d.sourceRepoUrl;
+      if(!st.meta.driveLocationHint) st.meta.driveLocationHint = st.meta.driveFolderLabel || '';
+      return st;
+    }
+
     function migrateAppState(st){
+      st.meta = st.meta || {};
+      ensureSharedLocationsMeta(st);
       migrateStatusAndCategories(st);
       FamilyDomain.migrateFamilies(st, { uid, nowFn: () => new Date() });
 
@@ -1597,7 +1707,10 @@
         chip.classList.add('border-amber-300','bg-amber-50','text-amber-900');
         if(dot) dot.classList.add('bg-amber-500');
       } else {
-        textEl.textContent = `Saved ${formatTimestamp(meta.lastSavedAt)}`;
+        const linkedName = driveFileHandle?.name || meta.driveFileName || '';
+        textEl.textContent = linkedName
+          ? `Saved ${formatTimestamp(meta.lastSavedAt)} · ${linkedName}`
+          : `Saved ${formatTimestamp(meta.lastSavedAt)}`;
         chip.classList.add('border-emerald-200','bg-emerald-50','text-emerald-800');
         if(dot) dot.classList.add('bg-emerald-500');
       }
@@ -1632,27 +1745,203 @@
       updateDriveFreshnessBanner();
     }
 
+    const APP_BUILD = '2026-11-11.2';
+    const OFFICIAL_FILENAME_DEFAULT = 'church-recorder-data.json';
+    const canUseFileSystemAccess = () => typeof window.showOpenFilePicker === 'function' && typeof window.showSaveFilePicker === 'function';
+    const isIpadLikeBrowser = () => /iPad|iPhone|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function getDriveFolderLabel(){
+      return (state.meta?.driveFolderLabel || state.meta?.driveLocationHint || defaults().meta.driveFolderLabel || '').trim();
+    }
+    function getDriveFolderUrl(){
+      return (state.meta?.driveFolderUrl || '').trim();
+    }
+    function getExpectedOfficialFilename(){
+      return (state.meta?.expectedOfficialFilename || OFFICIAL_FILENAME_DEFAULT).trim() || OFFICIAL_FILENAME_DEFAULT;
+    }
+    function getLiveAppUrl(){
+      return (state.meta?.liveAppUrl || defaults().meta.liveAppUrl).trim();
+    }
+    function getSourceRepoUrl(){
+      return (state.meta?.sourceRepoUrl || '').trim();
+    }
+    function getAppSourceFolderUrl(){
+      return (state.meta?.appSourceFolderUrl || '').trim();
+    }
+    function getAppSourceFolderLabel(){
+      return (state.meta?.appSourceFolderLabel || '').trim();
+    }
+    function getOfficialTargetFilename(){
+      return (driveFileHandle?.name || state.meta?.driveFileName || getExpectedOfficialFilename()).trim();
+    }
+
     function getDriveLocationText(){
-      const meta = state.meta || {};
       const parts = [];
-      if(meta.driveLocationHint) parts.push(meta.driveLocationHint);
-      if(meta.driveFileName) parts.push(`File: ${meta.driveFileName}`);
-      if(!parts.length) parts.push('Google Drive → My Drive → Service&Membership Record');
+      const folder = getDriveFolderLabel();
+      if(folder) parts.push(folder);
+      const fileName = getOfficialTargetFilename();
+      if(fileName) parts.push(`File: ${fileName}`);
+      if(!parts.length) parts.push(defaults().meta.driveFolderLabel);
       return parts.join(' · ');
     }
 
-    function updateDriveLocationSettingsUI(){
-      const hint = document.getElementById('driveLocationHint');
-      const label = document.getElementById('driveLastFileLabel');
-      if(hint && document.activeElement !== hint){
-        hint.value = state.meta?.driveLocationHint || '';
+    function torontoDateTimeParts(date = new Date()){
+      const parts = {};
+      for(const p of new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      }).formatToParts(date)){
+        if(p.type !== 'literal') parts[p.type] = p.value;
       }
-      if(label){
-        const name = state.meta?.driveFileName;
-        const opened = formatTimestamp(state.meta?.lastOpenedAt);
-        label.textContent = name
-          ? `Last opened: ${name}${opened ? ` (${opened})` : ''}`
-          : 'No Drive file opened yet in this browser.';
+      return parts;
+    }
+
+    function torontoStamp(date = new Date()){
+      const p = torontoDateTimeParts(date);
+      const hour = (p.hour === '24' ? '00' : p.hour);
+      return `${p.year}-${p.month}-${p.day}_${hour}${p.minute}${p.second}`;
+    }
+
+    function formatTorontoTimestamp(iso){
+      if(!iso) return '—';
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '—';
+      return d.toLocaleString('en-CA', {
+        timeZone: 'America/Toronto',
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+      });
+    }
+
+    const recentExportNames = [];
+    function backupExportFilename(){
+      return uniqueFilename(`church-recorder-backup-${torontoStamp()}.json`, recentExportNames);
+    }
+    function unsavedExportFilename(){
+      return uniqueFilename(`church-recorder-unsaved-${torontoStamp()}.json`, recentExportNames);
+    }
+
+    function uniqueFilename(baseName, existingNames = []){
+      const set = new Set((existingNames || []).map(n => (n || '').toLowerCase()));
+      if(!set.has(baseName.toLowerCase())) return baseName;
+      const dot = baseName.lastIndexOf('.');
+      const stem = dot > 0 ? baseName.slice(0, dot) : baseName;
+      const ext = dot > 0 ? baseName.slice(dot) : '';
+      let i = 2;
+      while(set.has(`${stem}-${i}${ext}`.toLowerCase())) i += 1;
+      return `${stem}-${i}${ext}`;
+    }
+
+    async function queryLinkedPermissionLabel(){
+      const handle = await loadDriveFileHandle();
+      if(!handle) return { status: 'unlinked', label: 'Not linked', handle: null };
+      try{
+        const readOk = await ensureDriveHandlePermission(handle, 'read');
+        if(!readOk) return { status: 'permission', label: 'Permission needed', handle };
+        const writeOk = handle.requestPermission
+          ? ((await handle.queryPermission({ mode: 'readwrite' })) === 'granted')
+          : true;
+        if(!writeOk) return { status: 'permission', label: 'Permission needed', handle };
+        return { status: 'linked', label: 'Linked', handle };
+      }catch(_){
+        return { status: 'permission', label: 'Permission needed', handle };
+      }
+    }
+
+    async function updateDriveLocationSettingsUI(){
+      ensureSharedLocationsMeta(state);
+      const fillIfIdle = (id, value) => {
+        const el = document.getElementById(id);
+        if(el && document.activeElement !== el) el.value = value || '';
+      };
+      fillIfIdle('driveFolderLabel', getDriveFolderLabel());
+      fillIfIdle('driveFolderUrl', getDriveFolderUrl());
+      fillIfIdle('expectedOfficialFilename', getExpectedOfficialFilename());
+      fillIfIdle('liveAppUrl', getLiveAppUrl());
+      fillIfIdle('appSourceFolderLabel', getAppSourceFolderLabel());
+      fillIfIdle('appSourceFolderUrl', getAppSourceFolderUrl());
+      fillIfIdle('sourceRepoUrl', getSourceRepoUrl());
+
+      const folderDisplay = document.getElementById('driveFolderDisplay');
+      if(folderDisplay){
+        const url = getDriveFolderUrl();
+        folderDisplay.textContent = url
+          ? `${getDriveFolderLabel()} · ${url}`
+          : getDriveFolderLabel();
+      }
+
+      const buildEls = [document.getElementById('appBuildBadge'), document.getElementById('settingsBuildNumber')];
+      buildEls.forEach(el => { if(el) el.textContent = `Build ${APP_BUILD}`; });
+
+      const expected = document.getElementById('officialExpectedName');
+      if(expected) expected.textContent = getExpectedOfficialFilename();
+      const linkedName = document.getElementById('officialLinkedName');
+      if(linkedName) linkedName.textContent = driveFileHandle?.name || state.meta?.driveFileName || '—';
+      const lastLoad = document.getElementById('officialLastLoad');
+      if(lastLoad) lastLoad.textContent = formatTorontoTimestamp(state.meta?.lastOpenedAt);
+      const lastSave = document.getElementById('officialLastSave');
+      if(lastSave) lastSave.textContent = formatTorontoTimestamp(state.meta?.lastSavedAt);
+
+      const pill = document.getElementById('officialLinkStatusPill');
+      const detail = document.getElementById('officialLinkDetail');
+      const perm = await queryLinkedPermissionLabel();
+      if(pill){
+        pill.textContent = perm.label;
+        pill.classList.remove('is-linked','is-permission','is-unlinked');
+        pill.classList.add(perm.status === 'linked' ? 'is-linked' : perm.status === 'permission' ? 'is-permission' : 'is-unlinked');
+      }
+      if(detail){
+        detail.textContent = perm.handle
+          ? `Target: ${perm.handle.name || getOfficialTargetFilename()}`
+          : (canUseFileSystemAccess()
+            ? `Suggested first-save name: ${getExpectedOfficialFilename()}`
+            : 'This browser uses Import JSON / Export JSON copies.');
+      }
+
+      const desktop = document.getElementById('desktopOfficialActions');
+      const ipad = document.getElementById('ipadOfficialActions');
+      const useDesktop = canUseFileSystemAccess() && !isIpadLikeBrowser();
+      if(desktop) desktop.classList.toggle('hidden', !useDesktop);
+      if(ipad) ipad.classList.toggle('hidden', useDesktop);
+
+      const live = document.getElementById('linkOpenLiveApp');
+      if(live){
+        live.href = getLiveAppUrl() || '#';
+        live.textContent = 'Open live app';
+      }
+      const srcUrl = getAppSourceFolderUrl();
+      const srcRow = document.getElementById('rowOpenAppSource');
+      const srcLink = document.getElementById('linkOpenAppSource');
+      const srcDisp = document.getElementById('appSourceFolderDisplay');
+      if(srcRow && srcLink){
+        const show = !!(srcUrl || getAppSourceFolderLabel());
+        srcRow.classList.toggle('hidden', !show);
+        srcLink.href = srcUrl || '#';
+        srcLink.classList.toggle('pointer-events-none', !srcUrl);
+        srcLink.classList.toggle('opacity-50', !srcUrl);
+        if(srcDisp) srcDisp.textContent = getAppSourceFolderLabel() || '';
+      }
+      const repoUrl = getSourceRepoUrl();
+      const repoRow = document.getElementById('rowOpenSourceRepo');
+      const repoLink = document.getElementById('linkOpenSourceRepo');
+      if(repoRow && repoLink){
+        repoRow.classList.toggle('hidden', !repoUrl);
+        repoLink.href = repoUrl || '#';
+      }
+
+      const saveBtn = document.getElementById('btnSaveToDrive');
+      if(saveBtn){
+        const target = getOfficialTargetFilename();
+        saveBtn.textContent = useDesktop ? 'Save to linked file' : 'Export JSON';
+        saveBtn.title = useDesktop
+          ? `Save to linked file: ${target}`
+          : `Export dated backup: ${backupExportFilename()}`;
+      }
+      const loadBtn = document.getElementById('btnOpenFromDrive');
+      if(loadBtn){
+        loadBtn.textContent = useDesktop ? 'Load official file' : 'Import JSON';
       }
     }
 
@@ -1717,11 +2006,78 @@
       }
     }
 
-    async function ensureDriveHandlePermission(handle){
+    async function ensureDriveHandlePermission(handle, mode = 'read'){
       if(!handle?.queryPermission || !handle?.requestPermission) return true;
-      const opts = { mode: 'read' };
-      if((await handle.queryPermission(opts)) === 'granted') return true;
-      return (await handle.requestPermission(opts)) === 'granted';
+      const opts = { mode };
+      try{
+        if((await handle.queryPermission(opts)) === 'granted') return true;
+        return (await handle.requestPermission(opts)) === 'granted';
+      }catch(_){
+        return false;
+      }
+    }
+
+    async function clearDriveFileHandle(){
+      driveFileHandle = null;
+      if(!window.indexedDB) return;
+      try{
+        const db = await openIdb(DRIVE_HANDLE_DB);
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DRIVE_HANDLE_STORE, 'readwrite');
+          tx.objectStore(DRIVE_HANDLE_STORE).delete(DRIVE_HANDLE_KEY);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      }catch(_){/* ignore */}
+      updateDriveLocationSettingsUI();
+    }
+
+    async function rememberDriveHandleForReadWrite(handle){
+      if(!handle) return null;
+      await saveDriveFileHandle(handle);
+      // Best-effort upgrade to readwrite so later Save can reuse this file
+      await ensureDriveHandlePermission(handle, 'readwrite');
+      return handle;
+    }
+
+    function buildDriveSavePayload(){
+      const savedAt = new Date().toISOString();
+      const meta = {
+        ...(state.meta || {}),
+        lastSavedAt: savedAt,
+        dirty: false
+      };
+      const payload = { ...state, meta };
+      return { savedAt, payload, jsonText: JSON.stringify(payload, null, 2) };
+    }
+
+    async function writeJsonToDriveHandle(handle, { savedAt, jsonText }){
+      if(!handle?.createWritable) throw new Error('Writable file handle not available');
+      const writable = await handle.createWritable();
+      await writable.write(jsonText);
+      await writable.close();
+
+      // Only mark local state saved after a successful write
+      _suppressDirtyFlag = true;
+      state.meta = state.meta || {};
+      state.meta.lastSavedAt = savedAt;
+      state.meta.dirty = false;
+      state.meta.driveFileName = handle.name || state.meta.driveFileName || '';
+      state.meta.loadedDataSavedAt = savedAt;
+      state.meta.lastOpenedAt = state.meta.lastOpenedAt || new Date().toISOString();
+      clearAddressImportUndo();
+      try{
+        const file = await handle.getFile();
+        state.meta.driveFileName = handle.name || file.name || state.meta.driveFileName || '';
+        state.meta.openedFileLastModified = file.lastModified || 0;
+      }catch(_){/* meta refresh is best-effort */}
+      saveState();
+      _suppressDirtyFlag = false;
+      markOpenedFromDriveThisSession();
+      driveNewerAvailable = false;
+      driveNewerDetail = '';
+      return true;
     }
 
     function isoTime(value){
@@ -1738,7 +2094,7 @@
         return false;
       }
       try{
-        if(!(await ensureDriveHandlePermission(handle))){
+        if(!(await ensureDriveHandlePermission(handle, 'read'))){
           if(interactive) toast('Permission needed to re-check the Drive file.');
           return false;
         }
@@ -1775,13 +2131,79 @@
       }
     }
 
+    function hasUnsavedEdits(){
+      return !!(state.meta && state.meta.dirty);
+    }
+
+    function confirmDiscardUnsavedEdits(actionLabel = 'continue'){
+      if(!hasUnsavedEdits()) return true;
+      return confirm(`You have unsaved edits in this browser.\n\n${actionLabel} will replace the loaded records.\n\nClick OK only if you already exported unsaved changes or intend to discard them.`);
+    }
+
+    function showOverwriteBlockedModal({ reason } = {}){
+      openModal('Save blocked — linked file changed', `
+        <div class="text-sm text-slate-700 space-y-3">
+          <p>The official linked file changed (or could not be read) since it was last loaded/saved on this browser. Overwrite was stopped so your current edits stay in memory.</p>
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950 text-xs">${esc(reason || 'The linked file differs from the last successful load/save.')}</div>
+          <p>Export your unsaved changes first, then reload the official file if needed.</p>
+        </div>
+        <div class="mt-4 modal-footer">
+          <button type="button" id="btnBlockedExportUnsaved" class="btn-primary flex-1 rounded-xl bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Export unsaved changes</button>
+          <button type="button" id="btnBlockedReloadOfficial" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Reload official file</button>
+          <button type="button" id="btnBlockedClose" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Keep editing</button>
+        </div>
+      `, 'max-w-lg');
+      document.getElementById('btnBlockedClose')?.addEventListener('click', closeModal);
+      document.getElementById('btnBlockedExportUnsaved')?.addEventListener('click', () => {
+        closeModal();
+        exportUnsavedChangesDownload();
+      });
+      document.getElementById('btnBlockedReloadOfficial')?.addEventListener('click', () => {
+        closeModal();
+        loadOfficialFile({ forcePicker: false });
+      });
+    }
+
+    async function inspectLinkedFileForOverwrite(){
+      const handle = await loadDriveFileHandle();
+      if(!handle) return { ok: true, changed: false, handle: null };
+      try{
+        if(!(await ensureDriveHandlePermission(handle, 'read'))){
+          return { ok: false, changed: true, handle, reason: 'Permission needed to read the linked file before saving.' };
+        }
+        const file = await handle.getFile();
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const fileSavedAt = parsed?.meta?.lastSavedAt || '';
+        const baseline = state.meta?.loadedDataSavedAt || state.meta?.lastSavedAt || '';
+        const prevMod = Number(state.meta?.openedFileLastModified || 0);
+        const changedByStamp = !!(fileSavedAt && baseline && fileSavedAt !== baseline && isoTime(fileSavedAt) !== isoTime(baseline));
+        const changedByMod = prevMod > 0 && file.lastModified > prevMod + 1500;
+        if(changedByStamp || changedByMod){
+          return {
+            ok: true,
+            changed: true,
+            handle,
+            file,
+            reason: fileSavedAt
+              ? `Linked file lastSavedAt is ${formatTorontoTimestamp(fileSavedAt)}; this browser baseline is ${formatTorontoTimestamp(baseline)}.`
+              : 'Linked file modification time is newer than the last successful load/save on this browser.'
+          };
+        }
+        return { ok: true, changed: false, handle, file };
+      }catch(err){
+        return { ok: false, changed: true, handle, reason: `Could not read the linked file before overwrite (${err?.message || 'error'}).` };
+      }
+    }
+
     async function importLinkedDriveFileIfPossible(){
       const handle = await loadDriveFileHandle();
       if(!handle) return false;
       try{
-        if(!(await ensureDriveHandlePermission(handle))) return false;
+        if(!(await ensureDriveHandlePermission(handle, 'read'))) return false;
+        await rememberDriveHandleForReadWrite(handle);
         const file = await handle.getFile();
-        await handleIncomingJSONFile(file, { isDriveOpen: true });
+        await handleIncomingJSONFile(file, { isDriveOpen: true, skipDirtyConfirm: true });
         return true;
       }catch(err){
         console.warn('Auto-import from linked Drive file failed', err);
@@ -1789,14 +2211,7 @@
       }
     }
 
-    async function triggerImportFromDrive(){
-      // When a newer linked file is available, import it automatically (Chrome/Edge with remembered file).
-      if(driveNewerAvailable){
-        const imported = await importLinkedDriveFileIfPossible();
-        if(imported) return;
-      }
-
-      // Prefer File System Access API so we can re-check the same file later (Chrome/Edge + Drive desktop folder).
+    async function pickAndImportDriveFile({ linkOnly = false, skipDirtyConfirm = false } = {}){
       if(typeof window.showOpenFilePicker === 'function'){
         try{
           const handles = await window.showOpenFilePicker({
@@ -1805,9 +2220,19 @@
           });
           const handle = handles?.[0];
           if(!handle) return;
-          await saveDriveFileHandle(handle);
+          await rememberDriveHandleForReadWrite(handle);
+          state.meta = state.meta || {};
+          state.meta.driveFileName = handle.name || state.meta.driveFileName || getExpectedOfficialFilename();
+          _suppressDirtyFlag = true;
+          saveState();
+          _suppressDirtyFlag = false;
+          updateDriveLocationSettingsUI();
+          if(linkOnly){
+            toast(`Linked official file: ${handle.name}`);
+            return;
+          }
           const file = await handle.getFile();
-          await handleIncomingJSONFile(file, { isDriveOpen: true });
+          await handleIncomingJSONFile(file, { isDriveOpen: true, skipDirtyConfirm });
         }catch(err){
           if(err?.name === 'AbortError') return;
           document.getElementById('fileOpenFromDrive')?.click();
@@ -1815,6 +2240,136 @@
         return;
       }
       document.getElementById('fileOpenFromDrive')?.click();
+    }
+
+    async function linkOfficialFile(){
+      await pickAndImportDriveFile({ linkOnly: true, skipDirtyConfirm: true });
+    }
+
+    async function loadOfficialFile({ forcePicker = false } = {}){
+      if(!confirmDiscardUnsavedEdits('Loading the official file')) return;
+      if(!forcePicker){
+        const imported = await importLinkedDriveFileIfPossible();
+        if(imported) return;
+      }
+      await pickAndImportDriveFile({ linkOnly: false, skipDirtyConfirm: true });
+    }
+
+    async function triggerImportFromDrive({ forcePicker = false } = {}){
+      await loadOfficialFile({ forcePicker });
+    }
+
+    function exportDownloadWithName(filename, { markSaved = false, toastMsg } = {}){
+      const finalName = uniqueFilename(filename, recentExportNames);
+      toast(`Preparing download: ${finalName}`);
+      const ok = downloadStateAsJSON(finalName, { markSaved });
+      if(ok){
+        recentExportNames.push(finalName);
+        toast(toastMsg || `Downloaded ${finalName}`);
+      }
+      return ok;
+    }
+
+    function exportDatedBackupDownload(){
+      const name = backupExportFilename();
+      return exportDownloadWithName(name, {
+        markSaved: false,
+        toastMsg: `Dated backup downloaded as ${name}. Move it into the church Drive folder if needed.`
+      });
+    }
+
+    function exportUnsavedChangesDownload(){
+      const name = unsavedExportFilename();
+      return exportDownloadWithName(name, {
+        markSaved: false,
+        toastMsg: `Unsaved-changes export downloaded as ${name}.`
+      });
+    }
+
+    async function saveToDriveSameLocation(){
+      // iPad / browsers without FS Access: dated backup export + instructions
+      if(!canUseFileSystemAccess() || isIpadLikeBrowser()){
+        const name = backupExportFilename();
+        const ok = exportDownloadWithName(name, {
+          markSaved: true,
+          toastMsg: `Exported ${name}. On iPad: Files → move/copy into the church Drive folder. This creates a separate copy; it does not overwrite the linked desktop file automatically.`
+        });
+        if(ok) render();
+        return ok;
+      }
+
+      const suggestedName = getExpectedOfficialFilename();
+      let handle = await loadDriveFileHandle();
+
+      // Overwrite safeguard when a linked file already exists
+      if(handle){
+        const probe = await inspectLinkedFileForOverwrite();
+        if(!probe.ok || probe.changed){
+          showOverwriteBlockedModal({ reason: probe.reason });
+          return false;
+        }
+        try{
+          if(await ensureDriveHandlePermission(handle, 'readwrite')){
+            const built = buildDriveSavePayload();
+            await writeJsonToDriveHandle(handle, built);
+            const when = formatTorontoTimestamp(built.savedAt);
+            toast(`Saved to linked file: ${handle.name || suggestedName} · ${when}. Google Drive for desktop syncs the cloud copy.`);
+            render();
+            return true;
+          }
+          toast('Permission needed to save to the linked file. Use Link official file.');
+          await updateDriveLocationSettingsUI();
+          return false;
+        }catch(err){
+          console.warn('Linked Drive save failed', err);
+          showOverwriteBlockedModal({ reason: err?.message || 'Write to linked file failed.' });
+          return false;
+        }
+      }
+
+      // First save / not yet linked: create or choose church-recorder-data.json
+      try{
+        handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'Church recorder data', accept: { 'application/json': ['.json'] } }]
+        });
+        if(!handle) return false;
+        await rememberDriveHandleForReadWrite(handle);
+        const built = buildDriveSavePayload();
+        await writeJsonToDriveHandle(handle, built);
+        toast(`Saved to linked file: ${handle.name || suggestedName} · ${formatTorontoTimestamp(built.savedAt)}. Google Drive for desktop syncs the cloud copy.`);
+        render();
+        return true;
+      }catch(err){
+        if(err?.name === 'AbortError') return false;
+        console.warn('Save file picker failed; falling back to dated backup export', err);
+        return exportDatedBackupDownload();
+      }
+    }
+
+    function saveDataLocationSettingsFromForm(){
+      state.meta = state.meta || {};
+      state.meta.driveFolderLabel = (document.getElementById('driveFolderLabel')?.value || '').trim() || defaults().meta.driveFolderLabel;
+      state.meta.driveFolderUrl = (document.getElementById('driveFolderUrl')?.value || '').trim();
+      state.meta.expectedOfficialFilename = (document.getElementById('expectedOfficialFilename')?.value || '').trim() || OFFICIAL_FILENAME_DEFAULT;
+      state.meta.liveAppUrl = (document.getElementById('liveAppUrl')?.value || '').trim() || defaults().meta.liveAppUrl;
+      state.meta.appSourceFolderLabel = (document.getElementById('appSourceFolderLabel')?.value || '').trim();
+      state.meta.appSourceFolderUrl = (document.getElementById('appSourceFolderUrl')?.value || '').trim();
+      state.meta.sourceRepoUrl = (document.getElementById('sourceRepoUrl')?.value || '').trim();
+      state.meta.driveLocationHint = state.meta.driveFolderLabel;
+      const ok = saveState();
+      toast(ok ? 'Location settings saved (carried in the official JSON)' : 'Save failed (storage blocked)');
+      updateDriveFreshnessBanner();
+      updateDriveLocationSettingsUI();
+    }
+
+    function openConfiguredUrl(url, missingMsg){
+      const href = (url || '').trim();
+      if(!href){
+        toast(missingMsg || 'No URL configured yet. Enter it in Data & App Files, then Save location settings.');
+        return;
+      }
+      window.open(href, '_blank', 'noopener');
     }
 
     // Back-compat alias used by older call sites
@@ -2697,8 +3252,8 @@
         ? `${formatReportDate(anchorAGM.date)} (latest AGM) → ${formatReportDate(todayStr)}`
         : `No AGM on file`;
       const meetingRecordLabel = anchorAGM
-        ? `Meeting record date ${formatReportDate(recordDate)} (from AGM)`
-        : `Meeting record date ${formatReportDate(recordDate)}`;
+        ? `${formatReportDate(recordDate)} (latest AGM)`
+        : formatReportDate(recordDate);
 
       const members = state.members.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
       const rows = [];
@@ -2766,8 +3321,9 @@
         filterLabel: voterFilterLabel(filter),
         periodFrom,
         periodTo: todayStr,
-        periodLabel: `${meetingRecordLabel} · ${periodLabel}`,
+        periodLabel,
         meetingRecordDate: recordDate,
+        meetingRecordLabel,
         columns,
         rows,
         familyGroups,
@@ -3239,8 +3795,9 @@
       const reportCols = Object.fromEntries(model.columns.map(c => [c.key, true]));
       const footer = `
         <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">
-          Meeting record date: ${esc(formatReportDate(model.meetingRecordDate || meetingRecordDateISO()))}
-          · ${esc(model.periodLabel)} · Records: ${model.recordCount}
+          Meeting record date: ${esc(model.meetingRecordLabel || formatReportDate(model.meetingRecordDate || meetingRecordDateISO()))}
+          · Period: ${esc(model.periodLabel || '—')}
+          · Records: ${model.recordCount}
           ${model.layout === 'family-tree' ? ` · Families: ${model.familyCount ?? 0}` : ''}
         </div>`;
 
@@ -3304,7 +3861,7 @@
           <div style="font-size:14px;font-weight:700;">${esc(model.churchName || 'TJCKW Service & Membership Record')}</div>
           <div style="font-size:18px;font-weight:700;margin-top:4px;">${esc(model.title)}</div>
           <div style="margin-top:10px;font-size:12px;line-height:1.5;">
-            ${model.meetingRecordDate ? `<div><strong>Meeting record date:</strong> ${esc(formatReportDate(model.meetingRecordDate))}</div>` : ''}
+            ${model.meetingRecordDate ? `<div><strong>Meeting record date:</strong> ${esc(model.meetingRecordLabel || formatReportDate(model.meetingRecordDate))}</div>` : ''}
             ${model.periodLabel ? `<div><strong>Period:</strong> ${esc(model.periodLabel)}</div>` : ''}
             <div><strong>Filter:</strong> ${esc(model.filterLabel || '—')}</div>
             <div><strong>Records:</strong> ${model.recordCount}</div>
@@ -5794,28 +6351,23 @@
     }
 
     document.getElementById('btnSaveToDrive').addEventListener('click', () => {
-      const ok = downloadStateAsJSON(`church-recorder-data-${todayLocalISO()}.json`, { markSaved: true });
-      if(ok){
-        toast('Saved. On iPad, choose "Save to Files" → your Drive folder to finish syncing.');
-        render();
-      }
+      saveToDriveSameLocation();
     });
-
-    const LIVE_SITE_URL = 'https://victorwkliu.github.io/tjckw-service-membership-recorder/';
 
     function downloadLiveSiteShortcut(){
       try{
+        const liveUrl = getLiveAppUrl();
         const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="0;url=${LIVE_SITE_URL}" />
+  <meta http-equiv="refresh" content="0;url=${liveUrl}" />
   <title>Church Service &amp; Membership Recorder</title>
 </head>
 <body>
   <p>Opening the live app…</p>
-  <p><a href="${LIVE_SITE_URL}">${LIVE_SITE_URL}</a></p>
+  <p><a href="${liveUrl}">${liveUrl}</a></p>
 </body>
 </html>`;
         const filename = 'Church-Recorder-Live-Site.html';
@@ -5831,9 +6383,7 @@
         a.rel = 'noopener';
         document.body.appendChild(a);
         a.click();
-        const ua = navigator.userAgent || '';
-        const isIOS = /iPad|iPhone|iPod/.test(ua);
-        if(isIOS){
+        if(isIpadLikeBrowser()){
           window.open(url, '_blank', 'noopener');
           alert('If the download did not start, a new tab opened. Use Share → Save to Files (in your Drive folder).');
         }
@@ -5857,13 +6407,14 @@
     });
 
     document.getElementById('btnCopyLiveSiteLink')?.addEventListener('click', async () => {
-      await copyText(LIVE_SITE_URL);
-      toast('Live site link copied');
+      await copyText(getLiveAppUrl());
+      toast('Live app link copied');
     });
 
     // Import from Drive: parse JSON, show preview, replace on confirm.
-    async function handleIncomingJSONFile(file, { isDriveOpen } = {}){
+    async function handleIncomingJSONFile(file, { isDriveOpen, skipDirtyConfirm = false } = {}){
       if(!file) return;
+      if(!skipDirtyConfirm && !confirmDiscardUnsavedEdits('Importing this file')) return;
       let parsed;
       try{
         const text = await file.text();
@@ -5879,7 +6430,7 @@
       const currentMemberCount = state.members.length;
       const currentServiceCount = state.services.length;
 
-      openModal('Import from Drive (Preview)', `
+      openModal('Load official file (Preview)', `
         <div class="text-sm text-slate-600">
           File: <span class="font-semibold">${esc(file.name)}</span>
         </div>
@@ -5906,6 +6457,7 @@
 
       document.getElementById('btnCancelImportJSON')?.addEventListener('click', closeModal);
       document.getElementById('btnConfirmImportJSON')?.addEventListener('click', () => {
+        const previousMeta = { ...(state.meta || {}) };
         state = migrateAppState({ ...defaults(), ...parsed,
           meta: { ...defaults().meta, ...(parsed.meta||{}) },
           memberColumns: { ...defaults().memberColumns, ...(parsed.memberColumns||{}) },
@@ -5921,12 +6473,19 @@
           members: Array.isArray(parsed.members) ? parsed.members : []
         });
 
+        // Prefer shared location fields from the official file; fall back to prior local config.
+        ensureSharedLocationsMeta(state);
+        const sharedKeys = ['driveFolderLabel','driveFolderUrl','expectedOfficialFilename','liveAppUrl','appSourceFolderLabel','appSourceFolderUrl','sourceRepoUrl','driveLocationHint'];
+        for(const key of sharedKeys){
+          if(!state.meta[key] && previousMeta[key]) state.meta[key] = previousMeta[key];
+        }
+
         // Freshly opened data is, by definition, in sync with what's on disk/Drive.
         _suppressDirtyFlag = true;
         state.meta.dirty = false;
         if(isDriveOpen){
           state.meta.lastOpenedAt = new Date().toISOString();
-          state.meta.driveFileName = file?.name || state.meta.driveFileName || '';
+          state.meta.driveFileName = file?.name || state.meta.driveFileName || getExpectedOfficialFilename();
           state.meta.openedFileLastModified = file?.lastModified || 0;
           state.meta.loadedDataSavedAt = parsed?.meta?.lastSavedAt || '';
           markOpenedFromDriveThisSession();
@@ -5936,35 +6495,75 @@
         _suppressDirtyFlag = false;
 
         if(ok){
-          toast(isDriveOpen ? 'Imported from Drive' : 'Import successful');
+          toast(isDriveOpen ? `Loaded official file: ${file?.name || 'JSON'}` : 'Import successful');
         } else {
-          toast('Loaded, but saving is blocked');
+          toast('Loaded, but browser cache save is blocked');
         }
         closeModal();
         resetServiceForm();
         resetMemberForm();
         render();
+        updateDriveLocationSettingsUI();
       });
     }
 
-    document.getElementById('btnOpenFromDrive')?.addEventListener('click', () => triggerImportFromDrive());
-    document.getElementById('btnBannerOpenFromDrive')?.addEventListener('click', () => triggerImportFromDrive());
+    document.getElementById('btnOpenFromDrive')?.addEventListener('click', () => loadOfficialFile({ forcePicker: false }));
+    document.getElementById('btnBannerOpenFromDrive')?.addEventListener('click', () => loadOfficialFile({ forcePicker: false }));
     document.getElementById('btnBannerDismissDrive')?.addEventListener('click', () => dismissDriveAdviceThisSession());
-    document.getElementById('btnSaveDriveLocation')?.addEventListener('click', () => {
-      state.meta = state.meta || {};
-      state.meta.driveLocationHint = (document.getElementById('driveLocationHint')?.value || '').trim();
-      const ok = saveState();
-      toast(ok ? 'Drive location hint saved' : 'Save failed (storage blocked)');
-      updateDriveFreshnessBanner();
-      updateDriveLocationSettingsUI();
+    document.getElementById('btnSaveDataLocations')?.addEventListener('click', () => saveDataLocationSettingsFromForm());
+    document.getElementById('btnOpenDriveFolder')?.addEventListener('click', () => {
+      openConfiguredUrl(getDriveFolderUrl(), 'No Drive folder URL configured yet. Paste the shared folder link, then Save location settings.');
     });
-    document.getElementById('btnCheckDriveNow')?.addEventListener('click', () => {
+    document.getElementById('btnLinkOfficialFile')?.addEventListener('click', () => linkOfficialFile());
+    document.getElementById('btnLoadOfficialFile')?.addEventListener('click', () => loadOfficialFile({ forcePicker: false }));
+    document.getElementById('btnSaveLinkedFile')?.addEventListener('click', () => saveToDriveSameLocation());
+    document.getElementById('btnCheckLinkedFile')?.addEventListener('click', () => {
       checkLinkedDriveFileForUpdates({ interactive: true }).then((newer) => {
         if(!newer && !driveFileHandle) updateDriveFreshnessBanner();
+        updateDriveLocationSettingsUI();
       });
     });
+    document.getElementById('btnExportDatedBackup')?.addEventListener('click', () => exportDatedBackupDownload());
+    document.getElementById('btnExportUnsavedChanges')?.addEventListener('click', () => exportUnsavedChangesDownload());
+    document.getElementById('btnChangeLinkedDriveFile')?.addEventListener('click', () => {
+      loadOfficialFile({ forcePicker: true });
+    });
+    document.getElementById('btnClearLinkedDriveFile')?.addEventListener('click', async () => {
+      if(!driveFileHandle && !state.meta?.driveFileName){
+        toast('No linked official file to unlink');
+        return;
+      }
+      if(!confirm('Unlink the official file for this browser only? Membership data in Drive is unchanged. You can Link official file again later.')) return;
+      await clearDriveFileHandle();
+      state.meta = state.meta || {};
+      // Keep last known filename as expected display hint, but clear linked name marker if desired
+      toast('Official file unlinked for this browser');
+      updateDriveStatusChip();
+      updateDriveLocationSettingsUI();
+    });
+    document.getElementById('btnIpadImportJson')?.addEventListener('click', () => {
+      document.getElementById('fileIpadImportJson')?.click();
+    });
+    document.getElementById('btnIpadExportJson')?.addEventListener('click', () => exportDatedBackupDownload());
+    document.getElementById('linkOpenLiveApp')?.addEventListener('click', (e) => {
+      if(!getLiveAppUrl()){ e.preventDefault(); openConfiguredUrl('', 'Live app URL is missing.'); }
+    });
+    document.getElementById('linkOpenAppSource')?.addEventListener('click', (e) => {
+      if(!getAppSourceFolderUrl()){ e.preventDefault(); openConfiguredUrl('', 'App source folder URL is not configured yet.'); }
+    });
+    document.getElementById('linkOpenSourceRepo')?.addEventListener('click', (e) => {
+      if(!getSourceRepoUrl()){ e.preventDefault(); openConfiguredUrl('', 'Source repository URL is not configured.'); }
+    });
 
-    document.getElementById('fileOpenFromDrive').addEventListener('change', async (e) => {
+    document.getElementById('fileOpenFromDrive')?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      try{
+        await handleIncomingJSONFile(file, { isDriveOpen: true });
+      } finally {
+        e.target.value = '';
+      }
+    });
+    document.getElementById('fileIpadImportJson')?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       try{
         await handleIncomingJSONFile(file, { isDriveOpen: true });
@@ -5978,7 +6577,11 @@
       if(document.visibilityState === 'visible') checkLinkedDriveFileForUpdates({ interactive: false });
     });
     // Initial advice + try restore linked Drive handle for auto-check (Chrome/Edge)
-    loadDriveFileHandle().then(() => checkLinkedDriveFileForUpdates({ interactive: false }));
+    loadDriveFileHandle().then(() => {
+      updateDriveLocationSettingsUI();
+      updateDriveStatusChip();
+      checkLinkedDriveFileForUpdates({ interactive: false });
+    });
     updateDriveFreshnessBanner();
 
     document.getElementById('btnPrintReport')?.addEventListener('click', printActiveReport);
