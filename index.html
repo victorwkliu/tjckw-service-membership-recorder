@@ -276,8 +276,14 @@
     }
     @media (min-width: 1100px){
       .member-side-by-side{ grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
-      body.members-layout #mainPanel{ grid-column: span 5 / span 5; }
-      body.members-layout #sidePanel{ grid-column: span 7 / span 7; }
+      /* Members directory uses full content width on desktop; edit opens in a popup.
+         Root cause: members-layout CSS previously forced #mainPanel to span 5/12 while
+         #sidePanel spanned 7/12, which beat Tailwind md:col-span-12 and left empty space. */
+      body.members-layout #mainPanel{
+        grid-column: 1 / -1;
+        width: 100%;
+        max-width: 100%;
+      }
     }
     table{border-collapse:separate;border-spacing:0;}
     /* iPad portrait/landscape: avoid the narrow 8/4 desktop split and crowded header. */
@@ -379,7 +385,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.2</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.3</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -673,40 +679,19 @@
           <div id="tab-settings" class="mt-4 hidden">
             <div class="grid gap-4 md:grid-cols-2 min-w-0">
               <div class="rounded-2xl border bg-white p-4 md:col-span-2 data-files-card min-w-0">
-                <div class="flex flex-wrap items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <h3 class="font-semibold">Data &amp; App Files</h3>
-                    <p class="text-sm text-slate-500 mt-1">For the designated recorder: keep membership data in the church Google Drive folder. The published site and source repository do not store member records.</p>
-                  </div>
-                  <div id="appBuildBadge" class="text-xs text-slate-500 mono shrink-0">Build —</div>
+                <div class="min-w-0">
+                  <h3 class="font-semibold">Church Records</h3>
+                  <p class="text-sm text-slate-500 mt-1">Keep membership data in the church’s restricted Google Drive folder. Link one official JSON in this browser; Save writes back to that same file.</p>
                 </div>
 
                 <div class="df-block">
-                  <h4 class="text-sm font-semibold text-slate-900">Church Google Drive folder</h4>
-                  <p class="mt-1 text-xs text-slate-500">Readable path and optional folder URL (shared across devices via the official JSON).</p>
-                  <label class="mt-3 block text-sm text-slate-600" for="driveFolderLabel">Folder path label</label>
-                  <input id="driveFolderLabel" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="Google Drive → My Drive → Service&amp;Membership Record" />
-                  <label class="mt-3 block text-sm text-slate-600" for="driveFolderUrl">Folder URL (optional)</label>
-                  <input id="driveFolderUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="https://drive.google.com/drive/folders/…" />
-                  <p id="driveFolderDisplay" class="mt-2 text-sm text-slate-700 break-anywhere"></p>
-                  <div class="control-pair mt-3">
-                    <button type="button" id="btnSaveDataLocations" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Save location settings</button>
-                    <button type="button" id="btnOpenDriveFolder" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open Drive folder</button>
-                  </div>
-                </div>
-
-                <div class="df-block">
-                  <h4 class="text-sm font-semibold text-slate-900">Official records file</h4>
-                  <p class="mt-1 text-xs text-slate-500">Desktop Chrome/Edge can link one official JSON and save back to it. File link and permissions stay on this browser only.</p>
-                  <label class="mt-3 block text-sm text-slate-600" for="expectedOfficialFilename">Expected official filename</label>
-                  <input id="expectedOfficialFilename" class="mt-1 rounded-xl border px-3 py-2 text-sm mono" placeholder="church-recorder-data.json" />
-                  <div class="mt-3 flex flex-wrap items-center gap-2">
+                  <h4 class="text-sm font-semibold text-slate-900">Save target</h4>
+                  <div class="mt-2 flex flex-wrap items-center gap-2">
                     <span id="officialLinkStatusPill" class="status-pill is-unlinked">Not linked</span>
-                    <span id="officialLinkDetail" class="text-xs text-slate-600 break-anywhere"></span>
+                    <span id="officialSaveTargetName" class="text-base font-semibold mono text-slate-900 break-anywhere">church-recorder-data.json</span>
                   </div>
+                  <p id="officialLinkDetail" class="mt-1 text-xs text-slate-600 break-anywhere"></p>
                   <div class="mt-2 grid gap-1 text-xs text-slate-600">
-                    <div>Expected file: <span id="officialExpectedName" class="mono font-medium text-slate-800">church-recorder-data.json</span></div>
-                    <div>Linked in this browser: <span id="officialLinkedName" class="mono font-medium text-slate-800">—</span></div>
                     <div>Last successful load: <span id="officialLastLoad" class="mono">—</span></div>
                     <div>Last successful save: <span id="officialLastSave" class="mono">—</span></div>
                   </div>
@@ -732,26 +717,30 @@
                 </div>
 
                 <div class="df-block">
-                  <h4 class="text-sm font-semibold text-slate-900">App and source</h4>
-                  <p class="mt-1 text-xs text-slate-500">Live app and optional source locations. Membership data stays out of the published site and repository.</p>
-                  <label class="mt-3 block text-sm text-slate-600" for="liveAppUrl">Live app URL</label>
-                  <input id="liveAppUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" />
-                  <label class="mt-3 block text-sm text-slate-600" for="appSourceFolderLabel">App source folder label (optional)</label>
-                  <input id="appSourceFolderLabel" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="e.g., My Drive → TJCKW → Church Service Membership Recorder" />
-                  <label class="mt-3 block text-sm text-slate-600" for="appSourceFolderUrl">App source folder URL (optional)</label>
-                  <input id="appSourceFolderUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="https://drive.google.com/drive/folders/…" />
-                  <label class="mt-3 block text-sm text-slate-600" for="sourceRepoUrl">Source repository URL (optional)</label>
-                  <input id="sourceRepoUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" />
-                  <div class="mt-3 grid gap-1 text-sm text-slate-700">
-                    <div>Current build: <span id="settingsBuildNumber" class="mono font-medium">—</span></div>
-                    <div class="break-anywhere">Live app: <a id="linkOpenLiveApp" class="text-emerald-700 underline" href="#" target="_blank" rel="noopener">Open live app</a></div>
-                    <div id="rowOpenAppSource" class="hidden break-anywhere">App source folder: <a id="linkOpenAppSource" class="text-emerald-700 underline" href="#" target="_blank" rel="noopener">Open app source folder</a> <span id="appSourceFolderDisplay" class="text-xs text-slate-500"></span></div>
-                    <div id="rowOpenSourceRepo" class="hidden break-anywhere">Source repository: <a id="linkOpenSourceRepo" class="text-emerald-700 underline" href="#" target="_blank" rel="noopener">Open source repository</a></div>
-                  </div>
+                  <h4 class="text-sm font-semibold text-slate-900">Church Google Drive folder</h4>
+                  <p class="mt-1 text-xs text-slate-500">Use one saved folder label for display. The folder URL should open the church records folder itself (not My Drive’s home page).</p>
+                  <label class="mt-3 block text-sm text-slate-600" for="driveFolderLabel">Folder path</label>
+                  <input id="driveFolderLabel" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="Google Drive → My Drive → Service&amp;Membership Record" />
+                  <label class="mt-3 block text-sm text-slate-600" for="driveFolderUrl">Folder URL</label>
+                  <input id="driveFolderUrl" class="mt-1 rounded-xl border px-3 py-2 text-sm" placeholder="https://drive.google.com/drive/folders/…" />
                   <div class="control-pair mt-3">
-                    <button type="button" id="btnSaveLiveSiteToDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Save live site link to Drive</button>
-                    <button type="button" id="btnCopyLiveSiteLink" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy live app link</button>
+                    <button type="button" id="btnSaveDataLocations" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Save folder settings</button>
+                    <button type="button" id="btnOpenDriveFolder" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Open Drive folder</button>
                   </div>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border bg-white p-4 md:col-span-2 min-w-0">
+                <h3 class="font-semibold">App Information</h3>
+                <p class="text-sm text-slate-500 mt-1">App source code is maintained on GitHub. Membership records stay in the church Drive folder only.</p>
+                <div class="mt-3 grid gap-1 text-sm text-slate-700">
+                  <div>Build: <span id="settingsBuildNumber" class="mono font-medium">—</span></div>
+                  <div class="break-anywhere">Live app: <a id="linkOpenLiveApp" class="text-emerald-700 underline" href="https://victorwkliu.github.io/tjckw-service-membership-recorder/" target="_blank" rel="noopener">Open live app</a></div>
+                  <div class="break-anywhere">GitHub repository: <a id="linkOpenSourceRepo" class="text-emerald-700 underline" href="https://github.com/victorwkliu/tjckw-service-membership-recorder" target="_blank" rel="noopener">Open source repository</a></div>
+                </div>
+                <div class="control-pair mt-3">
+                  <button type="button" id="btnSaveLiveSiteToDrive" class="rounded-xl bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700">Save live site link to Drive</button>
+                  <button type="button" id="btnCopyLiveSiteLink" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">Copy live app link</button>
                 </div>
               </div>
 
@@ -1745,33 +1734,33 @@
       updateDriveFreshnessBanner();
     }
 
-    const APP_BUILD = '2026-11-11.2';
+    const APP_BUILD = '2026-11-11.3';
     const OFFICIAL_FILENAME_DEFAULT = 'church-recorder-data.json';
+    const LIVE_APP_URL_DEFAULT = 'https://victorwkliu.github.io/tjckw-service-membership-recorder/';
+    const SOURCE_REPO_URL_DEFAULT = 'https://github.com/victorwkliu/tjckw-service-membership-recorder';
     const canUseFileSystemAccess = () => typeof window.showOpenFilePicker === 'function' && typeof window.showSaveFilePicker === 'function';
     const isIpadLikeBrowser = () => /iPad|iPhone|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     function getDriveFolderLabel(){
+      // One saved folder path value (legacy driveLocationHint still accepted when loading older JSON)
       return (state.meta?.driveFolderLabel || state.meta?.driveLocationHint || defaults().meta.driveFolderLabel || '').trim();
     }
     function getDriveFolderUrl(){
       return (state.meta?.driveFolderUrl || '').trim();
     }
     function getExpectedOfficialFilename(){
-      return (state.meta?.expectedOfficialFilename || OFFICIAL_FILENAME_DEFAULT).trim() || OFFICIAL_FILENAME_DEFAULT;
+      // Suggestion only when creating a new official file — not an editable Settings field.
+      // Preserve any legacy expectedOfficialFilename from older JSON without surfacing it.
+      return OFFICIAL_FILENAME_DEFAULT;
     }
     function getLiveAppUrl(){
-      return (state.meta?.liveAppUrl || defaults().meta.liveAppUrl).trim();
+      return (state.meta?.liveAppUrl || defaults().meta.liveAppUrl || LIVE_APP_URL_DEFAULT).trim() || LIVE_APP_URL_DEFAULT;
     }
     function getSourceRepoUrl(){
-      return (state.meta?.sourceRepoUrl || '').trim();
-    }
-    function getAppSourceFolderUrl(){
-      return (state.meta?.appSourceFolderUrl || '').trim();
-    }
-    function getAppSourceFolderLabel(){
-      return (state.meta?.appSourceFolderLabel || '').trim();
+      return (state.meta?.sourceRepoUrl || defaults().meta.sourceRepoUrl || SOURCE_REPO_URL_DEFAULT).trim() || SOURCE_REPO_URL_DEFAULT;
     }
     function getOfficialTargetFilename(){
+      // Prominent save target: actual linked filename when present; otherwise new-file suggestion.
       return (driveFileHandle?.name || state.meta?.driveFileName || getExpectedOfficialFilename()).trim();
     }
 
@@ -1858,27 +1847,16 @@
       };
       fillIfIdle('driveFolderLabel', getDriveFolderLabel());
       fillIfIdle('driveFolderUrl', getDriveFolderUrl());
-      fillIfIdle('expectedOfficialFilename', getExpectedOfficialFilename());
-      fillIfIdle('liveAppUrl', getLiveAppUrl());
-      fillIfIdle('appSourceFolderLabel', getAppSourceFolderLabel());
-      fillIfIdle('appSourceFolderUrl', getAppSourceFolderUrl());
-      fillIfIdle('sourceRepoUrl', getSourceRepoUrl());
 
-      const folderDisplay = document.getElementById('driveFolderDisplay');
-      if(folderDisplay){
-        const url = getDriveFolderUrl();
-        folderDisplay.textContent = url
-          ? `${getDriveFolderLabel()} · ${url}`
-          : getDriveFolderLabel();
-      }
+      const buildEl = document.getElementById('settingsBuildNumber');
+      if(buildEl) buildEl.textContent = APP_BUILD;
+      const headerBuild = document.getElementById('appVersion');
+      if(headerBuild) headerBuild.textContent = `Build ${APP_BUILD}`;
 
-      const buildEls = [document.getElementById('appBuildBadge'), document.getElementById('settingsBuildNumber')];
-      buildEls.forEach(el => { if(el) el.textContent = `Build ${APP_BUILD}`; });
+      const targetName = getOfficialTargetFilename();
+      const saveTarget = document.getElementById('officialSaveTargetName');
+      if(saveTarget) saveTarget.textContent = targetName || OFFICIAL_FILENAME_DEFAULT;
 
-      const expected = document.getElementById('officialExpectedName');
-      if(expected) expected.textContent = getExpectedOfficialFilename();
-      const linkedName = document.getElementById('officialLinkedName');
-      if(linkedName) linkedName.textContent = driveFileHandle?.name || state.meta?.driveFileName || '—';
       const lastLoad = document.getElementById('officialLastLoad');
       if(lastLoad) lastLoad.textContent = formatTorontoTimestamp(state.meta?.lastOpenedAt);
       const lastSave = document.getElementById('officialLastSave');
@@ -1893,11 +1871,13 @@
         pill.classList.add(perm.status === 'linked' ? 'is-linked' : perm.status === 'permission' ? 'is-permission' : 'is-unlinked');
       }
       if(detail){
-        detail.textContent = perm.handle
-          ? `Target: ${perm.handle.name || getOfficialTargetFilename()}`
-          : (canUseFileSystemAccess()
-            ? `Suggested first-save name: ${getExpectedOfficialFilename()}`
-            : 'This browser uses Import JSON / Export JSON copies.');
+        if(perm.handle){
+          detail.textContent = `Save updates this linked file. Changing the filename requires Change linked file.`;
+        } else if(canUseFileSystemAccess()){
+          detail.textContent = `Not linked yet. First save suggests ${OFFICIAL_FILENAME_DEFAULT}. Existing linked files keep their actual name.`;
+        } else {
+          detail.textContent = 'This browser uses Import JSON / Export JSON copies for the church Drive folder.';
+        }
       }
 
       const desktop = document.getElementById('desktopOfficialActions');
@@ -1908,40 +1888,29 @@
 
       const live = document.getElementById('linkOpenLiveApp');
       if(live){
-        live.href = getLiveAppUrl() || '#';
+        live.href = getLiveAppUrl();
         live.textContent = 'Open live app';
       }
-      const srcUrl = getAppSourceFolderUrl();
-      const srcRow = document.getElementById('rowOpenAppSource');
-      const srcLink = document.getElementById('linkOpenAppSource');
-      const srcDisp = document.getElementById('appSourceFolderDisplay');
-      if(srcRow && srcLink){
-        const show = !!(srcUrl || getAppSourceFolderLabel());
-        srcRow.classList.toggle('hidden', !show);
-        srcLink.href = srcUrl || '#';
-        srcLink.classList.toggle('pointer-events-none', !srcUrl);
-        srcLink.classList.toggle('opacity-50', !srcUrl);
-        if(srcDisp) srcDisp.textContent = getAppSourceFolderLabel() || '';
-      }
-      const repoUrl = getSourceRepoUrl();
-      const repoRow = document.getElementById('rowOpenSourceRepo');
       const repoLink = document.getElementById('linkOpenSourceRepo');
-      if(repoRow && repoLink){
-        repoRow.classList.toggle('hidden', !repoUrl);
-        repoLink.href = repoUrl || '#';
+      if(repoLink){
+        repoLink.href = getSourceRepoUrl();
+        repoLink.textContent = 'Open source repository';
       }
 
       const saveBtn = document.getElementById('btnSaveToDrive');
       if(saveBtn){
-        const target = getOfficialTargetFilename();
         saveBtn.textContent = useDesktop ? 'Save to linked file' : 'Export JSON';
         saveBtn.title = useDesktop
-          ? `Save to linked file: ${target}`
+          ? `Save to linked file: ${targetName}`
           : `Export dated backup: ${backupExportFilename()}`;
       }
       const loadBtn = document.getElementById('btnOpenFromDrive');
       if(loadBtn){
         loadBtn.textContent = useDesktop ? 'Load official file' : 'Import JSON';
+      }
+      const saveLinkedBtn = document.getElementById('btnSaveLinkedFile');
+      if(saveLinkedBtn){
+        saveLinkedBtn.title = `Save to: ${targetName}`;
       }
     }
 
@@ -2349,16 +2318,15 @@
 
     function saveDataLocationSettingsFromForm(){
       state.meta = state.meta || {};
+      // One consolidated folder path value (also mirrored to legacy driveLocationHint for older readers)
       state.meta.driveFolderLabel = (document.getElementById('driveFolderLabel')?.value || '').trim() || defaults().meta.driveFolderLabel;
       state.meta.driveFolderUrl = (document.getElementById('driveFolderUrl')?.value || '').trim();
-      state.meta.expectedOfficialFilename = (document.getElementById('expectedOfficialFilename')?.value || '').trim() || OFFICIAL_FILENAME_DEFAULT;
-      state.meta.liveAppUrl = (document.getElementById('liveAppUrl')?.value || '').trim() || defaults().meta.liveAppUrl;
-      state.meta.appSourceFolderLabel = (document.getElementById('appSourceFolderLabel')?.value || '').trim();
-      state.meta.appSourceFolderUrl = (document.getElementById('appSourceFolderUrl')?.value || '').trim();
-      state.meta.sourceRepoUrl = (document.getElementById('sourceRepoUrl')?.value || '').trim();
       state.meta.driveLocationHint = state.meta.driveFolderLabel;
+      // Keep fixed live/repo defaults in meta for shared JSON compatibility without editable UI fields
+      if(!state.meta.liveAppUrl) state.meta.liveAppUrl = LIVE_APP_URL_DEFAULT;
+      if(!state.meta.sourceRepoUrl) state.meta.sourceRepoUrl = SOURCE_REPO_URL_DEFAULT;
       const ok = saveState();
-      toast(ok ? 'Location settings saved (carried in the official JSON)' : 'Save failed (storage blocked)');
+      toast(ok ? 'Folder settings saved (carried in the official JSON)' : 'Save failed (storage blocked)');
       updateDriveFreshnessBanner();
       updateDriveLocationSettingsUI();
     }
@@ -2366,7 +2334,7 @@
     function openConfiguredUrl(url, missingMsg){
       const href = (url || '').trim();
       if(!href){
-        toast(missingMsg || 'No URL configured yet. Enter it in Data & App Files, then Save location settings.');
+        toast(missingMsg || 'No folder URL configured yet. Paste the church records folder link (not My Drive home), then Save folder settings.');
         return;
       }
       window.open(href, '_blank', 'noopener');
@@ -6512,7 +6480,7 @@
     document.getElementById('btnBannerDismissDrive')?.addEventListener('click', () => dismissDriveAdviceThisSession());
     document.getElementById('btnSaveDataLocations')?.addEventListener('click', () => saveDataLocationSettingsFromForm());
     document.getElementById('btnOpenDriveFolder')?.addEventListener('click', () => {
-      openConfiguredUrl(getDriveFolderUrl(), 'No Drive folder URL configured yet. Paste the shared folder link, then Save location settings.');
+      openConfiguredUrl(getDriveFolderUrl(), 'No Drive folder URL configured yet. Paste the church records folder link (not My Drive home), then Save folder settings.');
     });
     document.getElementById('btnLinkOfficialFile')?.addEventListener('click', () => linkOfficialFile());
     document.getElementById('btnLoadOfficialFile')?.addEventListener('click', () => loadOfficialFile({ forcePicker: false }));
@@ -6548,11 +6516,8 @@
     document.getElementById('linkOpenLiveApp')?.addEventListener('click', (e) => {
       if(!getLiveAppUrl()){ e.preventDefault(); openConfiguredUrl('', 'Live app URL is missing.'); }
     });
-    document.getElementById('linkOpenAppSource')?.addEventListener('click', (e) => {
-      if(!getAppSourceFolderUrl()){ e.preventDefault(); openConfiguredUrl('', 'App source folder URL is not configured yet.'); }
-    });
     document.getElementById('linkOpenSourceRepo')?.addEventListener('click', (e) => {
-      if(!getSourceRepoUrl()){ e.preventDefault(); openConfiguredUrl('', 'Source repository URL is not configured.'); }
+      if(!getSourceRepoUrl()){ e.preventDefault(); openConfiguredUrl('', 'Source repository URL is missing.'); }
     });
 
     document.getElementById('fileOpenFromDrive')?.addEventListener('change', async (e) => {
