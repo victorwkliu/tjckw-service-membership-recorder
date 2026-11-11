@@ -57,6 +57,16 @@
     .report-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;width:100%;min-width:0;max-width:100%;}
     .report-toolbar > *{flex:0 1 auto;width:auto;max-width:100%;}
     .report-toolbar > select{flex:1 1 9rem;min-width:7rem;}
+    /* Match Services type selector scale on PC (~260–300px); full usable width on iPad/narrow. */
+    .report-type-select{
+      display:block;
+      width:min(100%, 18.75rem);
+      min-width:0;
+      max-width:100%;
+    }
+    @media (min-width: 1100px){
+      .report-type-select{ width:17.5rem; max-width:18.75rem; }
+    }
     .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;border:1px solid #e2e8f0;border-radius:0.75rem;}
     .table-scroll > table{min-width:100%;}
     .break-anywhere{overflow-wrap:anywhere;word-break:break-word;}
@@ -385,7 +395,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.5</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.6</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -551,11 +561,13 @@
 
           <!-- REPORTS TAB -->
           <div id="tab-reports" class="mt-4 hidden">
-            <div class="mb-4">
+            <div class="mb-4 min-w-0">
               <label for="reportTypeSelect" class="text-sm font-medium text-slate-700">Report Type</label>
-              <select id="reportTypeSelect" class="mt-1 rounded-xl border px-3 py-2 text-sm">
+              <select id="reportTypeSelect" class="report-type-select mt-1 rounded-xl border px-3 py-2 text-sm">
                 <option value="membership">Membership Report</option>
                 <option value="essc">ESSC Report</option>
+                <option value="services">All Service Records</option>
+                <optgroup id="reportTypeServiceTypes" label="Service Types"></optgroup>
               </select>
             </div>
             <!-- MEMBERSHIP REPORT -->
@@ -644,9 +656,9 @@
             </section>
 
             <!-- ESSC REPORTS -->
-            <div id="reportSectionEssc" class="hidden rounded-2xl border bg-white p-4">
+            <div id="reportSectionEssc" class="hidden rounded-2xl border bg-white p-4 min-w-0">
               <div class="flex flex-wrap items-center justify-between gap-3">
-                <div>
+                <div class="min-w-0">
                   <h3 class="font-semibold text-base">ESSC Reports</h3>
                   <p class="text-sm text-slate-500">General Evangelical Service / Spiritual Convocations — only services with ESSC Details filled in (baptized / holy spirit / communion)</p>
                 </div>
@@ -654,6 +666,20 @@
               </div>
               <div id="esscReportContent" class="mt-4 grid gap-3 min-w-0">
                 <div class="p-6 text-center text-slate-500 rounded-xl border">No ESSC report entries yet. Fill ESSC Details counts on an ESSC service and Save.</div>
+              </div>
+            </div>
+
+            <!-- SERVICE RECORDS REPORTS (all types or one selected type) -->
+            <div id="reportSectionServices" class="hidden rounded-2xl border bg-white p-4 min-w-0">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 id="serviceRecordsReportTitle" class="font-semibold text-base">All Service Records</h3>
+                  <p id="serviceRecordsReportSubtitle" class="text-sm text-slate-500">Date, start time, type, theme, speaker, and notes for matching services.</p>
+                </div>
+                <button type="button" id="btnPrintReportServices" class="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" aria-label="Print Service Records Report">Print Report</button>
+              </div>
+              <div id="serviceRecordsReportContent" class="mt-4 table-scroll min-w-0">
+                <div class="p-6 text-center text-slate-500">No matching service records.</div>
               </div>
             </div>
 
@@ -1740,7 +1766,7 @@
       updateDriveFreshnessBanner();
     }
 
-    const APP_BUILD = '2026-11-11.5';
+    const APP_BUILD = '2026-11-11.6';
     const OFFICIAL_FILENAME_DEFAULT = 'church-recorder-data.json';
     const LIVE_APP_URL_DEFAULT = 'https://victorwkliu.github.io/tjckw-service-membership-recorder/';
     const SOURCE_REPO_URL_DEFAULT = 'https://github.com/victorwkliu/tjckw-service-membership-recorder';
@@ -2730,6 +2756,30 @@
       return true;
     }
 
+    function refreshReportTypeSelect(){
+      const select = document.getElementById('reportTypeSelect');
+      const group = document.getElementById('reportTypeServiceTypes');
+      if(!select || !group) return;
+      const prev = select.value;
+      const types = (state.serviceTypes || []).slice().sort((a,b)=>a.localeCompare(b));
+      group.innerHTML = types.length
+        ? types.map(t => `<option value="stype:${esc(t)}">${esc(t)}</option>`).join('')
+        : '<option value="" disabled>No service types yet — add them in Settings</option>';
+      const stillValid = [...select.options].some(o => o.value === prev && !o.disabled);
+      select.value = stillValid ? prev : 'membership';
+    }
+
+    function getReportTypeSelection(){
+      const value = document.getElementById('reportTypeSelect')?.value || 'membership';
+      if(value === 'membership' || value === 'essc' || value === 'services'){
+        return { kind: value, type: '' };
+      }
+      if(value.startsWith('stype:')){
+        return { kind: 'stype', type: value.slice('stype:'.length) };
+      }
+      return { kind: 'membership', type: '' };
+    }
+
     function renderServiceTypes(){
       const prevFormValue = serviceTypeSelect.value;
       const prevFilterValue = serviceFilterType.value;
@@ -2744,6 +2794,7 @@
         .concat(types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`));
       serviceFilterType.innerHTML = filterOpts.join('');
       if(prevFilterValue && types.includes(prevFilterValue)) serviceFilterType.value = prevFilterValue;
+      refreshReportTypeSelect();
 
       const chips = document.getElementById('serviceTypeChips');
       chips.innerHTML = types.map(t => `
@@ -3716,9 +3767,91 @@
       };
     }
 
+    function buildServiceRecordsReportModel(filterType = ''){
+      const generatedAt = new Date();
+      const typeFilter = (filterType || '').toString();
+      const services = sortServicesNewestFirst(state.services || [])
+        .filter(s => !typeFilter || (s.type || '') === typeFilter);
+      const title = typeFilter ? `${typeFilter} Records` : 'All Service Records';
+      return {
+        type: 'services',
+        ok: true,
+        title,
+        churchName: 'TJCKW Service & Membership Record',
+        filterLabel: typeFilter || 'All service types',
+        periodLabel: 'All recorded services',
+        serviceTypeFilter: typeFilter,
+        columns: [
+          { key: 'when', label: 'Date / Time' },
+          { key: 'type', label: 'Type' },
+          { key: 'theme', label: 'Theme/Topic' },
+          { key: 'speaker', label: 'Speaker' },
+          { key: 'notes', label: 'Notes' }
+        ],
+        rows: services.map(s => ({
+          id: s.id,
+          service: s,
+          cells: {
+            when: formatServiceDateTimeDisplay(s) || '—',
+            type: blankDisp(s.type),
+            theme: blankDisp(s.title),
+            speaker: blankDisp(s.minister),
+            notes: blankDisp(s.notes)
+          }
+        })),
+        recordCount: services.length,
+        generatedAt,
+        wide: true
+      };
+    }
+
     function buildActivePrintReportModel(){
-      const selected = document.getElementById('reportTypeSelect')?.value || 'membership';
-      return selected === 'essc' ? buildEsscReportModel() : buildMembershipReportModel();
+      const selected = getReportTypeSelection();
+      if(selected.kind === 'essc') return buildEsscReportModel();
+      if(selected.kind === 'services') return buildServiceRecordsReportModel('');
+      if(selected.kind === 'stype') return buildServiceRecordsReportModel(selected.type);
+      return buildMembershipReportModel();
+    }
+
+    function renderServiceRecordsReport(){
+      const selected = getReportTypeSelection();
+      const filterType = selected.kind === 'stype' ? selected.type : '';
+      const model = buildServiceRecordsReportModel(filterType);
+      const titleEl = document.getElementById('serviceRecordsReportTitle');
+      const subtitleEl = document.getElementById('serviceRecordsReportSubtitle');
+      const content = document.getElementById('serviceRecordsReportContent');
+      if(titleEl) titleEl.textContent = model.title;
+      if(subtitleEl){
+        subtitleEl.textContent = filterType
+          ? `Showing only ${filterType} services, newest first.`
+          : 'Showing every service type, newest first.';
+      }
+      if(!content) return;
+      if(!model.rows.length){
+        content.innerHTML = `<div class="p-6 text-center text-slate-500 rounded-xl border">No matching service records${filterType ? ` for <strong>${esc(filterType)}</strong>` : ''}.</div>`;
+        return;
+      }
+      content.innerHTML = `
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              ${model.columns.map(c => `<th class="px-3 py-2 text-left">${esc(c.label)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${model.rows.map(row => `
+              <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2 whitespace-nowrap mono">${esc(row.cells.when)}</td>
+                <td class="px-3 py-2">${esc(row.cells.type)}</td>
+                <td class="px-3 py-2">${esc(row.cells.theme)}</td>
+                <td class="px-3 py-2">${esc(row.cells.speaker)}</td>
+                <td class="px-3 py-2 max-w-[22rem] break-anywhere">${esc(row.cells.notes)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="p-3 bg-slate-50 text-xs text-slate-500 border-t">Records: ${model.recordCount}</div>
+      `;
     }
 
     function renderEsscReports(){
@@ -3949,6 +4082,27 @@
           <table>
             <thead><tr>${thead}</tr></thead>
             <tbody>${tbody || `<tr><td colspan="${model.columns.length}">No matching records.</td></tr>`}</tbody>
+          </table>
+          <div style="margin-top:10px;font-size:11px;">Total records: ${model.recordCount}</div>
+        `;
+      }
+
+      if(model.type === 'services'){
+        const thead = model.columns.map(c => `<th>${esc(c.label)}</th>`).join('');
+        const tbody = model.rows.map(row => `
+          <tr>
+            <td>${esc(row.cells?.when || '—')}</td>
+            <td>${esc(row.cells?.type || '—')}</td>
+            <td>${esc(row.cells?.theme || '—')}</td>
+            <td>${esc(row.cells?.speaker || '—')}</td>
+            <td>${esc(row.cells?.notes || '—')}</td>
+          </tr>
+        `).join('');
+        return `
+          ${heading}
+          <table>
+            <thead><tr>${thead}</tr></thead>
+            <tbody>${tbody || `<tr><td colspan="${model.columns.length}">No matching service records.</td></tr>`}</tbody>
           </table>
           <div style="margin-top:10px;font-size:11px;">Total records: ${model.recordCount}</div>
         `;
@@ -6229,15 +6383,20 @@
     }
 
     function renderSelectedReport(){
-      const selected = document.getElementById('reportTypeSelect').value;
-      const showMembership = selected === 'membership';
+      const selected = getReportTypeSelection();
+      const showMembership = selected.kind === 'membership';
+      const showEssc = selected.kind === 'essc';
+      const showServices = selected.kind === 'services' || selected.kind === 'stype';
       document.querySelectorAll('.membership-report-section').forEach(el => el.classList.toggle('hidden', !showMembership));
-      document.getElementById('reportSectionEssc').classList.toggle('hidden', showMembership);
+      document.getElementById('reportSectionEssc')?.classList.toggle('hidden', !showEssc);
+      document.getElementById('reportSectionServices')?.classList.toggle('hidden', !showServices);
       if(showMembership){
         renderReports();
         renderVoterReport();
-      } else {
+      } else if(showEssc){
         renderEsscReports();
+      } else if(showServices){
+        renderServiceRecordsReport();
       }
     }
 
@@ -6645,6 +6804,7 @@
 
     document.getElementById('btnPrintReport')?.addEventListener('click', printActiveReport);
     document.getElementById('btnPrintReportEssc')?.addEventListener('click', printActiveReport);
+    document.getElementById('btnPrintReportServices')?.addEventListener('click', printActiveReport);
 
     // Quick Add modal
     document.getElementById('btnQuickAdd').addEventListener('click', () => {
