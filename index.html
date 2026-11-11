@@ -385,7 +385,7 @@
         <img src="tjc-logo.png" alt="True Jesus Church" class="size-10 shrink-0 object-contain" width="40" height="40" />
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-semibold leading-tight truncate min-w-0">Church Service & Membership Recorder</h1>
-          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.3</div>
+          <div id="appVersion" class="text-[10px] leading-none text-slate-400" title="App build. Compare across devices to confirm you loaded the latest version.">Build 2026-11-11.5</div>
         </div>
       </div>
       <div class="app-header-actions">
@@ -454,7 +454,7 @@
               <table class="min-w-full text-sm">
                 <thead class="bg-slate-100 text-slate-700">
                   <tr>
-                    <th class="px-3 py-2 text-left">Date</th>
+                    <th class="px-3 py-2 text-left">Date / Time</th>
                     <th class="px-3 py-2 text-left">Type</th>
                     <th class="px-3 py-2 text-left">Theme/Topic</th>
                     <th class="px-3 py-2 text-left">Speaker</th>
@@ -798,9 +798,15 @@
           <!-- SERVICE FORM -->
           <form id="serviceForm" class="mt-3 grid gap-3 min-w-0">
             <input type="hidden" id="serviceId" />
-            <div class="grid gap-2 min-w-0">
-              <label class="text-sm text-slate-600">Date</label>
-              <input id="serviceDate" type="date" required class="rounded-xl border px-3 py-2 text-sm" />
+            <div class="form-row">
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Date</label>
+                <input id="serviceDate" type="date" required class="rounded-xl border px-3 py-2 text-sm" />
+              </div>
+              <div class="grid gap-2 min-w-0">
+                <label class="text-sm text-slate-600">Start time <span class="text-slate-400 font-normal">(optional)</span></label>
+                <input id="serviceStartTime" type="time" class="rounded-xl border px-3 py-2 text-sm" title="Local service start time used for ordering" />
+              </div>
             </div>
             <div class="grid gap-2 min-w-0">
               <div class="flex items-center justify-between gap-2">
@@ -1734,7 +1740,7 @@
       updateDriveFreshnessBanner();
     }
 
-    const APP_BUILD = '2026-11-11.3';
+    const APP_BUILD = '2026-11-11.5';
     const OFFICIAL_FILENAME_DEFAULT = 'church-recorder-data.json';
     const LIVE_APP_URL_DEFAULT = 'https://victorwkliu.github.io/tjckw-service-membership-recorder/';
     const SOURCE_REPO_URL_DEFAULT = 'https://github.com/victorwkliu/tjckw-service-membership-recorder';
@@ -2493,8 +2499,10 @@
       formTitle.textContent = activeTab() === 'services' ? 'Add Service' : formTitle.textContent;
       btnCancelEdit.classList.add('hidden');
       document.getElementById('btnDeleteService')?.classList.add('hidden');
-      // default date to today for convenience
+      // default date to today for convenience; leave start time blank
       document.getElementById('serviceDate').value = todayLocalISO();
+      const startTimeEl = document.getElementById('serviceStartTime');
+      if(startTimeEl) startTimeEl.value = '';
       updateEsscFieldsVisibility();
     }
 
@@ -2990,8 +2998,7 @@
       const from = serviceFrom.value;
       const to = serviceTo.value;
 
-      let rows = state.services.slice();
-      rows.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      let rows = sortServicesNewestFirst(state.services);
       rows = rows.filter(s => (!type || s.type === type) && inDateRange(s.date, from, to) && serviceMatches(s, q));
 
       if(rows.length === 0){
@@ -3000,9 +3007,10 @@
       }
 
       serviceTbody.innerHTML = rows.map(s => {
+        const when = formatServiceDateTimeDisplay(s);
         return `
           <tr class="hover:bg-slate-50">
-            <td class="px-3 py-2 whitespace-nowrap mono">${esc(s.date||'')}</td>
+            <td class="px-3 py-2 whitespace-nowrap mono">${esc(when)}</td>
             <td class="px-3 py-2">${esc(s.type||'')}</td>
             <td class="px-3 py-2">${esc(s.title||'')}</td>
             <td class="px-3 py-2">${esc(s.minister||'')}</td>
@@ -3181,7 +3189,7 @@
     }
 
     function getMostRecentAgm(){
-      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      const services = sortServicesNewestFirst(state.services);
       const isAGM = (s) => {
         const t = (s.type||'').toUpperCase();
         const ti = (s.title||'').toUpperCase();
@@ -3657,20 +3665,28 @@
       return groups;
     }
 
+    function compareEsscReportEntries(a, b){
+      // Primary: event date range (newest range first). Then session date/time within the range.
+      const fa = (a?.esscDateFrom || a?.date || '').toString();
+      const fb = (b?.esscDateFrom || b?.date || '').toString();
+      const ta = (a?.esscDateTo || a?.esscDateFrom || a?.date || '').toString();
+      const tb = (b?.esscDateTo || b?.esscDateFrom || b?.date || '').toString();
+      if(fa !== fb) return fb.localeCompare(fa);
+      if(ta !== tb) return tb.localeCompare(ta);
+      return compareServicesNewestFirst(a, b);
+    }
+
     function buildEsscReportModel(){
       const generatedAt = new Date();
       const entries = state.services
         .filter(s => isEsscService(s) && hasEsscReportEntry(s))
         .slice()
-        .sort((a,b)=>{
-          const da = a.esscDateFrom || a.date || '';
-          const db = b.esscDateFrom || b.date || '';
-          return db.localeCompare(da);
-        })
+        .sort(compareEsscReportEntries)
         .map(s => ({
           id: s.id,
           service: s,
           dateText: esscDateRangeText(s),
+          sessionWhen: formatServiceDateTimeDisplay(s),
           speaker: blankDisp(s.minister),
           theme: blankDisp(s.title),
           baptized: blankDisp(s.esscBaptized),
@@ -3718,6 +3734,7 @@
           <h4 class="font-semibold text-slate-800">General Evangelical Service / Spiritual Convocations</h4>
           <dl class="mt-3 grid gap-2">
             <div><span class="text-slate-500">Date:</span> <span class="mono font-medium">${esc(row.dateText)}</span></div>
+            ${row.sessionWhen ? `<div><span class="text-slate-500">Session:</span> <span class="mono font-medium">${esc(row.sessionWhen)}</span></div>` : ''}
             <div><span class="text-slate-500">Speaker:</span> <span class="font-medium">${esc(row.speaker)}</span></div>
             <div><span class="text-slate-500">Theme/Topic:</span> <span class="font-medium">${esc(row.theme)}</span></div>
             <div><span class="text-slate-500">Number of Newly Baptized:</span> <span class="mono font-medium">${esc(row.baptized)}</span></div>
@@ -3941,7 +3958,7 @@
       const thead = model.columns.map(c => `<th>${esc(c.label)}</th>`).join('');
       const tbody = model.rows.map(row => `
         <tr>
-          <td>${esc(row.dateText)}</td>
+          <td>${esc(row.dateText)}${row.sessionWhen ? `<div style="font-size:11px;color:#475569;margin-top:2px;">Session: ${esc(row.sessionWhen)}</div>` : ''}</td>
           <td>${esc(row.speaker)}</td>
           <td>${esc(row.theme)}</td>
           <td>${esc(row.baptized)}</td>
@@ -4018,20 +4035,17 @@
       // Same corporate meeting already used for Period: latest AGM in Services.
       const agm = getMostRecentAgm();
       if(agm?.date) return agm.date;
-      const egm = state.services
-        .filter(s => {
-          const t = (s.type||'').toUpperCase();
-          const ti = (s.title||'').toUpperCase();
-          return t === 'EGM' || ti.includes('EGM');
-        })
-        .slice()
-        .sort((a,b) => (b.date||'').localeCompare(a.date||''))[0];
+      const egm = sortServicesNewestFirst(state.services.filter(s => {
+        const t = (s.type||'').toUpperCase();
+        const ti = (s.title||'').toUpperCase();
+        return t === 'EGM' || ti.includes('EGM');
+      }))[0];
       return egm?.date || todayLocalISO();
     }
 
     function getVoterStatus(memberId) {
       // Administrative attendance window (Active Members filter only) — NOT corporate voting.
-      const services = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
+      const services = sortServicesNewestFirst(state.services);
       const isAGM = (s) => {
         const t = (s.type||'').toUpperCase();
         const ti = (s.title||'').toUpperCase();
@@ -4243,8 +4257,113 @@
       return Array.isArray(s.attendedBy) && s.attendedBy.length > 0;
     }
 
+    // Shared service ordering: newest date first; within a date, Morning before Afternoon
+    // using optional startTime, then type hints for legacy records, then stable fallbacks.
+    function normalizeServiceStartTime(value){
+      const raw = String(value ?? '').trim();
+      if(!raw) return '';
+      const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+      if(!m) return '';
+      const h = Math.min(23, Math.max(0, Number(m[1])));
+      const min = Math.min(59, Math.max(0, Number(m[2])));
+      if(!Number.isFinite(h) || !Number.isFinite(min)) return '';
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
+
+    function serviceSessionTimeHint(s){
+      const explicit = normalizeServiceStartTime(s?.startTime);
+      if(explicit){
+        const [h, min] = explicit.split(':').map(Number);
+        const minutes = h * 60 + min;
+        return { minutes, known: true, band: minutes < 12 * 60 ? 'morning' : 'afternoon', explicit: true };
+      }
+      const t = String(s?.type || '').toLowerCase();
+      if(t.includes('morning')) return { minutes: null, known: true, band: 'morning', explicit: false };
+      if(t.includes('afternoon') || t.includes('evening')) return { minutes: null, known: true, band: 'afternoon', explicit: false };
+      return { minutes: null, known: false, band: 'unknown', explicit: false };
+    }
+
+    function compareServicesWithinDay(a, b){
+      const ha = serviceSessionTimeHint(a);
+      const hb = serviceSessionTimeHint(b);
+      // Placeable (known morning/afternoon or exact time) before unknown fallbacks
+      if(ha.known !== hb.known) return ha.known ? -1 : 1;
+      if(ha.minutes != null && hb.minutes != null && ha.minutes !== hb.minutes){
+        return ha.minutes - hb.minutes;
+      }
+      const bandRank = { morning: 0, afternoon: 1, unknown: 2 };
+      const bra = bandRank[ha.band] ?? 2;
+      const brb = bandRank[hb.band] ?? 2;
+      if(bra !== brb) return bra - brb;
+      // Prefer explicit clock times ahead of type-only hints in the same band
+      if(ha.explicit !== hb.explicit) return ha.explicit ? -1 : 1;
+      const byType = String(a?.type || '').localeCompare(String(b?.type || ''));
+      if(byType) return byType;
+      const byTitle = String(a?.title || '').localeCompare(String(b?.title || ''));
+      if(byTitle) return byTitle;
+      return String(a?.id || '').localeCompare(String(b?.id || ''));
+    }
+
+    function compareServicesNewestFirst(a, b){
+      const da = a?.date || '';
+      const db = b?.date || '';
+      if(da !== db) return db.localeCompare(da);
+      return compareServicesWithinDay(a, b);
+    }
+
+    function sortServicesNewestFirst(list){
+      return (list || []).slice().sort(compareServicesNewestFirst);
+    }
+
+    function getLastServiceSession(){
+      const dated = (state.services || []).filter(s => s && s.date);
+      if(!dated.length) return null;
+      const newestDate = sortServicesNewestFirst(dated)[0].date;
+      const sameDay = dated.filter(s => s.date === newestDate);
+      // Chronologically last that day (Afternoon after Morning)
+      return sameDay.slice().sort((a, b) => compareServicesWithinDay(b, a))[0] || null;
+    }
+
+    function formatServiceTimeDisplay(hhmm){
+      const t = normalizeServiceStartTime(hhmm);
+      if(!t) return '';
+      const [h, min] = t.split(':').map(Number);
+      const d = new Date(2000, 0, 1, h, min);
+      return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function formatServiceDateTimeDisplay(s){
+      const date = s?.date || '';
+      if(!date) return '';
+      const time = formatServiceTimeDisplay(s?.startTime);
+      return time ? `${date} · ${time}` : date;
+    }
+
+    function formatAttendanceServiceOptionLabel(s, { review = false } = {}){
+      const time = formatServiceTimeDisplay(s?.startTime);
+      const base = `${s?.date || ''}${time ? ` ${time}` : ''} - ${s?.type || ''}${s?.title ? ` (${s.title})` : ''}`;
+      return review ? `${base} (review)` : base;
+    }
+
+    function servicesVisibleInAttendanceSelect(selectedId){
+      const allServices = sortServicesNewestFirst(state.services || []);
+      const openServices = allServices.filter(s => !serviceHasAttendanceRecord(s));
+      const visible = openServices.slice();
+      if(selectedId){
+        const selected = allServices.find(s => s.id === selectedId);
+        if(selected && serviceHasAttendanceRecord(selected) && !visible.some(s => s.id === selected.id)){
+          visible.push(selected);
+          visible.sort(compareServicesNewestFirst);
+        }
+      }
+      return { allServices, openServices, visible };
+    }
+
     function servicesOnDate(dateISO){
-      return (state.services || []).filter(s => (s.date || '') === dateISO);
+      return (state.services || [])
+        .filter(s => (s.date || '') === dateISO)
+        .slice()
+        .sort(compareServicesWithinDay);
     }
 
     function ensureAttendanceCalCursor(){
@@ -4261,6 +4380,12 @@
       renderAttendanceCalendar();
     }
 
+    function openAttendanceServiceFromCalendar(serviceId){
+      if(!serviceId) return;
+      renderAttendance(serviceId);
+      document.getElementById('attendanceContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function openAttendanceForDate(dateISO){
       const dayServices = servicesOnDate(dateISO);
       if(!dayServices.length){
@@ -4268,20 +4393,7 @@
         return;
       }
       if(dayServices.length === 1){
-        const select = document.getElementById('attendanceServiceSelect');
-        if(select){
-          // Ensure option exists even if service already has attendance recorded
-          if(![...select.options].some(o => o.value === dayServices[0].id)){
-            const s = dayServices[0];
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = `${s.date || ''} - ${s.type || ''}${s.title ? ` (${s.title})` : ''} (review)`;
-            select.appendChild(opt);
-          }
-          select.value = dayServices[0].id;
-        }
-        showAttendanceForService(dayServices[0].id);
-        document.getElementById('attendanceContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        openAttendanceServiceFromCalendar(dayServices[0].id);
         return;
       }
       openModal('Services on ' + dateISO, `
@@ -4300,21 +4412,7 @@
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-open-att-svc');
           closeModal();
-          const select = document.getElementById('attendanceServiceSelect');
-          if(select && id){
-            if(![...select.options].some(o => o.value === id)){
-              const s = state.services.find(x => x.id === id);
-              if(s){
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = `${s.date || ''} - ${s.type || ''}${s.title ? ` (${s.title})` : ''} (review)`;
-                select.appendChild(opt);
-              }
-            }
-            select.value = id;
-          }
-          showAttendanceForService(id);
-          document.getElementById('attendanceContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          openAttendanceServiceFromCalendar(id);
         });
       });
     }
@@ -4411,12 +4509,10 @@
       });
     }
 
-    function renderAttendance(){
+    function renderAttendance(preferredSelectedId){
       const select = document.getElementById('attendanceServiceSelect');
-      const previouslySelected = select.value;
-      const allServices = state.services.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
-      // Older records predate attendanceRecordedAt, so a non-empty roster also means complete.
-      const services = allServices.filter(s => !serviceHasAttendanceRecord(s));
+      const previouslySelected = preferredSelectedId || select.value || '';
+      const { allServices, openServices, visible } = servicesVisibleInAttendanceSelect(previouslySelected);
 
       renderAttendanceCalendar();
 
@@ -4430,34 +4526,30 @@
           </div>
         `;
         document.getElementById('btnGoToServices')?.addEventListener('click', () => setActiveTab('services'));
-      } else if(services.length === 0){
+        return;
+      }
+
+      if(visible.length === 0){
         select.innerHTML = '<option value="">All service attendance has been recorded — use the schedule above to review</option>';
-        if(!previouslySelected || !allServices.some(s => s.id === previouslySelected)){
-          document.getElementById('attendanceContent').innerHTML =
-            '<div class="rounded-xl border bg-emerald-50 border-emerald-200 p-6 text-center text-emerald-800">Attendance has been recorded for all services. Tap a <strong>red</strong> day on the schedule to review.</div>';
-        } else {
-          showAttendanceForService(previouslySelected);
-        }
+        document.getElementById('attendanceContent').innerHTML =
+          '<div class="rounded-xl border bg-emerald-50 border-emerald-200 p-6 text-center text-emerald-800">Attendance has been recorded for all services. Tap a <strong>red</strong> day on the schedule to review.</div>';
+        return;
+      }
+
+      select.innerHTML = '<option value="">Select a service...</option>' + visible.map(s => {
+        const review = serviceHasAttendanceRecord(s);
+        return `<option value="${esc(s.id)}">${esc(formatAttendanceServiceOptionLabel(s, { review }))}</option>`;
+      }).join('');
+
+      if(previouslySelected && visible.some(s => s.id === previouslySelected)){
+        select.value = previouslySelected;
+        showAttendanceForService(previouslySelected);
+      } else if(openServices.length === 0){
+        document.getElementById('attendanceContent').innerHTML =
+          '<div class="rounded-xl border bg-emerald-50 border-emerald-200 p-6 text-center text-emerald-800">Attendance has been recorded for all services. Tap a <strong>red</strong> day on the schedule to review.</div>';
       } else {
-        select.innerHTML = '<option value="">Select a service...</option>' + 
-          services.map(s => `<option value="${esc(s.id)}">${esc(s.date||'')} - ${esc(s.type||'')} ${s.title ? '(' + esc(s.title) + ')' : ''}</option>`).join('');
-        // Restore previously selected service across re-renders (e.g. after save) if it still exists
-        if(previouslySelected && services.some(s => s.id === previouslySelected)){
-          select.value = previouslySelected;
-          showAttendanceForService(previouslySelected);
-        } else if(previouslySelected && allServices.some(s => s.id === previouslySelected)){
-          // Keep reviewing a just-saved / already-recorded service
-          const s = allServices.find(x => x.id === previouslySelected);
-          const opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = `${s.date || ''} - ${s.type || ''}${s.title ? ` (${s.title})` : ''} (review)`;
-          select.appendChild(opt);
-          select.value = previouslySelected;
-          showAttendanceForService(previouslySelected);
-        } else {
-          document.getElementById('attendanceContent').innerHTML =
-            '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance, or tap a day on the schedule.</div>';
-        }
+        document.getElementById('attendanceContent').innerHTML =
+          '<div class="rounded-xl border bg-slate-50 p-6 text-center text-slate-500">Select a service to mark attendance, or tap a day on the schedule.</div>';
       }
     }
 
@@ -4490,7 +4582,7 @@
         <div class="rounded-xl border bg-white p-3 sm:p-4 min-w-0">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div class="min-w-0">
-              <h3 class="font-semibold text-sm sm:text-base truncate">${esc(service.date||'')} · ${esc(service.type||'')}</h3>
+              <h3 class="font-semibold text-sm sm:text-base truncate">${esc(formatServiceDateTimeDisplay(service) || service.date || '')} · ${esc(service.type||'')}</h3>
               <p class="text-xs sm:text-sm text-slate-500 truncate">${service.title ? esc(service.title) : 'Tap names to mark present'}</p>
             </div>
             <div class="responsive-actions">
@@ -4610,18 +4702,15 @@
 
     function servicesForReportRange(range){
       if(range === 'last'){
-        const sorted = state.services
-          .filter(s => s && s.date)
-          .slice()
-          .sort((a,b) => (b.date || '').localeCompare(a.date || ''));
-        return sorted.length ? [sorted[0]] : [];
+        const last = getLastServiceSession();
+        return last ? [last] : [];
       }
       const cutoff = dateCutoffForRange(range);
-      return state.services.filter(s => {
+      return sortServicesNewestFirst(state.services.filter(s => {
         if(!cutoff) return true;
         if(!s.date) return false;
         return new Date(s.date + 'T00:00:00') >= cutoff;
-      });
+      }));
     }
 
     // Headcount for Avg Attendance: Membership Category Member only (excludes True Seekers / Visiting Members).
@@ -4889,6 +4978,7 @@
 
       document.getElementById('serviceId').value = s.id;
       document.getElementById('serviceDate').value = s.date || '';
+      document.getElementById('serviceStartTime').value = normalizeServiceStartTime(s.startTime);
       document.getElementById('serviceType').value = s.type || '';
       document.getElementById('serviceTitle').value = s.title || '';
       document.getElementById('serviceMinister').value = s.minister || '';
@@ -4942,10 +5032,12 @@
         const esscDateTo = document.getElementById('serviceEsscDateTo').value || esscDateFrom;
 
         const existingIdx = state.services.findIndex(x => x.id === (document.getElementById('serviceId').value || ''));
-        const existingAttendedBy = existingIdx >= 0 ? (state.services[existingIdx].attendedBy || []) : [];
+        const existing = existingIdx >= 0 ? state.services[existingIdx] : null;
+        const existingAttendedBy = existing ? (existing.attendedBy || []) : [];
         const record = {
           id: document.getElementById('serviceId').value || uid(),
           date: document.getElementById('serviceDate').value || esscDateFrom,
+          startTime: normalizeServiceStartTime(document.getElementById('serviceStartTime')?.value),
           type: document.getElementById('serviceType').value,
           title: document.getElementById('serviceTitle').value.trim(),
           minister: document.getElementById('serviceMinister').value.trim(),
@@ -4975,10 +5067,12 @@
           return;
         }
 
-        if(existingIdx >= 0) {
-          // Preserve attendedBy when editing; headcount follows the roster
+        if(existing) {
+          // Preserve ID, roster, and recorded-attendance status when editing date/time/details
+          record.id = existing.id;
           record.attendedBy = existingAttendedBy;
           record.attendance = existingAttendedBy.length;
+          if(existing.attendanceRecordedAt) record.attendanceRecordedAt = existing.attendanceRecordedAt;
           state.services[existingIdx] = record;
         } else {
           record.attendedBy = [];
@@ -6750,9 +6844,15 @@
       // default services
       openModal('Quick Add Service', `
         <form id="quickService" class="grid gap-3">
-          <div class="grid gap-2">
-            <label class="text-sm text-slate-600">Date</label>
-            <input required name="date" type="date" class="rounded-xl border px-3 py-2 text-sm" value="${todayLocalISO()}" />
+          <div class="form-row-modal">
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Date</label>
+              <input required name="date" type="date" class="rounded-xl border px-3 py-2 text-sm" value="${todayLocalISO()}" />
+            </div>
+            <div class="grid gap-2 min-w-0">
+              <label class="text-sm text-slate-600">Start time <span class="text-slate-400 font-normal">(optional)</span></label>
+              <input name="startTime" type="time" class="rounded-xl border px-3 py-2 text-sm" />
+            </div>
           </div>
           <div class="grid gap-2">
             <label class="text-sm text-slate-600">Type</label>
@@ -6774,6 +6874,7 @@
         const record = {
           id: uid(),
           date: (fd.get('date')||'').toString(),
+          startTime: normalizeServiceStartTime(fd.get('startTime')),
           type: (fd.get('type')||'').toString(),
           title: '',
           minister: '',
